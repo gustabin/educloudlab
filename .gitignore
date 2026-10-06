@@ -1,0 +1,32 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Runtime data (never commit uploads, logs, student data)
+/storage/*
+!/storage/.gitkeep
+
+# Dependencies
+/vendor/
+/node_modules/
+/worker/.venv/
+__pycache__/
+*.pyc
+
+# Tooling caches and reports
+/.phpunit.cache/
+/.phpunit.result.cache
+/.phpstan-cache/
+/test-results/
+/playwright-report/
+/coverage/
+
+# Local Claude Code overrides
+/.claude/settings.local.json
+
+# OS / editor
+Thumbs.db
+.DS_Store
+.idea/
+.vscode/

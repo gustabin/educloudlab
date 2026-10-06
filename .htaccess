@@ -1,0 +1,3 @@
+# Defense in depth for the shared XAMPP htdocs: nothing outside public/ is web-accessible.
+# The application is served through a vhost whose DocumentRoot is ./public (see docs/development/SETUP.md).
+Require all denied

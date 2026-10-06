@@ -34,6 +34,8 @@ final class View
             'currentUser' => null,
             'tenantContext' => null,
             'tenantName' => null,
+            'memberships' => [],
+            'activeNav' => null,
         ];
         $content = $this->renderFile($this->resolve($template), $data);
         if ($layout === null) {

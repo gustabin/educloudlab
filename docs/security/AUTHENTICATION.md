@@ -58,6 +58,7 @@ Rules:
   - `login_account`: 10 per 15 min, per (email, client IP), so an attacker elsewhere cannot exhaust the owner's allowance
   - `register_ip`: 10 per hour
   - `email_account`: 3 emails per hour, per address
+  - `write_user`: 60 unsafe (POST/PATCH/PUT/DELETE) requests per minute, per authenticated user
   - Keys are HMACs; no raw IPs or emails are stored.
 - **One-time tokens** (verify and reset): 256-bit, stored hashed, single use (atomic `used_at` update). A newer token invalidates older ones. A reset token is not consumed when the new password is rejected.
 

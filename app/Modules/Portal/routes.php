@@ -12,9 +12,18 @@ use EduCloud\Core\Router;
 return static function (Router $router, App $app): void {
     $router->get(
         '/app',
-        static fn (Request $r, App $app): Response => $app->renderPage($r, 'Portal::dashboard', [
-            'pageTitle' => t('portal.dashboard.title') . ' · EduCloud Lab',
-        ]),
+        static function (Request $r, App $app): Response {
+            /** @var \EduCloud\Core\Auth\TenantContext $ctx */
+            $ctx = $r->attribute('tenant');
+            $recent = (new \EduCloud\Modules\Workspaces\WorkspaceService($app))
+                ->list($ctx, new \EduCloud\Core\Pagination(1, 5), '', 'updated_at', 'desc');
+            return $app->renderPage($r, 'Portal::dashboard', [
+                'pageTitle' => t('portal.dashboard.title') . ' · EduCloud Lab',
+                'activeNav' => 'home',
+                'recentWorkspaces' => $recent['items'],
+                'workspaceTotal' => $recent['meta']['total'],
+            ], 200, 'layouts/app');
+        },
         ['auth' => 'session', 'permission' => 'read', 'name' => 'portal.dashboard']
     );
 };

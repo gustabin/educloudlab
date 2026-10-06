@@ -70,5 +70,6 @@ return [
         'register_ip' => ['limit' => 10, 'window' => 3600],
         'email_account' => ['limit' => 3, 'window' => 3600],        // verification / reset emails per address
         'token_refresh_ip' => ['limit' => 60, 'window' => 15 * 60],
+        'write_user' => ['limit' => 60, 'window' => 60],            // unsafe API calls per authenticated user
     ],
 ];

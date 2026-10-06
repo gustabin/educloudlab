@@ -8,6 +8,7 @@ use EduCloud\Core\Auth\AuthUser;
 use EduCloud\Core\Auth\JwtService;
 use EduCloud\Core\Auth\TenantContext;
 use EduCloud\Modules\Audit\AuditLogger;
+use EduCloud\Modules\Tenants\TenantRepository;
 
 /**
  * Application container: shared services, created once per request (or per test).
@@ -98,6 +99,9 @@ final class App
             'tenantContext' => $tenant instanceof TenantContext ? $tenant : null,
             'tenantName' => $request->attribute('tenant_name'),
         ];
+        if ($layout === 'layouts/app' && $user instanceof AuthUser) {
+            $data += ['memberships' => (new TenantRepository($this->db()))->listActiveMemberships($user->id)];
+        }
         return Response::html($this->view()->render($template, $data, $layout), $status);
     }
 

@@ -9,13 +9,15 @@ use EduCloud\Http\Middleware\Authorize;
 use EduCloud\Http\Middleware\CsrfProtection;
 use EduCloud\Http\Middleware\Middleware;
 use EduCloud\Http\Middleware\RateLimit;
+use EduCloud\Http\Middleware\RateLimitUser;
 use EduCloud\Http\Middleware\ResolveTenant;
 use EduCloud\Http\Middleware\SecurityHeaders;
 use Throwable;
 
 /**
  * HTTP kernel: Router → global middleware → route middleware → handler → Response.
- * Route middleware order (from route options): RateLimit → Authenticate → CsrfProtection → ResolveTenant → Authorize.
+ * Route middleware order (from route options):
+ *   RateLimit (IP) → Authenticate → CsrfProtection → RateLimitUser (unsafe methods) → ResolveTenant → Authorize.
  */
 final class Kernel
 {
@@ -79,6 +81,9 @@ final class Kernel
         $auth = (string) ($options['auth'] ?? 'none');
         $stack[] = new Authenticate($this->app, $auth);
         $stack[] = new CsrfProtection($this->app, ($options['csrf'] ?? true) !== false);
+        if ($auth !== 'none') {
+            $stack[] = new RateLimitUser($this->app->rateLimiter(), 'write_user');
+        }
         if ($auth !== 'none') {
             $stack[] = new ResolveTenant($this->app);
         }

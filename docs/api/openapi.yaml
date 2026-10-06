@@ -252,12 +252,349 @@ paths:
         '204': { description: Revoked (or unknown token) }
         '422': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/Error' }
+  /tenants:
+    get:
+      operationId: listTenants
+      summary: Organizations (tenants) the caller belongs to; `active` marks the session/token tenant
+      tags: [tenants]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Memberships
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Tenant' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /tenants/{tenant_id}/switch:
+    post:
+      operationId: switchTenant
+      summary: Make another organization the active tenant of the browser session (404 if not a member)
+      tags: [tenants]
+      security: [{sessionCookie: [], csrfToken: []}]
+      parameters: [{ $ref: '#/components/parameters/TenantId' }]
+      responses:
+        '200':
+          description: Active tenant changed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Tenant' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /workspaces:
+    get:
+      operationId: listWorkspaces
+      summary: Workspaces visible in the active tenant (own; whole tenant for org_admin)
+      tags: [workspaces]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: q, in: query, description: Name contains (literal match), schema: { type: string, maxLength: 80 } }
+        - { name: sort, in: query, schema: { type: string, enum: [name, created_at, updated_at], default: created_at } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc], default: desc } }
+      responses:
+        '200':
+          description: Page of workspaces (meta has page, per_page, total, total_pages)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Workspace' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createWorkspace
+      summary: Create a workspace owned by the caller in the active tenant (tenant is never taken from the body)
+      tags: [workspaces]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkspaceInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Workspace' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    get:
+      operationId: getWorkspace
+      summary: Workspace details (404 when it does not exist or is not visible)
+      tags: [workspaces]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Workspace
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Workspace' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateWorkspace
+      summary: Rename or change the description (owner or org_admin)
+      tags: [workspaces]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                description: { type: [string, 'null'], maxLength: 500 }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Workspace' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteWorkspace
+      summary: Delete the workspace and all its resources (soft delete; owner or org_admin)
+      tags: [workspaces]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/resources:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    get:
+      operationId: listResources
+      summary: Non-deleted resources of a workspace
+      tags: [resources]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      parameters:
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/ResourceType' } }
+      responses:
+        '200':
+          description: Resources
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Resource' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createResource
+      summary: Create a storage account or lakehouse (simulated provisioning → active)
+      description: Other types (dataset, pipeline, notebook, dashboard) are created by their own modules and return 422 here.
+      tags: [resources]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [type, name]
+              properties:
+                type: { $ref: '#/components/schemas/ResourceType' }
+                name: { type: string, minLength: 2, maxLength: 80 }
+                region: { type: string, enum: [edu-local-1, edu-local-2], default: edu-local-1 }
+                config: { $ref: '#/components/schemas/ResourceConfig' }
+                tags: { $ref: '#/components/schemas/Tags' }
+      responses:
+        '201':
+          description: Created (status active)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Resource' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /resources/{resource_id}:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      operationId: getResource
+      summary: Resource details (404 when not visible)
+      tags: [resources]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Resource
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Resource' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateResource
+      summary: Rename, change config (partial, allowlisted keys) or replace tags; only active resources
+      tags: [resources]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                config: { $ref: '#/components/schemas/ResourceConfig' }
+                tags: { $ref: '#/components/schemas/Tags' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Resource' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteResource
+      summary: Delete through the lifecycle (active|failed → deleting → deleted)
+      tags: [resources]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
 components:
+  parameters:
+    TenantId: { name: tenant_id, in: path, required: true, schema: { type: string, description: ULID } }
+    WorkspaceId: { name: workspace_id, in: path, required: true, schema: { type: string, description: ULID } }
+    ResourceId: { name: resource_id, in: path, required: true, schema: { type: string, description: ULID } }
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: ecsid }
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
+    Tenant:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        name: { type: string }
+        type: { type: string, enum: [personal, organization] }
+        role: { type: string, enum: [org_admin, instructor, student, read_only] }
+        active: { type: boolean }
+    WorkspaceInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 80, pattern: '^[\\p{L}\\p{N}][\\p{L}\\p{N} ._-]*$' }
+        description: { type: string, maxLength: 500 }
+    Workspace:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        name: { type: string }
+        description: { type: [string, 'null'] }
+        purpose: { type: string, enum: [general, lab] }
+        status: { type: string, enum: [active, deleting, deleted] }
+        owner: { type: object, properties: { id: { type: string }, display_name: { type: string } } }
+        resource_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ResourceType:
+      type: string
+      enum: [storage, lakehouse, dataset, pipeline, notebook, dashboard]
+    ResourceConfig:
+      type: object
+      description: |
+        Allowlisted per type. storage: access_tier (hot|cool|archive), versioning (bool), redundancy (lrs|zrs).
+        lakehouse: default_layer (bronze|silver|gold). Unknown keys → 422.
+    Tags:
+      type: object
+      maxProperties: 10
+      propertyNames: { pattern: '^[a-z0-9_-]{1,32}$' }
+      additionalProperties: { type: string, maxLength: 64 }
+    Resource:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        workspace_id: { type: string }
+        type: { $ref: '#/components/schemas/ResourceType' }
+        name: { type: string }
+        status: { type: string, enum: [provisioning, active, failed, deleting, deleted] }
+        region: { type: string }
+        config: { $ref: '#/components/schemas/ResourceConfig' }
+        tags: { $ref: '#/components/schemas/Tags' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
     Credentials:
       type: object
       additionalProperties: false
@@ -324,7 +661,8 @@ components:
               type: string
               enum: [VALIDATION_ERROR, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED, CONFLICT,
                      QUOTA_EXCEEDED, PAYLOAD_TOO_LARGE, RATE_LIMITED, SERVICE_UNAVAILABLE, INTERNAL_ERROR,
-                     CSRF_INVALID, INVALID_CREDENTIALS, EMAIL_NOT_VERIFIED, ACCOUNT_DISABLED, TOKEN_INVALID]
+                     CSRF_INVALID, INVALID_CREDENTIALS, EMAIL_NOT_VERIFIED, ACCOUNT_DISABLED, TOKEN_INVALID,
+                     INVALID_STATE]
             message: { type: string }
             details:
               type: array

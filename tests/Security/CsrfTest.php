@@ -84,6 +84,9 @@ final class CsrfTest extends TestCase
             $path = preg_replace('/\{[a-z_]+\}/', '01ARZ3NDEKTSV4RRFFQ69G5FAV', $route['pattern']);
             $r = $this->request($route['method'], (string) $path, []);
             self::assertContains($r->status, [403, 429], "{$route['method']} {$route['pattern']} accepted a request without CSRF token");
+            if ($r->status === 403) {
+                self::assertSame('CSRF_INVALID', $r->decoded()['error']['code'], "{$route['method']} {$route['pattern']}: 403 was not from CSRF");
+            }
             $checked++;
         }
         self::assertGreaterThan(5, $checked);

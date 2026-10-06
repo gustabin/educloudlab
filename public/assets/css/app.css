@@ -115,3 +115,38 @@ body {
   background: var(--ec-surface-2);
   text-align: center;
 }
+
+/* Portal shell */
+.ec-app { background: var(--ec-surface-2); }
+.ec-topbar {
+  position: sticky; top: 0; z-index: 1030;
+  display: flex; align-items: center; gap: var(--ec-space-3);
+  height: 56px; padding: 0 var(--ec-space-4);
+  border-bottom: 1px solid var(--ec-border); background: var(--ec-surface);
+}
+.ec-topbar .ec-brand { font-weight: 700; color: var(--ec-text); text-decoration: none; }
+.ec-topbar-toggle { color: var(--ec-text); }
+.ec-shell { display: flex; min-height: calc(100vh - 56px); }
+.ec-sidebar { width: 232px; flex-shrink: 0; padding: var(--ec-space-4) var(--ec-space-3); border-right: 1px solid var(--ec-border); background: var(--ec-surface); }
+.ec-sidebar .nav-link { display: flex; align-items: center; gap: var(--ec-space-2); padding: var(--ec-space-2) var(--ec-space-3); border-radius: var(--ec-radius-md); color: var(--ec-text); }
+.ec-sidebar .nav-link:hover { background: var(--ec-surface-2); }
+.ec-sidebar .nav-link.active { background: var(--ec-primary-subtle); color: var(--ec-primary-hover); font-weight: 600; }
+.ec-sidebar .nav-link.disabled { color: var(--ec-text-muted); }
+.ec-sidebar-role { margin: var(--ec-space-5) var(--ec-space-3) 0; }
+.ec-main { flex: 1; min-width: 0; padding: var(--ec-space-5) var(--ec-space-4); }
+@media (min-width: 768px) { .ec-main { padding: var(--ec-space-6); } }
+@media (max-width: 767.98px) { .ec-sidebar { width: 280px; } }
+
+.ec-page-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--ec-space-3); margin-bottom: var(--ec-space-5); }
+
+/* Cards, skeletons, status badges */
+.ec-card { position: relative; padding: var(--ec-space-4); border: 1px solid var(--ec-border); border-radius: var(--ec-radius-lg); background: var(--ec-surface); }
+.ec-card:focus-within { outline: 3px solid var(--ec-focus); outline-offset: 2px; }
+.ec-skeleton { min-height: 112px; background: linear-gradient(90deg, var(--ec-surface-2) 25%, var(--ec-surface) 50%, var(--ec-surface-2) 75%); background-size: 200% 100%; animation: ec-shimmer 1.2s infinite; }
+@keyframes ec-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.ec-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ec-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; border: 1px solid transparent; }
+.ec-status-active { background: #dcfce7; color: #14532d; border-color: #86efac; }
+.ec-status-provisioning, .ec-status-deleting { background: #e0f2fe; color: #0c4a6e; border-color: #7dd3fc; }
+.ec-status-failed { background: #fee2e2; color: #7f1d1d; border-color: #fca5a5; }
+.ec-status-deleted { background: var(--ec-surface-2); color: var(--ec-text-muted); border-color: var(--ec-border); }

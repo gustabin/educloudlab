@@ -13,7 +13,7 @@ Master plan: `docs/IMPLEMENTATION_MASTER_PLAN.md`. Decisions: `docs/adr/`. Read 
 - **Do not introduce** React, Vue, Angular, Laravel, Symfony framework, PostgreSQL, FastAPI or new dependencies without an approved ADR.
 
 ## Architecture rules
-- Served at `http://localhost/EduCloudLab/` (ADR-013). The root `.htaccess` rewrites everything into `public/`, so nothing outside `public/` is reachable. Never hardcode root-relative links: use `url()` / `asset()` in PHP and `EduCloud.api.url()` in JS.
+- Served at `http://localhost/educloudlab/` (ADR-013). The root `.htaccess` rewrites everything into `public/`, so nothing outside `public/` is reachable. Never hardcode root-relative links: use `url()` / `asset()` in PHP and `EduCloud.api.url()` in JS.
 - Request flow: Router → SecurityHeaders → RateLimit → Authenticate → ResolveTenant → Authorize → Validate → Service → Repository → Response.
 - Modules live in `app/Modules/<Name>/` (routes.php, Controller, Service, Repository, Validator, views/). Controllers are thin. SQL lives only in repositories.
 - Tenant-owned repository methods take `TenantContext` first and always filter by `tenant_id`. The tenant is never taken from client input. Cross-tenant access returns **404**.

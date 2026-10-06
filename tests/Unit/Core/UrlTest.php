@@ -24,11 +24,11 @@ final class UrlTest extends TestCase
 
     public function testSubDirectoryDeployment(): void
     {
-        Url::setBasePath('/EduCloudLab');
-        self::assertSame('/EduCloudLab', Url::baseHref());
-        self::assertSame('/EduCloudLab/register', Url::to('/register'));
-        self::assertSame('/EduCloudLab/', Url::to('/'));
-        self::assertSame('/EduCloudLab/assets/css/app.css', Url::to('assets/css/app.css'));
+        Url::setBasePath('/educloudlab');
+        self::assertSame('/educloudlab', Url::baseHref());
+        self::assertSame('/educloudlab/register', Url::to('/register'));
+        self::assertSame('/educloudlab/', Url::to('/'));
+        self::assertSame('/educloudlab/assets/css/app.css', Url::to('assets/css/app.css'));
     }
 
     public function testSubDirectoryWithSpaceIsEncodedInLinks(): void
@@ -40,8 +40,8 @@ final class UrlTest extends TestCase
 
     public function testBasePathIsNormalised(): void
     {
-        Url::setBasePath('EduCloudLab/');
-        self::assertSame('/EduCloudLab', Url::basePath());
+        Url::setBasePath('educloudlab/');
+        self::assertSame('/educloudlab', Url::basePath());
         Url::setBasePath('/');
         self::assertSame('', Url::basePath());
     }
@@ -49,11 +49,15 @@ final class UrlTest extends TestCase
     /** @return iterable<string, array{string, string, string}> */
     public static function paths(): iterable
     {
-        yield 'root of app' => ['/EduCloudLab', '/EduCloudLab', '/'];
-        yield 'trailing slash' => ['/EduCloudLab/', '/EduCloudLab', '/'];
-        yield 'api route' => ['/EduCloudLab/api/v1/health', '/EduCloudLab', '/api/v1/health'];
-        yield 'similar prefix is not stripped' => ['/EduCloudLabs/x', '/EduCloudLab', '/EduCloudLabs/x'];
-        yield 'outside base unchanged' => ['/other/x', '/EduCloudLab', '/other/x'];
+        yield 'root of app' => ['/educloudlab', '/educloudlab', '/'];
+        yield 'trailing slash' => ['/educloudlab/', '/educloudlab', '/'];
+        yield 'api route' => ['/educloudlab/api/v1/health', '/educloudlab', '/api/v1/health'];
+        yield 'similar prefix is not stripped' => ['/educloudlabs/x', '/educloudlab', '/educloudlabs/x'];
+        yield 'outside base unchanged' => ['/other/x', '/educloudlab', '/other/x'];
+        yield 'base matched case-insensitively' => ['/EduCloudLab/api/v1/health', '/educloudlab', '/api/v1/health'];
+        yield 'mixed-case base, root' => ['/EDUCLOUDLAB', '/educloudlab', '/'];
+        yield 'route part keeps its case' => ['/EduCloudLab/API/V1', '/educloudlab', '/API/V1'];
+        yield 'similar prefix in other case is not stripped' => ['/EduCloudLabs/x', '/educloudlab', '/EduCloudLabs/x'];
         yield 'no base' => ['/api/v1/health/', '', '/api/v1/health'];
     }
 

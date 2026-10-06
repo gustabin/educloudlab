@@ -3,7 +3,7 @@
 - Status: Accepted (2026-10-06, user decision). Refines ADR-011 and plan §8 "Hosting".
 
 ## Context
-The user wants to open the app at `http://localhost/EduCloudLab/` without changing the shared Apache vhosts or the Windows hosts file.
+The user wants to open the app at `http://localhost/educloudlab/` without changing the shared Apache vhosts or the Windows hosts file.
 
 ## Options
 1. A vhost `educloud.test` with DocumentRoot at `public/`.
@@ -24,7 +24,5 @@ Option 2.
 - The PHP built-in server (`scripts/dev-router.php`) serves from `/`, so set `APP_URL=http://127.0.0.1:8099` when using it.
 
 ## Update (2026-10-06)
-The project folder was renamed from `EduCloud Lab` to `EduCloudLab` (user decision) to avoid `%20` in URLs. The app is now served at `http://localhost/EduCloudLab/`. No code changes were needed, only `APP_URL`, which shows the base-path design works as intended.
-
-## Update (2026-10-06)
-The project folder was renamed from `EduCloud Lab` to `EduCloudLab` (user decision) to avoid `%20` in URLs. The app is now served at `http://localhost/EduCloudLab/`. No code changes were needed, only `APP_URL`, which shows the base-path design works as intended.
+- **Folder renamed:** from `EduCloud Lab` to `educloudlab` (all lowercase, user decision) to avoid `%20` in URLs. The app is now served at `http://localhost/educloudlab/`. Only `APP_URL` changed; no application code was affected.
+- **Case-insensitive base path:** Windows treats folder names case-insensitively, so Apache also serves `/EduCloudLab/...` from the same folder. `Url::stripBasePath()` therefore matches the base path without regard to case. Generated links always use the canonical lowercase form from `APP_URL`.

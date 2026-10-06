@@ -27,7 +27,7 @@ The user decided to **keep the installed PHP 8.1.6** instead of upgrading to 8.2
 
 | Item | Finding |
 |---|---|
-| Project dir | **[V]** `C:\xampp\htdocs\EduCloud Lab` is **empty**. No Git, no `.claude/`, no code. Nothing to preserve. Note: the path contains a space. **The folder was renamed to `C:\xampp\htdocs\EduCloudLab` on 2026-10-06 (user decision).** |
+| Project dir | **[V]** `C:\xampp\htdocs\EduCloud Lab` is **empty**. No Git, no `.claude/`, no code. Nothing to preserve. Note: the path contains a space. **The folder was renamed to `C:\xampp\htdocs\educloudlab` (lowercase) on 2026-10-06 (user decision).** |
 | PHP | **[V]** 8.1.6 ZTS x64, built May 2022, Xdebug 3.3.2 loaded. **PHP 8.1 security support ended 2025-12-31 (EOL).** |
 | PHP extensions | **[V]** mysqli, mysqlnd, openssl, mbstring, intl, fileinfo, curl, zip, gd, json, session, pdo_sqlite. **[V] sodium is NOT loaded.** |
 | php.ini | **[V]** upload_max_filesize=40M, post_max_size=40M, memory_limit=512M, max_execution_time=120, SMTP=smtp.gmail.com via XAMPP sendmail |
@@ -177,7 +177,7 @@ flowchart LR
 ## 8. Repository Structure  (§8, §14)
 
 ```
-EduCloudLab/
+educloudlab/
 ├── public/                    # ONLY web root (vhost DocumentRoot)
 │   ├── index.php              # front controller: pages + /api/v1
 │   ├── .htaccess              # rewrite to index.php, security headers fallback
@@ -213,7 +213,7 @@ EduCloudLab/
 
 This adapts the spec's `api/v1/<module>` folders: API routes are declared per module and dispatched by one front controller. That gives one middleware pipeline and a route registry, and the registry makes the automated cross-tenant route matrix test possible.
 
-**Hosting — superseded by ADR-013:** the app is served at `http://localhost/EduCloudLab/` through internal rewriting into `public/`. The original recommendation was: add a vhost `educloud.test` → `.../EduCloud Lab/public` and a hosts-file entry. The user does this, because it touches the shared XAMPP config and needs admin rights. The root `.htaccess` denies everything else.
+**Hosting — superseded by ADR-013:** the app is served at `http://localhost/educloudlab/` through internal rewriting into `public/`. The original recommendation was: add a vhost `educloud.test` → `.../EduCloud Lab/public` and a hosts-file entry. The user does this, because it touches the shared XAMPP config and needs admin rights. The root `.htaccess` denies everything else.
 
 ---
 

@@ -15,7 +15,7 @@
     strings = {};
   }
 
-  // Deployment base path (e.g. "/EduCloudLab"); app-relative URLs passed to request() are prefixed with it.
+  // Deployment base path (e.g. "/educloudlab"); app-relative URLs passed to request() are prefixed with it.
   var base = $('meta[name="app-base"]').attr('content') || '';
 
   function appUrl(path) {

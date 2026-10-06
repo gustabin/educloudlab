@@ -14,6 +14,9 @@ final class Response
     /** Set by the Kernel for routes marked 'public'; SecurityHeaders omits noindex for these. */
     public bool $indexable = false;
 
+    /** @var list<string> raw Set-Cookie header values */
+    public array $cookies = [];
+
     /** @param array<string, string> $headers */
     public function __construct(
         public int $status = 200,
@@ -72,6 +75,47 @@ final class Response
         return $this;
     }
 
+    /**
+     * Adds a cookie. Defaults are the secure ones: HttpOnly, SameSite=Lax, path = app base path.
+     * $maxAge = 0 creates a session cookie; a negative value deletes the cookie.
+     */
+    public function withCookie(
+        string $name,
+        string $value,
+        int $maxAge,
+        bool $secure,
+        bool $httpOnly = true,
+        string $sameSite = 'Lax',
+    ): self {
+        $parts = [rawurlencode($name) . '=' . rawurlencode($value), 'Path=' . Url::baseHref() . '/'];
+        if ($maxAge !== 0) {
+            $parts[] = 'Max-Age=' . max(0, $maxAge);
+            $parts[] = 'Expires=' . gmdate('D, d M Y H:i:s', time() + max(0, $maxAge)) . ' GMT';
+        }
+        if ($secure) {
+            $parts[] = 'Secure';
+        }
+        if ($httpOnly) {
+            $parts[] = 'HttpOnly';
+        }
+        $parts[] = 'SameSite=' . $sameSite;
+        $this->cookies[] = implode('; ', $parts);
+        return $this;
+    }
+
+    /** Value set for a cookie in this response (tests); null if not set. */
+    public function cookie(string $name): ?string
+    {
+        foreach ($this->cookies as $raw) {
+            [$pair] = explode(';', $raw, 2);
+            [$k, $v] = array_pad(explode('=', $pair, 2), 2, '');
+            if (rawurldecode($k) === $name) {
+                return rawurldecode($v);
+            }
+        }
+        return null;
+    }
+
     /** @return array<string, mixed> decoded JSON body (tests and middleware) */
     public function decoded(): array
     {
@@ -85,6 +129,9 @@ final class Response
             http_response_code($this->status);
             foreach ($this->headers as $name => $value) {
                 header($name . ': ' . $value);
+            }
+            foreach ($this->cookies as $cookie) {
+                header('Set-Cookie: ' . $cookie, false);
             }
         }
         if ($this->status !== 204) {

@@ -18,3 +18,13 @@ Option 3.
 
 ## Consequences
 There are two authentication paths. Middleware must never mix them.
+
+## Implementation notes (M2, 2026-10-06)
+- **Sessions in MariaDB** (`sessions` table), not PHP native sessions:
+  - XAMPP stores native sessions in the shared `C:\xampp\tmp`;
+  - "log out everywhere" on a password reset needs sessions enumerable per user.
+  Only SHA-256 of the session id is stored.
+- **CSRF tokens are stateless HMACs.** They are bound to the session id, or to an `HttpOnly` anonymous cookie for login/register forms, so anonymous visitors create no database rows.
+- **Passwords use Argon2id** (available in this PHP build) instead of `PASSWORD_DEFAULT` (bcrypt), which avoids bcrypt's 72-byte truncation.
+- **Under Apache + mod_php, `Authorization` is missing from `$_SERVER`.** `Request::fromGlobals()` falls back to `apache_request_headers()`.
+- **Details:** `docs/security/AUTHENTICATION.md`.

@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace EduCloud\Core;
 
+use EduCloud\Http\Middleware\Authenticate;
+use EduCloud\Http\Middleware\Authorize;
+use EduCloud\Http\Middleware\CsrfProtection;
 use EduCloud\Http\Middleware\Middleware;
+use EduCloud\Http\Middleware\RateLimit;
+use EduCloud\Http\Middleware\ResolveTenant;
 use EduCloud\Http\Middleware\SecurityHeaders;
 use Throwable;
 
 /**
  * HTTP kernel: Router → global middleware → route middleware → handler → Response.
- * Route-level middleware (RateLimit, Authenticate, ResolveTenant, Authorize, Csrf) is added in M2/M3
- * by mapping route options to middleware instances in routeMiddleware().
+ * Route middleware order (from route options): RateLimit → Authenticate → CsrfProtection → ResolveTenant → Authorize.
  */
 final class Kernel
 {
@@ -67,7 +71,25 @@ final class Kernel
      */
     private function routeMiddleware(array $options): array
     {
-        return [];
+        $stack = [];
+        $rate = $options['rate'] ?? null;
+        if ($rate !== null && $rate !== []) {
+            $stack[] = new RateLimit($this->app->rateLimiter(), array_values((array) $rate));
+        }
+        $auth = (string) ($options['auth'] ?? 'none');
+        $stack[] = new Authenticate($this->app, $auth);
+        $stack[] = new CsrfProtection($this->app, ($options['csrf'] ?? true) !== false);
+        if ($auth !== 'none') {
+            $stack[] = new ResolveTenant($this->app);
+        }
+        $permission = $options['permission'] ?? null;
+        if (is_string($permission) && $permission !== '') {
+            if ($auth === 'none') {
+                throw new \LogicException('A route with a permission must require authentication');
+            }
+            $stack[] = new Authorize($this->app->config, $permission);
+        }
+        return $stack;
     }
 
     /**

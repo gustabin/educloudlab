@@ -55,6 +55,16 @@ final class Request
                 $headers[$name] = (string) $_SERVER[$key];
             }
         }
+        // Apache + mod_php does not expose "Authorization" in $_SERVER (needed for Bearer tokens).
+        if (!isset($headers['authorization'])) {
+            $auth = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null;
+            if ($auth === null && function_exists('apache_request_headers')) {
+                $auth = array_change_key_case((array) apache_request_headers(), CASE_LOWER)['authorization'] ?? null;
+            }
+            if (is_string($auth) && $auth !== '') {
+                $headers['authorization'] = $auth;
+            }
+        }
 
         $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
         $path = Url::stripBasePath(is_string($path) ? rawurldecode($path) : '/', $basePath);
@@ -82,6 +92,21 @@ final class Request
     public function header(string $name, ?string $default = null): ?string
     {
         return $this->headers[strtolower($name)] ?? $default;
+    }
+
+    /** Bearer token from the Authorization header, or null. */
+    public function bearerToken(): ?string
+    {
+        $header = (string) $this->header('authorization', '');
+        if (preg_match('/^Bearer\s+([A-Za-z0-9._~+\/=-]+)$/D', $header, $m) === 1) {
+            return $m[1];
+        }
+        return null;
+    }
+
+    public function isUnsafeMethod(): bool
+    {
+        return !in_array($this->method, ['GET', 'HEAD', 'OPTIONS'], true);
     }
 
     public function isApi(): bool

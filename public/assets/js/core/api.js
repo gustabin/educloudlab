@@ -82,7 +82,10 @@
       contentType: opts.data !== undefined ? 'application/json' : undefined,
       data: opts.data !== undefined ? JSON.stringify(opts.data) : undefined
     }).then(
-      function (body) {
+      function (body, textStatus, xhr) {
+        if (xhr && xhr.status === 204) {
+          return { success: true, data: null };
+        }
         if (!body || body.success !== true) {
           return $.Deferred().reject(normaliseError(null, 'invalid')).promise();
         }
@@ -115,7 +118,8 @@
       footer = document.createElement('small');
       footer.textContent = 'ID: ' + err.requestId;
     }
-    window.Swal.fire({ icon: 'error', title: err.message, footer: footer || undefined });
+    // titleText (not title): SweetAlert2 renders `title` as HTML.
+    window.Swal.fire({ icon: 'error', titleText: err.message, footer: footer || undefined });
   }
 
   /** Applies 422 field errors to a form (inputs matched by name attribute). */

@@ -66,14 +66,64 @@ abstract class TestCase extends BaseTestCase
             $body = (string) json_encode($json);
             $headers += ['content-type' => 'application/json'];
         }
+        $query = [];
+        if (str_contains($path, '?')) {
+            [$path, $qs] = explode('?', $path, 2);
+            parse_str($qs, $query);
+        }
         $request = new Request(
             method: $method,
             path: $path,
+            query: $query,
             headers: array_change_key_case($headers, CASE_LOWER),
+            cookies: $this->cookieJar,
             body: $body,
+            ip: $this->clientIp,
             requestId: Ulid::generate(),
         );
-        return (new Kernel($this->app()))->handle($request);
+        $response = (new Kernel($this->app()))->handle($request);
+
+        // Browser-like cookie jar: apply Set-Cookie (deletion via Max-Age=0).
+        foreach ($response->cookies as $raw) {
+            [$pair] = explode(';', $raw, 2);
+            [$name, $value] = array_pad(explode('=', $pair, 2), 2, '');
+            if (str_contains($raw, 'Max-Age=0')) {
+                unset($this->cookieJar[rawurldecode($name)]);
+            } else {
+                $this->cookieJar[rawurldecode($name)] = rawurldecode($value);
+            }
+        }
+        return $response;
+    }
+
+    /** @var array<string, string> */
+    protected array $cookieJar = [];
+    protected string $clientIp = '127.0.0.1';
+
+    /** Loads an HTML page and returns its CSRF meta token (also stores the anonymous CSRF cookie). */
+    protected function csrfFromPage(string $path = '/login'): string
+    {
+        $html = $this->request('GET', $path)->body;
+        self::assertSame(1, preg_match('/<meta name="csrf-token" content="([^"]*)"/', $html, $m), 'No CSRF meta tag on ' . $path);
+        return html_entity_decode($m[1]);
+    }
+
+    /**
+     * Empties every application table of educloud_test (refuses to run on any other database).
+     */
+    protected function resetDatabase(): void
+    {
+        $db = $this->app()->db();
+        self::assertSame('educloud_test', $db->scalar('SELECT DATABASE()'), 'resetDatabase() only runs on educloud_test');
+        $tables = $db->select(
+            "SELECT table_name AS t FROM information_schema.tables
+              WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE' AND table_name <> 'schema_migrations'"
+        );
+        $db->execute('SET FOREIGN_KEY_CHECKS = 0');
+        foreach ($tables as $row) {
+            $db->execute('TRUNCATE TABLE `' . str_replace('`', '', (string) $row['t']) . '`');
+        }
+        $db->execute('SET FOREIGN_KEY_CHECKS = 1');
     }
 
     /** @return list<string> lines of the test run's log */

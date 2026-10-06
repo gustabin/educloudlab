@@ -111,7 +111,18 @@ Both files below are **shared by every XAMPP project**, so edit them carefully a
 
 3. Set `APP_URL=http://educloud.test`, restart Apache from the XAMPP control panel and open http://educloud.test/.
 
-## 5. Frontend assets (only when upgrading libraries)
+## 5. Email in development
+
+Auth emails (verification, password reset) are queued in `email_outbox`. Deliver them with:
+
+```
+php scripts/mailer.php --once     # single pass
+php scripts/mailer.php            # keep running (polls every 5 s)
+```
+
+With `MAIL_DRIVER=file` the messages are written to `C:\educloud-data\mail\*.eml`. Open them with any mail client, or copy the link from the file. To use a real SMTP server, set `MAIL_DRIVER=smtp` and the `SMTP_*` values in `.env`. Never commit those values.
+
+## 6. Frontend assets (only when upgrading libraries)
 
 ```
 npm install
@@ -120,7 +131,7 @@ npm run vendor     # copies dist files into public/assets/vendor (committed)
 
 After upgrading, update the versions in `THIRD_PARTY_NOTICES.md`.
 
-## 6. Quality checks
+## 7. Quality checks
 
 ```
 composer check     # PHPCS (PSR-12) + PHPStan + PHPUnit

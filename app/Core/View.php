@@ -30,6 +30,10 @@ final class View
             'metaDescription' => null,
             'canonical' => null,
             'indexable' => false,
+            'csrfToken' => '',
+            'currentUser' => null,
+            'tenantContext' => null,
+            'tenantName' => null,
         ];
         $content = $this->renderFile($this->resolve($template), $data);
         if ($layout === null) {

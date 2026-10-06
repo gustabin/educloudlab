@@ -95,3 +95,23 @@ body {
 .swal2-styled.swal2-confirm { background-color: var(--ec-primary); }
 .swal2-styled.swal2-confirm:focus-visible { box-shadow: 0 0 0 3px var(--ec-focus); }
 .swal2-footer { color: var(--ec-text-muted); font-family: var(--ec-font-mono); }
+
+/* Auth pages */
+.ec-auth { display: flex; justify-content: center; padding: var(--ec-space-7) var(--ec-space-4); background: var(--ec-surface-2); }
+.ec-auth-card {
+  width: 100%;
+  max-width: 440px;
+  padding: var(--ec-space-6);
+  border: 1px solid var(--ec-border);
+  border-radius: var(--ec-radius-lg);
+  background: var(--ec-surface);
+}
+
+/* Empty states */
+.ec-empty {
+  padding: var(--ec-space-6);
+  border: 1px dashed var(--ec-border);
+  border-radius: var(--ec-radius-lg);
+  background: var(--ec-surface-2);
+  text-align: center;
+}

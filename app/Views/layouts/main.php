@@ -8,12 +8,17 @@
  * @var string|null $metaDescription
  * @var string|null $canonical
  * @var bool        $indexable
+ * @var string      $csrfToken
+ * @var \EduCloud\Core\Auth\AuthUser|null $currentUser
  */
 $title = $pageTitle ?? $appName;
 $jsStrings = [
     'network_error' => t('js.network_error'),
     'timeout' => t('js.timeout'),
     'generic_error' => t('js.generic_error'),
+    'passwords_mismatch' => t('js.passwords_mismatch'),
+    'required' => t('js.required'),
+    'done' => t('js.done'),
 ];
 ?><!doctype html>
 <html lang="<?= e($locale) ?>" data-bs-theme="light">
@@ -21,6 +26,7 @@ $jsStrings = [
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="app-base" content="<?= e(\EduCloud\Core\Url::baseHref()) ?>">
+    <meta name="csrf-token" content="<?= e($csrfToken) ?>">
     <title><?= e($title) ?></title>
 <?php if ($metaDescription !== null): ?>
     <meta name="description" content="<?= e($metaDescription) ?>">
@@ -58,8 +64,23 @@ $jsStrings = [
             <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
                 <li class="nav-item"><a class="nav-link" href="<?= e(url('/')) ?>"><?= e(t('nav.home')) ?></a></li>
                 <li class="nav-item"><a class="nav-link" href="<?= e(url('/courses')) ?>"><?= e(t('nav.catalog')) ?></a></li>
+<?php if ($currentUser !== null): ?>
+                <li class="nav-item"><a class="nav-link" href="<?= e(url('/app')) ?>"><?= e(t('nav.dashboard')) ?></a></li>
+                <li class="nav-item dropdown">
+                    <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                            aria-expanded="false" aria-label="<?= e(t('nav.user_menu')) ?>">
+                        <i class="fa-solid fa-circle-user" aria-hidden="true"></i> <?= e($currentUser->displayName) ?>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><span class="dropdown-item-text small text-body-secondary"><?= e($currentUser->email) ?></span></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item" type="button" data-ec-logout><?= e(t('nav.logout')) ?></button></li>
+                    </ul>
+                </li>
+<?php else: ?>
                 <li class="nav-item"><a class="nav-link" href="<?= e(url('/login')) ?>"><?= e(t('nav.login')) ?></a></li>
                 <li class="nav-item"><a class="btn btn-primary btn-sm" href="<?= e(url('/register')) ?>"><?= e(t('nav.register')) ?></a></li>
+<?php endif; ?>
             </ul>
         </div>
     </nav>
@@ -81,5 +102,6 @@ $jsStrings = [
 <script src="<?= e(asset('vendor/bootstrap/bootstrap.bundle.min.js')) ?>"></script>
 <script src="<?= e(asset('vendor/sweetalert2/sweetalert2.min.js')) ?>"></script>
 <script src="<?= e(asset('js/core/api.js')) ?>"></script>
+<script src="<?= e(asset('js/features/auth.js')) ?>"></script>
 </body>
 </html>

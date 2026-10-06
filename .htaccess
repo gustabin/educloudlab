@@ -5,6 +5,8 @@
 # Fail closed: without mod_rewrite nothing in this directory is reachable.
 
 Options -Indexes -MultiViews
+# Real folders such as app/ must not trigger mod_dir's trailing-slash redirect before the rewrite runs.
+DirectorySlash Off
 
 <IfModule !mod_rewrite.c>
     Require all denied

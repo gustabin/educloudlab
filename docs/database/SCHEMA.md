@@ -31,6 +31,7 @@ Credentials live only in `.env`. The MariaDB `root` account is never used by the
 | `auth_tokens` | Email-verify and password-reset tokens (SHA-256 hash only, single use) | user | M2 |
 | `refresh_tokens` | JWT refresh tokens: hash, rotation family, revocation | user | M2 |
 | `rate_limits` | Fixed-window counters keyed by HMAC (no raw IP or email) | system | M2 |
+| `sessions` | Browser sessions: SHA-256 of the cookie id, user, active tenant, idle and absolute expiry (migration 0009) | user | M2 |
 | `workspaces` | Workspace container (general or lab), lifecycle, expiry | tenant | M3 |
 | `resources` | Resource registry: storage, lakehouse, dataset, pipeline, notebook, dashboard; status, region, config/tags JSON | tenant | M3 |
 | `datasets` | Dataset (1:1 with a `dataset` resource): medallion layer and table name (CHECK `^[a-z][a-z0-9_]{0,62}$`) | tenant | M4 |
@@ -66,6 +67,8 @@ erDiagram
   users ||--o{ memberships : has
   users ||--o{ auth_tokens : has
   users ||--o{ refresh_tokens : has
+  users ||--o{ sessions : has
+  tenants ||--o{ sessions : "active tenant"
   tenants ||--o{ refresh_tokens : scopes
   tenants ||--o{ workspaces : owns
   users ||--o{ workspaces : owns

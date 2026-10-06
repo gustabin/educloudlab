@@ -31,6 +31,10 @@ final class SecurityHeaders implements Middleware
         }
         if (!$response->indexable) {
             $response->withHeader('X-Robots-Tag', 'noindex, nofollow');
+            // Private pages (user data, session CSRF token) must not be reused from browser or shared caches.
+            if (!isset($response->headers['Cache-Control'])) {
+                $response->withHeader('Cache-Control', 'no-store');
+            }
         }
         $response->withHeader('X-Request-Id', $request->requestId);
 

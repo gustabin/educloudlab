@@ -4,9 +4,14 @@ info:
   version: 0.1.0
   description: |
     Versioned REST API of EduCloud Lab. All responses use the standard envelope.
-    Authentication (session cookie + CSRF for the browser, Bearer JWT for API clients) is added in M2.
+
+    Authentication (ADR-003):
+    - Browser: server-side session cookie `ecsid` (HttpOnly, SameSite=Lax). Every POST/PUT/PATCH/DELETE needs
+      the `X-CSRF-Token` header (from `<meta name="csrf-token">`); anonymous forms use a token bound to the
+      `ec_csrf` cookie. Requests with a Bearer token never use cookies and need no CSRF token.
+    - API clients: `POST /auth/tokens` returns a 15-minute HS256 access token plus a rotating refresh token.
 servers:
-  - url: http://educloud.test/api/v1
+  - url: http://localhost/educloudlab/api/v1
 paths:
   /health:
     get:
@@ -37,8 +42,263 @@ paths:
           $ref: '#/components/responses/Error'
         '405':
           $ref: '#/components/responses/Error'
+  /auth/register:
+    post:
+      operationId: register
+      summary: Create an account (always answers 202 to prevent account enumeration)
+      tags: [auth]
+      security: [{csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password, display_name]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+                password: { type: string, minLength: 12, maxLength: 128 }
+                display_name: { type: string, minLength: 2, maxLength: 100 }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/verify-email:
+    post:
+      operationId: verifyEmail
+      summary: Confirm an email address with the emailed one-time token AND the account password
+      description: A wrong password returns 422 (field password) and does not consume the token.
+      tags: [auth]
+      security: [{csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, password]
+              properties:
+                token: { type: string, maxLength: 128 }
+                password: { type: string, maxLength: 1024 }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/verify-email/resend:
+    post:
+      operationId: resendVerification
+      summary: Send a new verification link (always 202)
+      tags: [auth]
+      security: [{csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/login:
+    post:
+      operationId: login
+      summary: Browser login; sets the session cookie and returns a session-bound CSRF token
+      description: 401 INVALID_CREDENTIALS covers unknown account, wrong password and temporary lockout. 403 EMAIL_NOT_VERIFIED / ACCOUNT_DISABLED only after a correct password.
+      tags: [auth]
+      security: [{csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credentials' }
+      responses:
+        '200':
+          description: Logged in (Set-Cookie ecsid)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user: { $ref: '#/components/schemas/User' }
+                          csrf_token: { type: string }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: End the current browser session
+      tags: [auth]
+      security: [{sessionCookie: [], csrfToken: []}]
+      responses:
+        '204': { description: Logged out (session cookie cleared) }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /auth/me:
+    get:
+      operationId: me
+      summary: Current user, active tenant and memberships
+      tags: [auth]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Current identity
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user: { $ref: '#/components/schemas/User' }
+                          auth_method: { type: string, enum: [session, jwt] }
+                          tenant: { $ref: '#/components/schemas/TenantMembership' }
+                          memberships: { type: array, items: { $ref: '#/components/schemas/TenantMembership' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /auth/password/forgot:
+    post:
+      operationId: forgotPassword
+      summary: Email a password-reset link (always 202)
+      tags: [auth]
+      security: [{csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailRequest' }
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/password/reset:
+    post:
+      operationId: resetPassword
+      summary: Set a new password with a reset token; revokes all sessions and refresh tokens
+      tags: [auth]
+      security: [{csrfToken: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, password]
+              properties:
+                token: { type: string, maxLength: 128 }
+                password: { type: string, minLength: 12, maxLength: 128 }
+      responses:
+        '200': { $ref: '#/components/responses/Ok' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/tokens:
+    post:
+      operationId: issueTokens
+      summary: Exchange credentials for an access + refresh token pair (API clients; no cookies, no CSRF)
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credentials' }
+      responses:
+        '201': { $ref: '#/components/responses/TokenPair' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/tokens/refresh:
+    post:
+      operationId: refreshTokens
+      summary: Rotate a refresh token; reusing an old one revokes the whole token family
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/TokenPair' }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /auth/tokens/revoke:
+    post:
+      operationId: revokeTokens
+      summary: Revoke a refresh token family (always 204)
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '204': { description: Revoked (or unknown token) }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
 components:
+  securitySchemes:
+    sessionCookie: { type: apiKey, in: cookie, name: ecsid }
+    csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
+    Credentials:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, maxLength: 1024 }
+    EmailRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+    TokenRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token: { type: string, maxLength: 128 }
+    RefreshRequest:
+      type: object
+      additionalProperties: false
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string, maxLength: 128 }
+    User:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        email: { type: string }
+        display_name: { type: string }
+        is_platform_admin: { type: boolean }
+        locale: { type: string }
+    TenantMembership:
+      type: object
+      properties:
+        id: { type: string, description: Tenant ULID (active tenant) }
+        tenant_id: { type: string, description: Tenant ULID (memberships list) }
+        name: { type: string }
+        type: { type: string, enum: [personal, organization] }
+        role: { type: string, enum: [org_admin, instructor, student, read_only] }
     Meta:
       type: object
       properties:
@@ -63,7 +323,8 @@ components:
             code:
               type: string
               enum: [VALIDATION_ERROR, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED, CONFLICT,
-                     QUOTA_EXCEEDED, PAYLOAD_TOO_LARGE, RATE_LIMITED, SERVICE_UNAVAILABLE, INTERNAL_ERROR]
+                     QUOTA_EXCEEDED, PAYLOAD_TOO_LARGE, RATE_LIMITED, SERVICE_UNAVAILABLE, INTERNAL_ERROR,
+                     CSRF_INVALID, INVALID_CREDENTIALS, EMAIL_NOT_VERIFIED, ACCOUNT_DISABLED, TOKEN_INVALID]
             message: { type: string }
             details:
               type: array
@@ -76,6 +337,33 @@ components:
                   message: { type: string }
         meta: { $ref: '#/components/schemas/Meta' }
   responses:
+    Ok:
+      description: Success envelope with a message
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+    Accepted:
+      description: Accepted; the same generic message is returned whether or not the account exists
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+    TokenPair:
+      description: Access and refresh tokens
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token_type: { type: string, const: Bearer }
+                      access_token: { type: string }
+                      expires_in: { type: integer }
+                      refresh_token: { type: string }
+                      refresh_expires_in: { type: integer }
     Error:
       description: Error envelope (never contains stack traces, SQL or paths)
       content:

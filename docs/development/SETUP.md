@@ -63,7 +63,7 @@ php scripts/migrate.php status
 
 ### Default — XAMPP Apache, sub-directory URL (no Apache config changes, ADR-013)
 
-With Apache running, open **http://localhost/EduCloud%20Lab/**. `APP_URL` in `.env` must be `http://localhost/EduCloud%20Lab`.
+With Apache running, open **http://localhost/EduCloudLab/**. `APP_URL` in `.env` must be `http://localhost/EduCloudLab`.
 
 The root `.htaccess` rewrites every request into `public/`, so files such as `.env`, `vendor/` or `app/` return 403/404. This requires `mod_rewrite` (enabled in XAMPP) and `AllowOverride All` for htdocs (the XAMPP default).
 
@@ -91,8 +91,8 @@ Both files below are **shared by every XAMPP project**, so edit them carefully a
 
    <VirtualHost *:80>
        ServerName educloud.test
-       DocumentRoot "C:/xampp/htdocs/EduCloud Lab/public"
-       <Directory "C:/xampp/htdocs/EduCloud Lab/public">
+       DocumentRoot "C:/xampp/htdocs/EduCloudLab/public"
+       <Directory "C:/xampp/htdocs/EduCloudLab/public">
            AllowOverride All
            Require local
        </Directory>

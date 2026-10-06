@@ -1,4 +1,4 @@
-# EduCloud Lab served from a sub-directory of the shared XAMPP htdocs: http://localhost/EduCloud%20Lab/
+# EduCloud Lab served from a sub-directory of the shared XAMPP htdocs: http://localhost/EduCloudLab/
 # Every request is rewritten internally into public/, so no file outside public/ (.env, app/, vendor/,
 # database/, storage/, composer.json, ...) can ever be served directly. Unknown paths reach the front
 # controller and get a 404 from the application.

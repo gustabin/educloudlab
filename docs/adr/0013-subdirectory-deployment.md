@@ -3,7 +3,7 @@
 - Status: Accepted (2026-10-06, user decision). Refines ADR-011 and plan §8 "Hosting".
 
 ## Context
-The user wants to open the app at `http://localhost/EduCloud%20Lab/` without changing the shared Apache vhosts or the Windows hosts file.
+The user wants to open the app at `http://localhost/EduCloudLab/` without changing the shared Apache vhosts or the Windows hosts file.
 
 ## Options
 1. A vhost `educloud.test` with DocumentRoot at `public/`.
@@ -22,3 +22,9 @@ Option 2.
 - Templates must never hardcode root-relative links. Always use `url()`/`asset()`.
 - Moving to a vhost or a domain root later only needs a new `APP_URL`, with no code changes.
 - The PHP built-in server (`scripts/dev-router.php`) serves from `/`, so set `APP_URL=http://127.0.0.1:8099` when using it.
+
+## Update (2026-10-06)
+The project folder was renamed from `EduCloud Lab` to `EduCloudLab` (user decision) to avoid `%20` in URLs. The app is now served at `http://localhost/EduCloudLab/`. No code changes were needed, only `APP_URL`, which shows the base-path design works as intended.
+
+## Update (2026-10-06)
+The project folder was renamed from `EduCloud Lab` to `EduCloudLab` (user decision) to avoid `%20` in URLs. The app is now served at `http://localhost/EduCloudLab/`. No code changes were needed, only `APP_URL`, which shows the base-path design works as intended.

@@ -41,7 +41,7 @@ final class Request
     ) {
     }
 
-    /** @param string $basePath decoded deployment base path (e.g. "/EduCloud Lab"), stripped from the request path */
+    /** @param string $basePath decoded deployment base path (e.g. "/EduCloudLab"), stripped from the request path */
     public static function fromGlobals(string $basePath = ''): self
     {
         $headers = [];

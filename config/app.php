@@ -5,7 +5,7 @@ declare(strict_types=1);
 /** @var array<string, string> $env */
 
 $appUrl = rtrim($env['APP_URL'] ?? 'http://localhost', '/');
-// Sub-directory deployments (e.g. http://localhost/EduCloud%20Lab): decoded path used to match requests.
+// Sub-directory deployments (e.g. http://localhost/EduCloudLab): decoded path used to match requests.
 $basePath = rtrim(rawurldecode((string) parse_url($appUrl, PHP_URL_PATH)), '/');
 
 return [

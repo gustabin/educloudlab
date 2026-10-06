@@ -18,7 +18,7 @@ composer install
 copy .env.example .env      # then edit it
 php scripts/check-env.php
 ```
-Open **http://localhost/EduCloud%20Lab/** (Apache from XAMPP must be running).
+Open **http://localhost/EduCloudLab/** (Apache from XAMPP must be running).
 Full setup (database users, migrations, vhost, assets): `docs/development/SETUP.md`.
 
 ## Documentation

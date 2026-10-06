@@ -22,19 +22,26 @@ final class UrlTest extends TestCase
         self::assertSame('', Url::baseHref());
     }
 
+    public function testSubDirectoryDeployment(): void
+    {
+        Url::setBasePath('/EduCloudLab');
+        self::assertSame('/EduCloudLab', Url::baseHref());
+        self::assertSame('/EduCloudLab/register', Url::to('/register'));
+        self::assertSame('/EduCloudLab/', Url::to('/'));
+        self::assertSame('/EduCloudLab/assets/css/app.css', Url::to('assets/css/app.css'));
+    }
+
     public function testSubDirectoryWithSpaceIsEncodedInLinks(): void
     {
-        Url::setBasePath('/EduCloud Lab');
-        self::assertSame('/EduCloud%20Lab', Url::baseHref());
-        self::assertSame('/EduCloud%20Lab/register', Url::to('/register'));
-        self::assertSame('/EduCloud%20Lab/', Url::to('/'));
-        self::assertSame('/EduCloud%20Lab/assets/css/app.css', Url::to('assets/css/app.css'));
+        Url::setBasePath('/Edu Cloud');
+        self::assertSame('/Edu%20Cloud', Url::baseHref());
+        self::assertSame('/Edu%20Cloud/register', Url::to('/register'));
     }
 
     public function testBasePathIsNormalised(): void
     {
-        Url::setBasePath('EduCloud Lab/');
-        self::assertSame('/EduCloud Lab', Url::basePath());
+        Url::setBasePath('EduCloudLab/');
+        self::assertSame('/EduCloudLab', Url::basePath());
         Url::setBasePath('/');
         self::assertSame('', Url::basePath());
     }
@@ -42,11 +49,11 @@ final class UrlTest extends TestCase
     /** @return iterable<string, array{string, string, string}> */
     public static function paths(): iterable
     {
-        yield 'root of app' => ['/EduCloud Lab', '/EduCloud Lab', '/'];
-        yield 'trailing slash' => ['/EduCloud Lab/', '/EduCloud Lab', '/'];
-        yield 'api route' => ['/EduCloud Lab/api/v1/health', '/EduCloud Lab', '/api/v1/health'];
-        yield 'similar prefix is not stripped' => ['/EduCloud Labs/x', '/EduCloud Lab', '/EduCloud Labs/x'];
-        yield 'outside base unchanged' => ['/other/x', '/EduCloud Lab', '/other/x'];
+        yield 'root of app' => ['/EduCloudLab', '/EduCloudLab', '/'];
+        yield 'trailing slash' => ['/EduCloudLab/', '/EduCloudLab', '/'];
+        yield 'api route' => ['/EduCloudLab/api/v1/health', '/EduCloudLab', '/api/v1/health'];
+        yield 'similar prefix is not stripped' => ['/EduCloudLabs/x', '/EduCloudLab', '/EduCloudLabs/x'];
+        yield 'outside base unchanged' => ['/other/x', '/EduCloudLab', '/other/x'];
         yield 'no base' => ['/api/v1/health/', '', '/api/v1/health'];
     }
 

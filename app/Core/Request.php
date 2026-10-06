@@ -41,7 +41,8 @@ final class Request
     ) {
     }
 
-    public static function fromGlobals(): self
+    /** @param string $basePath decoded deployment base path (e.g. "/EduCloud Lab"), stripped from the request path */
+    public static function fromGlobals(string $basePath = ''): self
     {
         $headers = [];
         foreach ($_SERVER as $key => $value) {
@@ -56,8 +57,7 @@ final class Request
         }
 
         $path = parse_url((string) ($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
-        $path = is_string($path) ? rawurldecode($path) : '/';
-        $path = '/' . trim($path, '/');
+        $path = Url::stripBasePath(is_string($path) ? rawurldecode($path) : '/', $basePath);
 
         $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
         $body = in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)

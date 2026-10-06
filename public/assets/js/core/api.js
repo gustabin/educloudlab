@@ -15,6 +15,13 @@
     strings = {};
   }
 
+  // Deployment base path (e.g. "/EduCloud%20Lab"); app-relative URLs passed to request() are prefixed with it.
+  var base = $('meta[name="app-base"]').attr('content') || '';
+
+  function appUrl(path) {
+    return path.charAt(0) === '/' ? base + path : path;
+  }
+
   function csrfToken() {
     return $('meta[name="csrf-token"]').attr('content') || '';
   }
@@ -67,7 +74,7 @@
     }
 
     return $.ajax({
-      url: opts.url,
+      url: appUrl(opts.url),
       method: method,
       headers: headers,
       timeout: opts.timeout || 15000,
@@ -126,5 +133,5 @@
   }
 
   window.EduCloud = window.EduCloud || {};
-  window.EduCloud.api = { request: request, showError: showError, showFieldErrors: showFieldErrors, announce: announce };
+  window.EduCloud.api = { request: request, url: appUrl, showError: showError, showFieldErrors: showFieldErrors, announce: announce };
 })(window, jQuery);

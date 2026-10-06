@@ -1,3 +1,22 @@
-# Defense in depth for the shared XAMPP htdocs: nothing outside public/ is web-accessible.
-# The application is served through a vhost whose DocumentRoot is ./public (see docs/development/SETUP.md).
-Require all denied
+# EduCloud Lab served from a sub-directory of the shared XAMPP htdocs: http://localhost/EduCloud%20Lab/
+# Every request is rewritten internally into public/, so no file outside public/ (.env, app/, vendor/,
+# database/, storage/, composer.json, ...) can ever be served directly. Unknown paths reach the front
+# controller and get a 404 from the application.
+# Fail closed: without mod_rewrite nothing in this directory is reachable.
+
+Options -Indexes -MultiViews
+
+<IfModule !mod_rewrite.c>
+    Require all denied
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Requests already rewritten into public/ are handled by public/.htaccess (no loop: its rules take over).
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Defense in depth if the rewrite above is ever removed by mistake.
+<FilesMatch "^(\.env.*|composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|phpstan\.neon|phpcs\.xml|.*\.(sql|md|log|neon|lock|yml|yaml))$">
+    Require all denied
+</FilesMatch>

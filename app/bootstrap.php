@@ -5,6 +5,7 @@ declare(strict_types=1);
 use EduCloud\Core\App;
 use EduCloud\Core\Config;
 use EduCloud\Core\I18n;
+use EduCloud\Core\Url;
 
 $root = dirname(__DIR__);
 require $root . '/vendor/autoload.php';
@@ -25,5 +26,6 @@ set_error_handler(static function (int $severity, string $message, string $file,
 
 $config = Config::load($root);
 I18n::setLocale((string) $config->get('app.locale', 'es'));
+Url::setBasePath((string) $config->get('app.base_path', ''));
 
 return App::create($config);

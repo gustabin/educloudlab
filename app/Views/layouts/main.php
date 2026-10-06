@@ -20,6 +20,7 @@ $jsStrings = [
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="app-base" content="<?= e(\EduCloud\Core\Url::baseHref()) ?>">
     <title><?= e($title) ?></title>
 <?php if ($metaDescription !== null): ?>
     <meta name="description" content="<?= e($metaDescription) ?>">
@@ -46,7 +47,7 @@ $jsStrings = [
 
 <header class="ec-site-header">
     <nav class="navbar navbar-expand-md container" aria-label="Principal">
-        <a class="navbar-brand ec-brand" href="/">
+        <a class="navbar-brand ec-brand" href="<?= e(url('/')) ?>">
             <i class="fa-solid fa-cloud ec-brand-mark" aria-hidden="true"></i> <?= e($appName) ?>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#ec-nav"
@@ -55,10 +56,10 @@ $jsStrings = [
         </button>
         <div class="collapse navbar-collapse" id="ec-nav">
             <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
-                <li class="nav-item"><a class="nav-link" href="/"><?= e(t('nav.home')) ?></a></li>
-                <li class="nav-item"><a class="nav-link" href="/courses"><?= e(t('nav.catalog')) ?></a></li>
-                <li class="nav-item"><a class="nav-link" href="/login"><?= e(t('nav.login')) ?></a></li>
-                <li class="nav-item"><a class="btn btn-primary btn-sm" href="/register"><?= e(t('nav.register')) ?></a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= e(url('/')) ?>"><?= e(t('nav.home')) ?></a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= e(url('/courses')) ?>"><?= e(t('nav.catalog')) ?></a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= e(url('/login')) ?>"><?= e(t('nav.login')) ?></a></li>
+                <li class="nav-item"><a class="btn btn-primary btn-sm" href="<?= e(url('/register')) ?>"><?= e(t('nav.register')) ?></a></li>
             </ul>
         </div>
     </nav>

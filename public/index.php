@@ -17,4 +17,4 @@ try {
     exit;
 }
 
-(new Kernel($app))->handle(Request::fromGlobals())->send();
+(new Kernel($app))->handle(Request::fromGlobals((string) $app->config->get('app.base_path', '')))->send();

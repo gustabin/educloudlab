@@ -61,7 +61,15 @@ php scripts/migrate.php status
 
 ## 4. Web server
 
-### Option A — PHP built-in server (no Apache changes)
+### Default — XAMPP Apache, sub-directory URL (no Apache config changes, ADR-013)
+
+With Apache running, open **http://localhost/EduCloud%20Lab/**. `APP_URL` in `.env` must be `http://localhost/EduCloud%20Lab`.
+
+The root `.htaccess` rewrites every request into `public/`, so files such as `.env`, `vendor/` or `app/` return 403/404. This requires `mod_rewrite` (enabled in XAMPP) and `AllowOverride All` for htdocs (the XAMPP default).
+
+### Option A — PHP built-in server
+
+Set `APP_URL=http://127.0.0.1:8099` in `.env`, then run:
 
 ```
 php -d xdebug.mode=off -S 127.0.0.1:8099 -t public scripts/dev-router.php
@@ -69,7 +77,7 @@ php -d xdebug.mode=off -S 127.0.0.1:8099 -t public scripts/dev-router.php
 
 Open http://127.0.0.1:8099/.
 
-### Option B — Apache virtual host `educloud.test` (recommended)
+### Option B — Apache virtual host `educloud.test` (optional)
 
 Both files below are **shared by every XAMPP project**, so edit them carefully and back them up first.
 
@@ -101,9 +109,7 @@ Both files below are **shared by every XAMPP project**, so edit them carefully a
    127.0.0.1  educloud.test
    ```
 
-3. Restart Apache from the XAMPP control panel and open http://educloud.test/.
-
-The project root `.htaccess` denies all access, so `http://localhost/EduCloud%20Lab/...` (including `.env`) returns 403.
+3. Set `APP_URL=http://educloud.test`, restart Apache from the XAMPP control panel and open http://educloud.test/.
 
 ## 5. Frontend assets (only when upgrading libraries)
 

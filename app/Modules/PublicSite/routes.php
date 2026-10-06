@@ -23,7 +23,7 @@ return static function (Router $router, App $app): void {
         '/robots.txt',
         static fn (Request $r, App $app): Response => new Response(
             200,
-            "User-agent: *\nDisallow: /api/\nDisallow: /app/\n\nSitemap: " . $app->config->get('app.url') . "/sitemap.xml\n",
+            "User-agent: *\nDisallow: " . url('/api/') . "\n\nSitemap: " . $app->config->get('app.url') . "/sitemap.xml\n",
             ['Content-Type' => 'text/plain; charset=UTF-8']
         ),
         ['public' => true, 'name' => 'public.robots']

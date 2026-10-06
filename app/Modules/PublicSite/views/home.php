@@ -11,8 +11,8 @@ $features = [
         <h1 class="display-5 mb-3"><?= e(t('home.hero.title')) ?></h1>
         <p class="lead mb-4"><?= e(t('home.hero.lead')) ?></p>
         <div class="d-flex flex-wrap gap-2">
-            <a class="btn btn-primary btn-lg" href="/register"><?= e(t('home.hero.cta')) ?></a>
-            <a class="btn btn-outline-primary btn-lg" href="/labs"><?= e(t('home.hero.secondary')) ?></a>
+            <a class="btn btn-primary btn-lg" href="<?= e(url('/register')) ?>"><?= e(t('home.hero.cta')) ?></a>
+            <a class="btn btn-outline-primary btn-lg" href="<?= e(url('/labs')) ?>"><?= e(t('home.hero.secondary')) ?></a>
         </div>
     </div>
 </section>

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use EduCloud\Core\I18n;
+use EduCloud\Core\Url;
 
 if (!function_exists('e')) {
     /** HTML-escape for text and quoted attribute contexts. Use for EVERY dynamic value in templates. */
@@ -33,6 +34,14 @@ if (!function_exists('t')) {
     }
 }
 
+if (!function_exists('url')) {
+    /** App-relative URL honouring the deployment base path: url('/register'). Escape with e() in templates. */
+    function url(string $path = '/'): string
+    {
+        return Url::to($path);
+    }
+}
+
 if (!function_exists('asset')) {
     /** Public asset URL with cache-busting version derived from the file's mtime. */
     function asset(string $path): string
@@ -43,6 +52,6 @@ if (!function_exists('asset')) {
         }
         $file = dirname(__DIR__) . '/public/assets/' . $path;
         $version = is_file($file) ? (string) filemtime($file) : '0';
-        return '/assets/' . $path . '?v=' . $version;
+        return Url::to('/assets/' . $path) . '?v=' . $version;
     }
 }

@@ -213,7 +213,7 @@ EduCloud Lab/
 
 This adapts the spec's `api/v1/<module>` folders: API routes are declared per module and dispatched by one front controller. That gives one middleware pipeline and a route registry, and the registry makes the automated cross-tenant route matrix test possible.
 
-**Hosting [R]:** add a vhost `educloud.test` → `.../EduCloud Lab/public` and a hosts-file entry. The user does this, because it touches the shared XAMPP config and needs admin rights. The root `.htaccess` denies everything else.
+**Hosting — superseded by ADR-013:** the app is served at `http://localhost/EduCloud%20Lab/` through internal rewriting into `public/`. The original recommendation was: add a vhost `educloud.test` → `.../EduCloud Lab/public` and a hosts-file entry. The user does this, because it touches the shared XAMPP config and needs admin rights. The root `.htaccess` denies everything else.
 
 ---
 

@@ -65,14 +65,23 @@ Each component remains under its own license. License texts ship inside each pac
 | theseer/tokenizer | 1.3.1 | BSD-3-Clause |
 | vlucas/phpdotenv | v5.7.0 | BSD-3-Clause |
 
+## Vendored frontend libraries (`public/assets/vendor`, distributed with the app)
+
+Fetched with `npm run vendor` (see `package.json`). Each library's license file is copied next to it.
+
+| Library | Version | License |
+|---|---|---|
+| jQuery | 3.7.1 | MIT |
+| Bootstrap | 5.3.8 | MIT |
+| SweetAlert2 | 11.26.25 | MIT |
+| Font Awesome Free | 6.7.2 | Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT. Attribution is kept in `fontawesome/LICENSE.txt`. |
+
+**Note on SweetAlert2:** releases since 11.4.9 contain code that changes behaviour only on pages served from Russian/Belarusian domains with a Russian-language UI. It has no effect on EduCloud Lab deployments under other domains. The issue is recorded here for transparency, and the library will be replaced if that condition ever applies.
+
 ## Planned components (to be verified when added)
 
 | Component | Milestone | Expected license |
 |---|---|---|
-| jQuery 3.7 | M1-T08 | MIT |
-| Bootstrap 5.3 | M1-T08 | MIT |
-| SweetAlert2 | M1-T08 | MIT |
-| Font Awesome Free 6 | M1-T08 | Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT (attribution required) |
 | CodeMirror 5 | M5-T05 | MIT |
 | Chart.js 4 | M9 | MIT |
 | DuckDB (Python package) | M4-T03 | MIT |

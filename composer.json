@@ -22,13 +22,22 @@
     "squizlabs/php_codesniffer": "^3.10"
   },
   "autoload": {
-    "psr-4": { "EduCloud\\": "app/" }
+    "psr-4": {
+      "EduCloud\\": "app/"
+    },
+    "files": [
+      "app/helpers.php"
+    ]
   },
   "autoload-dev": {
-    "psr-4": { "EduCloud\\Tests\\": "tests/" }
+    "psr-4": {
+      "EduCloud\\Tests\\": "tests/"
+    }
   },
   "config": {
-    "platform": { "php": "8.1.6" },
+    "platform": {
+      "php": "8.1.6"
+    },
     "sort-packages": true,
     "optimize-autoloader": true
   },
@@ -36,6 +45,10 @@
     "test": "phpunit",
     "stan": "phpstan analyse --memory-limit=512M",
     "lint": "phpcs",
-    "check": ["@lint", "@stan", "@test"]
+    "check": [
+      "@lint",
+      "@stan",
+      "@test"
+    ]
   }
 }

@@ -1,0 +1,11 @@
+parameters:
+    level: 6
+    paths:
+        - app
+        - config
+        - scripts/migrate.php
+        - scripts/check-env.php
+    excludePaths:
+        - app/Views/*
+        - app/Modules/*/views/*
+    tmpDir: .phpstan-cache

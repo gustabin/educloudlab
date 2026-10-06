@@ -1,12 +1,12 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * EduCloud Lab environment checker (M0-T05).
  * Usage: php scripts/check-env.php
  * Exit code 1 if any FAIL. WARN items describe degraded or optional capabilities.
  */
+
+declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -21,6 +21,7 @@ $add = static function (string $status, string $check, string $detail) use (&$re
 };
 
 // --- PHP ---------------------------------------------------------------------
+// @phpstan-ignore if.alwaysFalse (runtime check: the script may run under a different PHP binary)
 if (version_compare(PHP_VERSION, '8.1.6', '<')) {
     $add('FAIL', 'PHP version', PHP_VERSION . ' (need >= 8.1.6)');
 } elseif (version_compare(PHP_VERSION, '8.2.0', '<')) {
@@ -116,7 +117,11 @@ if (is_file($pythonPath)) {
 }
 
 $docker = $run('docker info --format "{{.ServerVersion}}"');
-$add($docker !== null ? 'OK' : 'WARN', 'Docker (optional, M8)', $docker !== null ? "daemon $docker" : 'daemon not running - notebooks stay in demo mode');
+$add(
+    $docker !== null ? 'OK' : 'WARN',
+    'Docker (optional, M8)',
+    $docker !== null ? "daemon $docker" : 'daemon not running - notebooks stay in demo mode'
+);
 
 // --- Report ------------------------------------------------------------------
 $fail = 0;

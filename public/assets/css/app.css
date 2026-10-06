@@ -1,0 +1,97 @@
+/* EduCloud Lab base styles. Use tokens from tokens.css; no hardcoded colors here. */
+
+body {
+  background: var(--ec-surface);
+  color: var(--ec-text);
+  font-family: var(--ec-font-sans);
+}
+
+:focus-visible {
+  outline: 3px solid var(--ec-focus);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--ec-space-2);
+  top: -100px;
+  z-index: 2000;
+  padding: var(--ec-space-2) var(--ec-space-4);
+  background: var(--ec-primary);
+  color: #fff;
+  border-radius: var(--ec-radius-sm);
+}
+.skip-link:focus { top: var(--ec-space-2); }
+
+.btn-primary {
+  --bs-btn-bg: var(--ec-primary);
+  --bs-btn-border-color: var(--ec-primary);
+  --bs-btn-hover-bg: var(--ec-primary-hover);
+  --bs-btn-hover-border-color: var(--ec-primary-hover);
+  --bs-btn-active-bg: var(--ec-primary-hover);
+  --bs-btn-disabled-bg: var(--ec-primary);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--ec-primary);
+  --bs-btn-border-color: var(--ec-primary);
+  --bs-btn-hover-bg: var(--ec-primary);
+  --bs-btn-hover-border-color: var(--ec-primary);
+}
+
+/* Public site */
+.ec-site-header { border-bottom: 1px solid var(--ec-border); background: var(--ec-surface); }
+.ec-brand { font-weight: 700; color: var(--ec-text); text-decoration: none; }
+.ec-brand .ec-brand-mark { color: var(--ec-primary); }
+
+.ec-hero {
+  padding: var(--ec-space-8) 0 var(--ec-space-7);
+  background: linear-gradient(180deg, var(--ec-primary-subtle) 0%, var(--ec-surface) 100%);
+}
+.ec-hero h1 { font-weight: 700; letter-spacing: -0.01em; }
+.ec-hero .lead { color: var(--ec-text-muted); max-width: 46rem; }
+
+.ec-feature {
+  height: 100%;
+  padding: var(--ec-space-5);
+  border: 1px solid var(--ec-border);
+  border-radius: var(--ec-radius-lg);
+  background: var(--ec-surface);
+}
+.ec-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: var(--ec-space-3);
+  border-radius: var(--ec-radius-md);
+  background: var(--ec-primary-subtle);
+  color: var(--ec-primary);
+}
+
+.ec-site-footer {
+  margin-top: var(--ec-space-8);
+  padding: var(--ec-space-5) 0;
+  border-top: 1px solid var(--ec-border);
+  background: var(--ec-surface-2);
+  color: var(--ec-text-muted);
+  font-size: 0.875rem;
+}
+
+/* Error pages */
+.ec-error { padding: var(--ec-space-8) 0; text-align: center; }
+.ec-error-code { font-size: 4rem; font-weight: 700; color: var(--ec-primary); line-height: 1; }
+.ec-request-id { font-family: var(--ec-font-mono); font-size: 0.875rem; color: var(--ec-text-muted); }
+
+/* Async feedback */
+.ec-busy { pointer-events: none; opacity: 0.75; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* SweetAlert2 aligned with design tokens */
+.swal2-popup { font-family: var(--ec-font-sans); border-radius: var(--ec-radius-lg); }
+.swal2-styled.swal2-confirm { background-color: var(--ec-primary); }
+.swal2-styled.swal2-confirm:focus-visible { box-shadow: 0 0 0 3px var(--ec-focus); }
+.swal2-footer { color: var(--ec-text-muted); font-family: var(--ec-font-mono); }

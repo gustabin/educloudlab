@@ -1,0 +1,9 @@
+<?php
+
+declare(strict_types=1);
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+date_default_timezone_set('UTC');
+mb_internal_encoding('UTF-8');
+\EduCloud\Core\I18n::setLocale('es');

@@ -1,0 +1,62 @@
+/* EduCloud Lab design tokens (see .claude/skills/design/SKILL.md).
+   Text/background pairs below meet WCAG 2.1 AA (>= 4.5:1). */
+:root {
+  --ec-primary: #0f766e;        /* teal 700 - 5.5:1 on white */
+  --ec-primary-hover: #115e59;
+  --ec-primary-subtle: #ccfbf1;
+  --ec-accent: #4338ca;         /* indigo 700 - 7.4:1 on white */
+  --ec-success: #15803d;
+  --ec-warning: #b45309;
+  --ec-danger: #b91c1c;
+  --ec-info: #0369a1;
+  --ec-surface: #ffffff;
+  --ec-surface-2: #f4f6f8;
+  --ec-border: #d5dbe1;
+  --ec-text: #1f2933;
+  --ec-text-muted: #52606d;     /* 6.4:1 on white */
+  --ec-focus: #4338ca;
+
+  --ec-space-1: 4px;
+  --ec-space-2: 8px;
+  --ec-space-3: 12px;
+  --ec-space-4: 16px;
+  --ec-space-5: 24px;
+  --ec-space-6: 32px;
+  --ec-space-7: 48px;
+  --ec-space-8: 64px;
+
+  --ec-radius-sm: 4px;
+  --ec-radius-md: 8px;
+  --ec-radius-lg: 12px;
+
+  --ec-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  --ec-font-mono: ui-monospace, "Cascadia Code", Consolas, "Liberation Mono", monospace;
+
+  /* Map onto Bootstrap variables instead of overriding component CSS. */
+  --bs-primary: var(--ec-primary);
+  --bs-primary-rgb: 15, 118, 110;
+  --bs-link-color: var(--ec-primary);
+  --bs-link-color-rgb: 15, 118, 110;
+  --bs-link-hover-color: var(--ec-primary-hover);
+  --bs-body-font-family: var(--ec-font-sans);
+  --bs-body-color: var(--ec-text);
+  --bs-body-bg: var(--ec-surface);
+  --bs-border-color: var(--ec-border);
+  --bs-secondary-color: var(--ec-text-muted);
+  --bs-border-radius: var(--ec-radius-md);
+}
+
+[data-bs-theme="dark"] {
+  --ec-primary: #2dd4bf;        /* 9.6:1 on #0f172a */
+  --ec-primary-hover: #5eead4;
+  --ec-primary-subtle: #134e4a;
+  --ec-accent: #a5b4fc;
+  --ec-surface: #0f172a;
+  --ec-surface-2: #1e293b;
+  --ec-border: #334155;
+  --ec-text: #e2e8f0;
+  --ec-text-muted: #a3b1c2;
+  --ec-focus: #a5b4fc;
+  --bs-primary-rgb: 45, 212, 191;
+  --bs-link-color-rgb: 45, 212, 191;
+}

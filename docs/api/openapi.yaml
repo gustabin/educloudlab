@@ -1,0 +1,83 @@
+openapi: 3.1.0
+info:
+  title: EduCloud Lab API
+  version: 0.1.0
+  description: |
+    Versioned REST API of EduCloud Lab. All responses use the standard envelope.
+    Authentication (session cookie + CSRF for the browser, Bearer JWT for API clients) is added in M2.
+servers:
+  - url: http://educloud.test/api/v1
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness/readiness probe (no versions or internals exposed)
+      tags: [system]
+      security: []
+      responses:
+        '200':
+          description: Service and database reachable
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        required: [status, checks]
+                        properties:
+                          status: { type: string, const: ok }
+                          checks:
+                            type: object
+                            properties:
+                              database: { type: string, enum: [ok] }
+        '503':
+          $ref: '#/components/responses/Error'
+        '405':
+          $ref: '#/components/responses/Error'
+components:
+  schemas:
+    Meta:
+      type: object
+      properties:
+        request_id: { type: string, pattern: '^[0-7][0-9A-HJKMNP-TV-Z]{25}$' }
+    SuccessEnvelope:
+      type: object
+      required: [success, data]
+      properties:
+        success: { type: boolean, const: true }
+        data: {}
+        message: { type: string }
+        meta: { $ref: '#/components/schemas/Meta' }
+    ErrorEnvelope:
+      type: object
+      required: [success, error]
+      properties:
+        success: { type: boolean, const: false }
+        error:
+          type: object
+          required: [code, message, details]
+          properties:
+            code:
+              type: string
+              enum: [VALIDATION_ERROR, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED, CONFLICT,
+                     QUOTA_EXCEEDED, PAYLOAD_TOO_LARGE, RATE_LIMITED, SERVICE_UNAVAILABLE, INTERNAL_ERROR]
+            message: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                required: [code, message]
+                properties:
+                  field: { type: string }
+                  code: { type: string }
+                  message: { type: string }
+        meta: { $ref: '#/components/schemas/Meta' }
+  responses:
+    Error:
+      description: Error envelope (never contains stack traces, SQL or paths)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }

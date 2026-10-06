@@ -1,7 +1,5 @@
 <?php
 
-declare(strict_types=1);
-
 /**
  * EduCloud Lab migration runner (M1-T06).
  *
@@ -16,6 +14,8 @@ declare(strict_types=1);
  * Note: DDL auto-commits in MySQL/MariaDB, so a failed migration is NOT rolled back automatically;
  * fix forward or run its .down.sql manually. Always back up non-test databases first.
  */
+
+declare(strict_types=1);
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);

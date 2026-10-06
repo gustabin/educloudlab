@@ -5,7 +5,9 @@ An independent educational platform for practising cloud computing, data enginee
 > EduCloud Lab is **not** affiliated with, endorsed by or certified by Microsoft. Azure and Fabric are mentioned only as conceptual references in educational material.
 
 ## Status
-**M0 (Discovery & Architecture) complete.** The application itself is not implemented yet. See `docs/IMPLEMENTATION_MASTER_PLAN.md` for the roadmap.
+- **M0** (discovery & architecture): complete.
+- **M1** (foundation): complete. It covers the front controller, router, JSON envelope, error handling, logging, MySQLi layer, migrations, security headers/CSP, layout and tooling.
+- Next: **M2** (authentication & security). See `docs/IMPLEMENTATION_MASTER_PLAN.md`.
 
 ## Stack
 PHP 8.1 (XAMPP, see ADR-001) · MariaDB/MySQL via MySQLi · REST API + jQuery/AJAX · Bootstrap 5 · SweetAlert2 · PHPMailer · JWT for API clients · Python + DuckDB execution runner.
@@ -16,7 +18,7 @@ composer install
 copy .env.example .env      # then edit it
 php scripts/check-env.php
 ```
-Full setup (database users, vhost, storage, Python runner) will be in `docs/development/SETUP.md` (M1).
+Full setup (database users, migrations, vhost, assets): `docs/development/SETUP.md`.
 
 ## Documentation
 - `docs/IMPLEMENTATION_MASTER_PLAN.md`: architecture, scope, milestones, risks

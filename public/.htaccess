@@ -1,0 +1,22 @@
+# EduCloud Lab web root (vhost DocumentRoot points here).
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Block dotfiles (e.g. .htaccess, .git) except .well-known
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+    # Serve existing static files directly; everything else goes to the front controller.
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+# Only index.php may execute as PHP inside the web root.
+<FilesMatch "\.(php|phtml|phar)$">
+    Require all denied
+</FilesMatch>
+<Files "index.php">
+    Require all granted
+</Files>

@@ -289,7 +289,7 @@ erDiagram
   tenants ||--o{ usage_counters : meters
 ```
 
-**MVP tables (purpose, owner):**
+**MVP tables (purpose, owner):** (implemented in migrations 0001–0008; `docs/database/SCHEMA.md` is authoritative. Changes vs. this draft: `datasets.current_version_id` and `source_dataset_id` were removed to avoid circular FKs, `lab_hint_usage` and `users.is_platform_admin` were added, and `enrollments.role` was added.)
 
 | Table | Purpose | Owner / scope |
 |---|---|---|
@@ -908,7 +908,7 @@ Acceptance criteria use Given/When/Then and live with each task. Template: spec 
 4. **User actions, in parallel:**
    - Start Apache and MySQL.
    - Set a MariaDB root password.
-   - ~~Choose a project license~~: proprietary (ADR-012). DB users created, `.env` generated, `C:educloud-data` created (2026-10-06).
+   - ~~Choose a project license~~: proprietary (ADR-012). DB users created, `.env` generated, `C:/educloud-data` created (2026-10-06).
    - Say whether a GitHub remote should be set up.
    - Add the `educloud.test` vhost and hosts entry (instructions provided in M1).
 5. Then start M1.

@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS query_history;
+DROP TABLE IF EXISTS jobs;
+DROP TABLE IF EXISTS dataset_versions;
+DROP TABLE IF EXISTS datasets;

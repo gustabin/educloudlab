@@ -25,4 +25,4 @@ Full setup (database users, vhost, storage, Python runner) will be in `docs/deve
 - `THIRD_PARTY_NOTICES.md`: dependency licenses
 
 ## License
-To be decided (ADR-012).
+Proprietary, all rights reserved (ADR-012). See `LICENSE`.

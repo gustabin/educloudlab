@@ -84,9 +84,15 @@ Fetched with `npm run vendor` (see `package.json`). Each library's license file 
 |---|---|---|
 | CodeMirror 5 | M5-T05 | MIT |
 | Chart.js 4 | M9 | MIT |
-| DuckDB (Python package) | M4-T03 | MIT |
-| Python 3.11 | M4-T03 | PSF-2.0 |
 | Playwright | M11a-T04 (dev) | Apache-2.0 |
+
+## Execution plane (Python, `worker/.venv`, not distributed with the web app)
+
+| Component | Version | License |
+|---|---|---|
+| Python | 3.11 | PSF-2.0 |
+| duckdb (PyPI) | 1.5.6 | MIT |
+| pytest (dev only) | 9.1.1 | MIT |
 
 ## Sample datasets
 

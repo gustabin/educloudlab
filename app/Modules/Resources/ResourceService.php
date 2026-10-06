@@ -164,6 +164,10 @@ final class ResourceService
     /** @param array<string, mixed> $row */
     private function assertCan(Request $request, TenantContext $ctx, array $row, string $permission): void
     {
+        if ($row['type'] === 'dataset') {
+            // Datasets own files/tables; their lifecycle is driven by the datasets API (cleanup jobs).
+            throw new ApiException(409, 'MANAGED_RESOURCE', 'Los datasets se gestionan desde la API de datasets.');
+        }
         if (!$this->policy->canModify($ctx, (int) $row['owner_user_id'], $permission)) {
             $this->app->audit()->record(
                 $request,

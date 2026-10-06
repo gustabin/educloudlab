@@ -150,3 +150,13 @@ body {
 .ec-status-provisioning, .ec-status-deleting { background: #e0f2fe; color: #0c4a6e; border-color: #7dd3fc; }
 .ec-status-failed { background: #fee2e2; color: #7f1d1d; border-color: #fca5a5; }
 .ec-status-deleted { background: var(--ec-surface-2); color: var(--ec-text-muted); border-color: var(--ec-border); }
+
+/* Datasets */
+.ec-layer { display: inline-block; padding: 2px 8px; border-radius: var(--ec-radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; border: 1px solid var(--ec-border); }
+.ec-layer-raw { background: var(--ec-surface-2); color: var(--ec-text); }
+.ec-layer-bronze { background: #fde7d3; color: #7c2d12; border-color: #fdba74; }
+.ec-layer-silver { background: #e5e7eb; color: #1f2937; border-color: #9ca3af; }
+.ec-layer-gold { background: #fef3c7; color: #713f12; border-color: #fcd34d; }
+.ec-preview-table { font-size: 0.8125rem; white-space: nowrap; }
+.ec-preview-table td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.ec-ds-error { color: var(--ec-danger); font-size: 0.8125rem; }

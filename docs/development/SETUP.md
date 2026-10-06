@@ -111,7 +111,26 @@ Both files below are **shared by every XAMPP project**, so edit them carefully a
 
 3. Set `APP_URL=http://educloud.test`, restart Apache from the XAMPP control panel and open http://educloud.test/.
 
-## 5. Email in development
+## 5. Execution plane (Python + DuckDB) and background processes
+
+```
+py -3.11 -m venv worker\.venv
+worker\.venv\Scripts\python -m pip install --require-hashes -r worker/requirements.txt
+worker\.venv\Scripts\python -m pip install -r worker/requirements-dev.txt     # pytest (dev only)
+php scripts/check-env.php                                                     # "Python runner ... OK"
+```
+
+Two background processes do the heavy work. Without them, uploads stay "Procesando…":
+
+| Process | Command | Suggested setup |
+|---|---|---|
+| Job dispatcher (single instance) | `php scripts/dispatcher.php` | A console window, or Task Scheduler "At log on" |
+| Housekeeping | `php scripts/scheduler.php` | Task Scheduler, every 5 minutes |
+| Mailer | `php scripts/mailer.php` | A console window (or `--once` when needed) |
+
+Details: `docs/architecture/EXECUTION.md`.
+
+## 5b. Email in development
 
 Auth emails (verification, password reset) are queued in `email_outbox`. Deliver them with:
 

@@ -532,16 +532,250 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/datasets:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    get:
+      operationId: listDatasets
+      summary: Datasets of a workspace (raw files and lakehouse tables), latest version each
+      tags: [datasets]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Datasets
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Dataset' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: uploadDataset
+      summary: Upload a CSV as a raw dataset; a profile job discovers schema, row count and preview
+      description: |
+        Validation: .csv only, up to quotas.upload_max_bytes (20 MB), text content (finfo + binary signature check),
+        UTF-8, no NUL bytes; structural CSV validation (strict) happens in the runner. The file is stored outside the
+        web root under a generated key; the client file name is display-only.
+      tags: [datasets]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, file]
+              properties:
+                name: { type: string, pattern: '^[a-z][a-z0-9_]{0,62}$' }
+                file: { type: string, format: binary }
+                csrf_token: { type: string, description: Alternative to the X-CSRF-Token header }
+      responses:
+        '202':
+          description: Accepted; a job was queued (poll GET /jobs/{job_id} or GET /datasets/{dataset_id})
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          dataset: { $ref: '#/components/schemas/Dataset' }
+                          job: { $ref: '#/components/schemas/Job' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /datasets/{dataset_id}:
+    parameters: [{ $ref: '#/components/parameters/DatasetId' }]
+    get:
+      operationId: getDataset
+      summary: Dataset with its latest version, schema and error (if processing failed)
+      tags: [datasets]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Dataset
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Dataset' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteDataset
+      summary: Delete a dataset (active|failed → deleting); a cleanup job removes its file or drops its table
+      tags: [datasets]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '202':
+          description: Cleanup job queued
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: object, properties: { job: { $ref: '#/components/schemas/Job' } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /datasets/{dataset_id}/preview:
+    parameters: [{ $ref: '#/components/parameters/DatasetId' }]
+    get:
+      operationId: previewDataset
+      summary: First rows (up to 50) captured when the dataset was processed
+      tags: [datasets]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Preview
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          columns: { type: array, items: { type: string } }
+                          rows: { type: array, items: { type: array, items: {} } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /datasets/{dataset_id}/ingest:
+    parameters: [{ $ref: '#/components/parameters/DatasetId' }]
+    post:
+      operationId: ingestDataset
+      summary: Ingest a ready raw dataset into bronze.<table_name> of the workspace lakehouse
+      description: Requires an active lakehouse resource in the workspace (409 LAKEHOUSE_REQUIRED). Column names are normalised to snake_case.
+      tags: [datasets]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [table_name]
+              properties:
+                table_name: { type: string, pattern: '^[a-z][a-z0-9_]{0,62}$' }
+      responses:
+        '202':
+          description: Accepted; a job was queued (poll GET /jobs/{job_id} or GET /datasets/{dataset_id})
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          dataset: { $ref: '#/components/schemas/Dataset' }
+                          job: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /jobs/{job_id}:
+    parameters: [{ name: job_id, in: path, required: true, schema: { type: string, description: ULID } }]
+    get:
+      operationId: getJob
+      summary: Execution job status (visible to its creator, or org_admin)
+      tags: [jobs]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Job
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
 components:
   parameters:
     TenantId: { name: tenant_id, in: path, required: true, schema: { type: string, description: ULID } }
     WorkspaceId: { name: workspace_id, in: path, required: true, schema: { type: string, description: ULID } }
     ResourceId: { name: resource_id, in: path, required: true, schema: { type: string, description: ULID } }
+    DatasetId: { name: dataset_id, in: path, required: true, schema: { type: string, description: ULID of the dataset resource } }
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: ecsid }
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
+    Dataset:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        workspace_id: { type: string }
+        name: { type: string }
+        layer: { type: string, enum: [raw, bronze, silver, gold] }
+        table: { type: [string, 'null'], description: '<layer>.<table> for lakehouse tables; null for raw files' }
+        status: { type: string, enum: [provisioning, active, failed, deleting] }
+        version:
+          type: [object, 'null']
+          properties:
+            id: { type: string }
+            number: { type: integer }
+            format: { type: string, enum: [csv, json, parquet, table] }
+            original_name: { type: [string, 'null'] }
+            bytes: { type: integer }
+            row_count: { type: [integer, 'null'] }
+            column_count: { type: [integer, 'null'] }
+            status: { type: string, enum: [pending, processing, ready, failed] }
+        columns:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              type: { type: string }
+              suggested_name: { type: string, description: raw only - normalised name used on ingestion }
+              source_name: { type: string, description: tables only - original CSV header }
+        error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Job:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        type: { type: string, enum: [profile, ingest, cleanup, sql_query, transform, validate, pipeline_run] }
+        status: { type: string, enum: [queued, running, succeeded, failed, cancelled, timed_out] }
+        workspace_id: { type: [string, 'null'] }
+        error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }
+        result: { type: [object, 'null'] }
+        queued_at: { type: string, format: date-time }
+        started_at: { type: [string, 'null'], format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
     Tenant:
       type: object
       properties:
@@ -662,7 +896,7 @@ components:
               enum: [VALIDATION_ERROR, UNAUTHENTICATED, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED, CONFLICT,
                      QUOTA_EXCEEDED, PAYLOAD_TOO_LARGE, RATE_LIMITED, SERVICE_UNAVAILABLE, INTERNAL_ERROR,
                      CSRF_INVALID, INVALID_CREDENTIALS, EMAIL_NOT_VERIFIED, ACCOUNT_DISABLED, TOKEN_INVALID,
-                     INVALID_STATE]
+                     INVALID_STATE, MANAGED_RESOURCE, LAKEHOUSE_REQUIRED, UPLOAD_FAILED]
             message: { type: string }
             details:
               type: array

@@ -20,6 +20,7 @@ final class App
     private ?View $view = null;
     private ?JwtService $jwt = null;
     private ?Csrf $csrf = null;
+    private ?Storage\LocalStorage $storage = null;
 
     public function __construct(
         public readonly Config $config,
@@ -52,6 +53,11 @@ final class App
     public function view(): View
     {
         return $this->view ??= new View((string) $this->config->get('root_path') . '/app', $this->config);
+    }
+
+    public function storage(): Storage\LocalStorage
+    {
+        return $this->storage ??= new Storage\LocalStorage((string) $this->config->get('app.storage_path'));
     }
 
     public function jwt(): JwtService

@@ -6,8 +6,11 @@ An independent educational platform for practising cloud computing, data enginee
 
 ## Status
 - **M0** (discovery & architecture): complete.
-- **M1** (foundation): complete. It covers the front controller, router, JSON envelope, error handling, logging, MySQLi layer, migrations, security headers/CSP, layout and tooling.
-- Next: **M2** (authentication & security). See `docs/IMPLEMENTATION_MASTER_PLAN.md`.
+- **M1** (foundation): complete.
+- **M2** (authentication & security): complete.
+- **M3** (multi-tenancy, workspaces, resource manager): complete.
+- **M4** (datasets, storage, execution plane): CSV upload to raw, profiling and ingestion to bronze via the Python/DuckDB runner.
+- Next: **M5** (SQL Lab). See `docs/IMPLEMENTATION_MASTER_PLAN.md`.
 
 ## Stack
 PHP 8.1 (XAMPP, see ADR-001) · MariaDB/MySQL via MySQLi · REST API + jQuery/AJAX · Bootstrap 5 · SweetAlert2 · PHPMailer · JWT for API clients · Python + DuckDB execution runner.

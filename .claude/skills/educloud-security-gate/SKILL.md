@@ -12,7 +12,7 @@ At the end of every milestone, and on any task touching auth, tenancy, uploads, 
 ```
 composer check
 vendor\bin\phpunit --testsuite Security
-worker\.venv\Scripts\python -m pytest worker/tests -k "sandbox or limits"
+worker\.venv\Scripts\python -m pytest worker/tests -q
 composer audit
 ```
 
@@ -21,7 +21,7 @@ composer audit
 - [ ] **AuthZ:** permission is declared on the route. Role tests cover 403.
 - [ ] **Input:** server-side validation rejects unknown fields. Identifiers come from allowlists.
 - [ ] **SQL:** only prepared statements (`grep -rn "query(\"" app/` shows nothing with variables).
-- [ ] **Output:** `e()` in views. No `.html(` with API data in `public/assets/js`.
+- [ ] **Output:** `e()` in views. No `.html(` with API data in `public/assets/js`. SweetAlert2: `titleText`/`text` only; `showValidationMessage(` and `title:` must never receive unescaped server text (`git grep -n "showValidationMessage(\|title:" public/assets/js`).
 - [ ] **CSRF:** state-changing session routes are protected. There is a test without a token.
 - [ ] **Auth/JWT:** pinned alg, exp/iss/aud checked, refresh rotation and reuse detection tested.
 - [ ] **Uploads:** generated keys, realpath guard, size/type/content checks, stored outside `public/`.

@@ -108,6 +108,37 @@
     });
   }
 
+  /**
+   * upload({url, formData, button}) -> promise. multipart/form-data POST with the CSRF header;
+   * errors are normalised like request() but never shown automatically (callers map field errors).
+   */
+  function upload(opts) {
+    var $btn = opts.button ? $(opts.button) : null;
+    if ($btn && $btn.data('ecBusy')) {
+      return $.Deferred().reject({ code: 'DUPLICATE_SUBMIT' }).promise();
+    }
+    if ($btn) {
+      $btn.data('ecBusy', true).prop('disabled', true).attr('aria-busy', 'true').addClass('ec-busy');
+    }
+    return $.ajax({
+      url: appUrl(opts.url),
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'X-CSRF-Token': csrfToken() },
+      data: opts.formData,
+      processData: false,
+      contentType: false,
+      dataType: 'json',
+      timeout: opts.timeout || 120000
+    }).then(
+      function (body) { return body; },
+      function (xhr, textStatus) { return $.Deferred().reject(normaliseError(xhr, textStatus)).promise(); }
+    ).always(function () {
+      if ($btn) {
+        $btn.data('ecBusy', false).prop('disabled', false).removeAttr('aria-busy').removeClass('ec-busy');
+      }
+    });
+  }
+
   function showError(err) {
     if (!window.Swal) {
       announce(err.message);
@@ -137,5 +168,5 @@
   }
 
   window.EduCloud = window.EduCloud || {};
-  window.EduCloud.api = { request: request, url: appUrl, showError: showError, showFieldErrors: showFieldErrors, announce: announce };
+  window.EduCloud.api = { request: request, upload: upload, url: appUrl, showError: showError, showFieldErrors: showFieldErrors, announce: announce };
 })(window, jQuery);

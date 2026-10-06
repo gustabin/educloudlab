@@ -81,7 +81,7 @@ final class Request
             post: $_POST,
             headers: $headers,
             cookies: array_map('strval', $_COOKIE),
-            files: $_FILES,
+            files: UploadedFile::fromGlobals($_FILES),
             body: $body,
             ip: (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'),
             secure: (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off'),
@@ -107,6 +107,12 @@ final class Request
     public function isUnsafeMethod(): bool
     {
         return !in_array($this->method, ['GET', 'HEAD', 'OPTIONS'], true);
+    }
+
+    public function file(string $field): ?UploadedFile
+    {
+        $file = $this->files[$field] ?? null;
+        return $file instanceof UploadedFile ? $file : null;
     }
 
     public function isApi(): bool

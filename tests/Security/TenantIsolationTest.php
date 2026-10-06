@@ -26,13 +26,16 @@ final class TenantIsolationTest extends TestCase
     use ApiActors;
 
     /** Tables whose content must be byte-identical after every forbidden attempt. */
-    private const GUARDED_TABLES = ['tenants', 'memberships', 'workspaces', 'resources', 'sessions', 'refresh_tokens'];
+    private const GUARDED_TABLES = [
+        'tenants', 'memberships', 'workspaces', 'resources', 'datasets', 'dataset_versions', 'jobs', 'sessions', 'refresh_tokens',
+    ];
 
     /** Valid bodies, so a 404 can only come from authorization (never from validation). */
     private const BODIES = [
         'PATCH /api/v1/workspaces/{workspace_id}' => ['name' => 'hackeado'],
         'POST /api/v1/workspaces/{workspace_id}/resources' => ['type' => 'storage', 'name' => 'intruso'],
         'PATCH /api/v1/resources/{resource_id}' => ['name' => 'hackeado'],
+        'POST /api/v1/datasets/{dataset_id}/ingest' => ['table_name' => 'robado'],
     ];
 
     /** @var array<string, string> route parameter => victim object id */
@@ -59,10 +62,21 @@ final class TenantIsolationTest extends TestCase
         $wsId = (string) $ws->decoded()['data']['id'];
         $res = $this->request('POST', "/api/v1/workspaces/$wsId/resources", ['type' => 'storage', 'name' => 'datos'], ['X-CSRF-Token' => $csrf]);
         self::assertSame(201, $res->status, $res->body);
+        $upload = $this->upload(
+            "/api/v1/workspaces/$wsId/datasets",
+            ['name' => 'clientes'],
+            ['file' => [$this->fixtureFile("id,email
+1,a@x.com
+"), 'clientes.csv']],
+            ['X-CSRF-Token' => $csrf]
+        );
+        self::assertSame(202, $upload->status, $upload->body);
 
         $this->victimIds = [
             'workspace_id' => $wsId,
             'resource_id' => (string) $res->decoded()['data']['id'],
+            'dataset_id' => (string) $upload->decoded()['data']['dataset']['id'],
+            'job_id' => (string) $upload->decoded()['data']['job']['id'],
             // A tenant none of the attackers belongs to: alice's personal tenant.
             'tenant_id' => (string) $this->app()->db()->scalar(
                 "SELECT t.public_id FROM tenants t JOIN memberships m ON m.tenant_id = t.id WHERE m.user_id = ? AND t.type = 'personal'",
@@ -108,7 +122,7 @@ final class TenantIsolationTest extends TestCase
             $checked[] = $key;
         }
 
-        $minimum = $attacker === 'bob-bearer' ? 8 : 10;
+        $minimum = $attacker === 'bob-bearer' ? 15 : 17;
         self::assertGreaterThanOrEqual($minimum, count($checked), "[$attacker] matrix covered too few routes: " . implode(', ', $checked));
     }
 
@@ -122,6 +136,9 @@ final class TenantIsolationTest extends TestCase
             "/api/v1/workspaces/$ws/resources",
             "/api/v1/resources/{$this->victimIds['resource_id']}",
             "/app/workspaces/$ws",
+            "/api/v1/workspaces/$ws/datasets",
+            "/api/v1/datasets/{$this->victimIds['dataset_id']}",
+            "/api/v1/jobs/{$this->victimIds['job_id']}",
         ];
         foreach ($paths as $path) {
             self::assertSame(200, $this->request('GET', $path)->status, $path);

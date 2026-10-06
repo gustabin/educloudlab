@@ -191,7 +191,9 @@
       api.request({ url: '/api/v1/workspaces/' + encodeURIComponent(workspaceId) + '/resources', silent: true })
         .then(function (body) {
           $list.empty();
-          if (!body.data.length) {
+          // Datasets are listed (and managed) in their own section.
+          var items = $.grep(body.data, function (r) { return r.type !== 'dataset'; });
+          if (!items.length) {
             $list.append(fromTemplate('res-empty-template'));
             return;
           }
@@ -199,7 +201,7 @@
           $.each(['res.col.name', 'res.col.type', 'res.col.status', 'res.col.region', 'res.col.config', 'res.col.actions'], function (_, key) {
             $('<th scope="col"></th>').text(t(key)).toggleClass('text-end', key === 'res.col.actions').appendTo($table.find('thead tr'));
           });
-          $.each(body.data, function (_, res) { $table.find('tbody').append(row(res)); });
+          $.each(items, function (_, res) { $table.find('tbody').append(row(res)); });
           $list.append($table);
         }, function () {
           $list.empty().append(fromTemplate('res-error-template'));

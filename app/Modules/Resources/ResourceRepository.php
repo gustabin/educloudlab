@@ -50,7 +50,8 @@ final class ResourceRepository
     public function countActive(TenantContext $ctx, int $workspaceId): int
     {
         return (int) $this->db->scalar(
-            "SELECT COUNT(*) FROM resources WHERE tenant_id = ? AND workspace_id = ? AND status <> 'deleted'",
+            // Datasets have their own quota (quotas.datasets_per_workspace).
+            "SELECT COUNT(*) FROM resources WHERE tenant_id = ? AND workspace_id = ? AND status <> 'deleted' AND type <> 'dataset'",
             [$ctx->tenantId, $workspaceId]
         );
     }

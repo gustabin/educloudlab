@@ -96,6 +96,43 @@ abstract class TestCase extends BaseTestCase
         return $response;
     }
 
+    /**
+     * Multipart upload through the full kernel. $files: field => [local source path, client file name].
+     * The source is copied to a temp file wrapped in a trusted UploadedFile (tests cannot create real HTTP uploads).
+     *
+     * @param array<string, string>                $post
+     * @param array<string, array{string, string}> $files
+     * @param array<string, string>                $headers
+     */
+    protected function upload(string $path, array $post, array $files, array $headers = []): Response
+    {
+        $uploaded = [];
+        foreach ($files as $field => [$source, $clientName]) {
+            $tmp = (string) tempnam(sys_get_temp_dir(), 'ecup');
+            copy($source, $tmp);
+            $uploaded[$field] = new \EduCloud\Core\UploadedFile($tmp, $clientName, (int) filesize($tmp), UPLOAD_ERR_OK, true);
+        }
+        $request = new Request(
+            method: 'POST',
+            path: $path,
+            post: $post,
+            headers: array_change_key_case($headers + ['content-type' => 'multipart/form-data; boundary=x'], CASE_LOWER),
+            cookies: $this->cookieJar,
+            files: $uploaded,
+            ip: $this->clientIp,
+            requestId: Ulid::generate(),
+        );
+        return (new Kernel($this->app()))->handle($request);
+    }
+
+    /** Writes $content to a temp file and returns its path (for uploads). */
+    protected function fixtureFile(string $content): string
+    {
+        $path = (string) tempnam(sys_get_temp_dir(), 'ecfx');
+        file_put_contents($path, $content);
+        return $path;
+    }
+
     /** @var array<string, string> */
     protected array $cookieJar = [];
     protected string $clientIp = '127.0.0.1';

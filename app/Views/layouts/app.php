@@ -28,6 +28,10 @@ foreach ([
     'res.type.storage', 'res.type.lakehouse', 'res.type.dataset', 'res.type.pipeline', 'res.type.notebook', 'res.type.dashboard',
     'res.col.name', 'res.col.type', 'res.col.status', 'res.col.region', 'res.col.config', 'res.col.actions',
     'res.delete_title', 'res.delete_text', 'res.delete_named', 'res.deleted',
+    'ds.col.name', 'ds.col.layer', 'ds.col.rows', 'ds.col.columns', 'ds.col.size', 'ds.col.status', 'ds.col.actions',
+    'ds.status.provisioning', 'ds.ingest', 'ds.ingest_title', 'ds.ingest_text', 'ds.ingest_label', 'ds.ingest_invalid',
+    'ds.delete_title', 'ds.delete_text', 'ds.uploaded', 'ds.preview_named', 'ds.ingest_named', 'ds.delete_named',
+    'ds.select_file', 'ds.preview_empty', 'ds.preview_note', 'status.failed', 'common.cancel',
 ] as $key) {
     $jsStrings[$key] = t($key);
 }
@@ -142,5 +146,6 @@ $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor
 <script src="<?= e(asset('js/features/auth.js')) ?>"></script>
 <script src="<?= e(asset('js/features/portal.js')) ?>"></script>
 <script src="<?= e(asset('js/features/workspaces.js')) ?>"></script>
+<script src="<?= e(asset('js/features/datasets.js')) ?>"></script>
 </body>
 </html>

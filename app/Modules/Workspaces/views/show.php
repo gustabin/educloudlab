@@ -4,6 +4,7 @@
  * @var bool $canUpdate
  * @var bool $canDelete
  * @var bool $canCreate
+ * @var int  $uploadMaxBytes
  */
 ?>
 <nav aria-label="breadcrumb">
@@ -51,6 +52,63 @@
         <div class="ec-card ec-skeleton" aria-hidden="true"></div>
     </div>
 </section>
+
+
+<section class="mt-5" aria-labelledby="ds-title" id="ds-section" data-max-mb="<?= e((int) round($uploadMaxBytes / 1048576)) ?>">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 id="ds-title" class="h5 mb-0"><?= e(t('ds.title')) ?></h2>
+    </div>
+    <p class="text-body-secondary small"><?= e(t('ds.lead')) ?></p>
+<?php if ($canCreate): ?>
+    <form class="ec-card mb-3" id="ds-upload-form" novalidate>
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="ds-name"><?= e(t('ds.field.name')) ?></label>
+                <input class="form-control" id="ds-name" name="name" required maxlength="63" pattern="[a-z][a-z0-9_]*"
+                       autocomplete="off" aria-describedby="ds-name-help" placeholder="customers">
+                <div id="ds-name-help" class="form-text"><?= e(t('ds.field.name_help')) ?></div>
+            </div>
+            <div class="col-12 col-md-5">
+                <label class="form-label" for="ds-file"><?= e(t('ds.field.file')) ?></label>
+                <input class="form-control" id="ds-file" name="file" type="file" accept=".csv,text/csv" required aria-describedby="ds-file-help">
+                <div id="ds-file-help" class="form-text"><?= e(t('ds.field.file_help', ['mb' => (int) round($uploadMaxBytes / 1048576)])) ?></div>
+            </div>
+            <div class="col-12 col-md-3">
+                <button class="btn btn-primary w-100" type="submit"><i class="fa-solid fa-upload" aria-hidden="true"></i> <?= e(t('ds.upload')) ?></button>
+            </div>
+        </div>
+    </form>
+<?php endif; ?>
+    <div id="ds-list" aria-busy="true" aria-live="polite">
+        <div class="ec-card ec-skeleton" aria-hidden="true"></div>
+    </div>
+</section>
+
+<template id="ds-empty-template">
+    <div class="ec-empty">
+        <span class="ec-feature-icon"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
+        <h3 class="h6"><?= e(t('ds.empty_title')) ?></h3>
+        <p class="text-body-secondary mb-0"><?= e(t('ds.empty_text')) ?></p>
+    </div>
+</template>
+<template id="ds-error-template">
+    <div class="alert alert-danger d-flex justify-content-between align-items-center" role="alert">
+        <span><?= e(t('ds.load_error')) ?></span>
+        <button class="btn btn-sm btn-outline-danger" type="button" data-ec-retry><?= e(t('common.retry')) ?></button>
+    </div>
+</template>
+
+<div class="modal fade" id="ds-preview-modal" tabindex="-1" aria-labelledby="ds-preview-title" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="ds-preview-title"><?= e(t('ds.preview')) ?></h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= e(t('nav.close')) ?>"></button>
+            </div>
+            <div class="modal-body" id="ds-preview-body"></div>
+        </div>
+    </div>
+</div>
 
 <template id="res-empty-template">
     <div class="ec-empty">

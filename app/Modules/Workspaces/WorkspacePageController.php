@@ -44,6 +44,7 @@ final class WorkspacePageController
             'canUpdate' => $policy->canModify($ctx, (int) $row['owner_user_id'], 'update'),
             'canDelete' => $policy->canModify($ctx, (int) $row['owner_user_id'], 'delete'),
             'canCreate' => $policy->canModify($ctx, (int) $row['owner_user_id'], 'create'),
+            'uploadMaxBytes' => (int) $this->app->config->get('quotas.upload_max_bytes'),
         ], 200, 'layouts/app');
     }
 }

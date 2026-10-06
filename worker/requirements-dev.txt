@@ -1,0 +1,2 @@
+# Development / test only (not installed in production).
+pytest==9.1.1

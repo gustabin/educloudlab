@@ -128,7 +128,7 @@ Two background processes do the heavy work. Without them, uploads stay "Procesan
 | Housekeeping | `php scripts/scheduler.php` | Task Scheduler, every 5 minutes |
 | Mailer | `php scripts/mailer.php` | A console window (or `--once` when needed) |
 
-Details: `docs/architecture/EXECUTION.md`.
+Details: `docs/architecture/EXECUTION.md`. The SQL Lab also needs the dispatcher, because queries run as interactive high-priority jobs.
 
 ## 5b. Email in development
 

@@ -30,6 +30,7 @@ final class Maintenance
                 ->purgeExpired((int) $this->app->config->get('security.session.idle_timeout')),
             'rate_limits_purged' => $this->app->rateLimiter()->purgeExpired(),
             'temp_files_removed' => $this->purgeOldFiles(['tmp', 'jobs'], 24 * 3600),
+            'query_results_removed' => $this->purgeOldFiles(['t/*/w/*/meta/results'], 24 * 3600),
         ];
     }
 

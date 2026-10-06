@@ -75,6 +75,7 @@ Fetched with `npm run vendor` (see `package.json`). Each library's license file 
 | Bootstrap | 5.3.8 | MIT |
 | SweetAlert2 | 11.26.25 | MIT |
 | Font Awesome Free | 6.7.2 | Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT. Attribution is kept in `fontawesome/LICENSE.txt`. |
+| CodeMirror | 5.65.21 | MIT (SQL Lab editor: core, SQL mode, matchbrackets, show-hint, sql-hint) |
 
 **Note on SweetAlert2:** releases since 11.4.9 contain code that changes behaviour only on pages served from Russian/Belarusian domains with a Russian-language UI. It has no effect on EduCloud Lab deployments under other domains. The issue is recorded here for transparency, and the library will be replaced if that condition ever applies.
 
@@ -82,7 +83,6 @@ Fetched with `npm run vendor` (see `package.json`). Each library's license file 
 
 | Component | Milestone | Expected license |
 |---|---|---|
-| CodeMirror 5 | M5-T05 | MIT |
 | Chart.js 4 | M9 | MIT |
 | Playwright | M11a-T04 (dev) | Apache-2.0 |
 

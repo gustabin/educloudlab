@@ -160,3 +160,17 @@ body {
 .ec-preview-table { font-size: 0.8125rem; white-space: nowrap; }
 .ec-preview-table td { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
 .ec-ds-error { color: var(--ec-danger); font-size: 0.8125rem; }
+
+/* SQL Lab */
+.ec-catalog { max-height: 70vh; overflow: auto; }
+.ec-catalog-layer { margin: var(--ec-space-2) 0 var(--ec-space-1); }
+.ec-catalog-table summary { cursor: pointer; font-size: 0.875rem; }
+.ec-catalog-table summary .btn-link { font-family: var(--ec-font-mono); font-size: 0.8125rem; }
+.ec-catalog .btn-link { text-decoration: none; }
+.ec-skeleton-sm { min-height: 80px; }
+#sql-lab .CodeMirror { height: auto; min-height: 180px; max-height: 420px; border: 1px solid var(--ec-border); border-radius: var(--ec-radius-md); font-family: var(--ec-font-mono); font-size: 0.875rem; }
+#sql-lab .CodeMirror-focused { outline: 3px solid var(--ec-focus); outline-offset: 1px; }
+.ec-result-grid { max-height: 460px; overflow: auto; }
+.ec-result-grid thead th { position: sticky; top: 0; background: var(--ec-surface); }
+.ec-col-type { display: block; font-weight: 400; font-size: 0.6875rem; color: var(--ec-text-muted); }
+.ec-history-sql { font-size: 0.8125rem; color: var(--ec-text); }

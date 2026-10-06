@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from ops import OPS  # noqa: E402
 from ops.common import RunnerError, register_sensitive_path, safe_error_message  # noqa: E402
+from ops.process_limits import apply_memory_cap, peak_memory_mb  # noqa: E402
 
 
 def main(argv: list[str]) -> int:
@@ -35,6 +36,9 @@ def main(argv: list[str]) -> int:
     started = time.perf_counter()
     try:
         request = json.loads(request_path.read_text(encoding="utf-8"))
+        limits = request.get("limits", {})
+        # Hard OS cap on the whole process (DuckDB's memory_limit does not cover Python objects).
+        apply_memory_cap(int(limits.get("process_memory_mb", 0)))
         register_sensitive_path(str(request.get("allowed_root", "")))
         register_sensitive_path(str(Path(sys.executable).parent))
         op = request.get("op")
@@ -44,9 +48,11 @@ def main(argv: list[str]) -> int:
         response = {"ok": True, "data": data}
     except RunnerError as exc:
         response = {"ok": False, "error_code": exc.code, "safe_message": exc.safe_message}
+    except MemoryError:
+        response = {"ok": False, "error_code": "OUT_OF_MEMORY", "safe_message": "La operación necesitó demasiada memoria y se canceló."}
     except Exception as exc:  # noqa: BLE001 - last resort: never leak internals
         response = {"ok": False, "error_code": "RUNNER_ERROR", "safe_message": safe_error_message(exc)}
-    response["stats"] = {"duration_ms": int((time.perf_counter() - started) * 1000)}
+    response["stats"] = {"duration_ms": int((time.perf_counter() - started) * 1000), "peak_memory_mb": peak_memory_mb()}
     response_path.write_text(json.dumps(response, ensure_ascii=False, default=str), encoding="utf-8")
     return 0
 

@@ -721,6 +721,152 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/queries:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    post:
+      operationId: runQuery
+      summary: Run a read-only SELECT against the workspace lakehouse (async; poll GET /queries/{query_id})
+      description: |
+        Executed only in the execution-plane sandbox: exactly one SELECT (WITH/FROM/VALUES/DESCRIBE allowed),
+        read-only DuckDB connection without file access, functions exposing server internals blocked,
+        10 s timeout, up to 1000 rows / 1.5 MB. Requires an active lakehouse resource (409 LAKEHOUSE_REQUIRED).
+      tags: [sql]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [sql]
+              properties:
+                sql: { type: string, maxLength: 20000 }
+      responses:
+        '202':
+          description: Query queued
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Query' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    get:
+      operationId: queryHistory
+      summary: The caller's query history in this workspace (newest first)
+      tags: [sql]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, minimum: 1, maximum: 50 } }
+      responses:
+        '200':
+          description: History page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Query' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /queries/{query_id}:
+    parameters: [{ name: query_id, in: path, required: true, schema: { type: string, description: ULID } }]
+    get:
+      operationId: getQuery
+      summary: Query status and, once succeeded, its result (kept 24 h)
+      tags: [sql]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Query
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Query' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/catalog:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    get:
+      operationId: lakehouseCatalog
+      summary: Ready lakehouse tables per layer with their columns (from metadata)
+      tags: [sql]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: 
+                        type: object
+                        properties:
+                          bronze: { type: array, items: { $ref: '#/components/schemas/CatalogTable' } }
+                          silver: { type: array, items: { $ref: '#/components/schemas/CatalogTable' } }
+                          gold: { type: array, items: { $ref: '#/components/schemas/CatalogTable' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/transforms:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    post:
+      operationId: createTransform
+      summary: Materialise a SELECT as silver.<table> or gold.<table> (CREATE TABLE ... AS SELECT, async)
+      tags: [sql]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [sql, layer, table]
+              properties:
+                sql: { type: string, maxLength: 20000 }
+                layer: { type: string, enum: [silver, gold] }
+                table: { type: string, pattern: '^[a-z][a-z0-9_]{0,62}$' }
+      responses:
+        '202':
+          description: Transform queued
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: 
+                        type: object
+                        properties:
+                          dataset: { $ref: '#/components/schemas/Dataset' }
+                          job: { $ref: '#/components/schemas/Job' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
 components:
   parameters:
     TenantId: { name: tenant_id, in: path, required: true, schema: { type: string, description: ULID } }
@@ -732,6 +878,33 @@ components:
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
+    Query:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        workspace_id: { type: string }
+        sql: { type: string }
+        status: { type: string, enum: [queued, running, succeeded, failed, timed_out, cancelled] }
+        duration_ms: { type: [integer, 'null'] }
+        row_count: { type: [integer, 'null'] }
+        error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }
+        created_at: { type: string, format: date-time }
+        result:
+          type: [object, 'null']
+          description: present when status is succeeded (GET /queries/{query_id} only)
+          properties:
+            columns: { type: array, items: { type: object, properties: { name: { type: string }, type: { type: string } } } }
+            rows: { type: array, items: { type: array, items: {} } }
+            truncated: { type: boolean }
+        result_expired: { type: boolean }
+    CatalogTable:
+      type: object
+      properties:
+        dataset_id: { type: string }
+        table: { type: string }
+        qualified_name: { type: string, example: bronze.customers }
+        row_count: { type: [integer, 'null'] }
+        columns: { type: array, items: { type: object, properties: { name: { type: string }, type: { type: string } } } }
     Dataset:
       type: object
       properties:
@@ -762,6 +935,7 @@ components:
               suggested_name: { type: string, description: raw only - normalised name used on ingestion }
               source_name: { type: string, description: tables only - original CSV header }
         error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }
+        sql: { type: [string, 'null'], description: defining SELECT of silver/gold tables created by transforms }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     Job:

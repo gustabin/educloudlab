@@ -18,6 +18,7 @@ from .common import (
     RunnerError,
     configure,
     confined,
+    enforce_lakehouse_size,
     identifier,
     json_value,
     normalise_columns,
@@ -144,6 +145,11 @@ def ingest(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> d
             con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         target = f"{layer}.{quote_ident(table)}"
         con.execute(f"CREATE OR REPLACE TABLE {target} AS {_read(projection)}", [str(csv), delimiter])
+        problem = enforce_lakehouse_size(con, lakehouse, limits)
+        if problem is not None:
+            con.execute(f"DROP TABLE {target}")
+            con.execute("CHECKPOINT")
+            raise RunnerError(*problem)
         schema_rows = con.execute(
             "SELECT column_name, data_type FROM information_schema.columns "
             "WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",

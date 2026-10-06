@@ -17,7 +17,7 @@ final class DatasetRepository
 {
     /** Latest version per dataset (highest version_no). */
     private const SELECT = "SELECT d.id AS dataset_id, d.layer, d.table_name, d.workspace_id,
-               r.id AS resource_id, r.public_id, r.tenant_id, r.owner_user_id, r.name, r.status,
+               r.id AS resource_id, r.public_id, r.tenant_id, r.owner_user_id, r.name, r.status, r.config AS resource_config,
                r.created_at, r.updated_at, w.public_id AS workspace_public_id, w.owner_user_id AS workspace_owner_id,
                v.id AS version_id, v.public_id AS version_public_id, v.version_no, v.format, v.storage_key,
                v.original_name, v.bytes, v.row_count, v.column_count, v.schema_json, v.status AS version_status,
@@ -112,14 +112,25 @@ final class DatasetRepository
         );
     }
 
-    /** @return array{dataset_id: int, resource_id: int, public_id: string} */
-    public function createDataset(TenantContext $ctx, int $workspaceId, int $ownerUserId, string $name, string $layer, ?string $tableName): array
-    {
+    /**
+     * @param array<string, mixed> $extraConfig e.g. ['sql' => ...] for transforms
+     * @return array{dataset_id: int, resource_id: int, public_id: string}
+     */
+    public function createDataset(
+        TenantContext $ctx,
+        int $workspaceId,
+        int $ownerUserId,
+        string $name,
+        string $layer,
+        ?string $tableName,
+        array $extraConfig = [],
+    ): array {
         $publicId = Ulid::generate();
+        $config = (string) json_encode(['layer' => $layer] + $extraConfig, JSON_UNESCAPED_UNICODE);
         $resourceId = $this->db->insert(
             "INSERT INTO resources (public_id, tenant_id, workspace_id, owner_user_id, type, name, status, config)
              VALUES (?, ?, ?, ?, 'dataset', ?, 'provisioning', ?)",
-            [$publicId, $ctx->tenantId, $workspaceId, $ownerUserId, $name, (string) json_encode(['layer' => $layer])]
+            [$publicId, $ctx->tenantId, $workspaceId, $ownerUserId, $name, $config]
         );
         $datasetId = $this->db->insert(
             'INSERT INTO datasets (tenant_id, resource_id, workspace_id, layer, table_name) VALUES (?, ?, ?, ?, ?)',

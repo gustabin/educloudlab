@@ -26,6 +26,9 @@
         </p>
     </div>
     <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="<?= e(url('/app/workspaces/' . $workspace['id'] . '/sql')) ?>">
+            <i class="fa-solid fa-terminal" aria-hidden="true"></i> <?= e(t('sql.open')) ?>
+        </a>
 <?php if ($canUpdate): ?>
         <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#ws-edit-modal">
             <i class="fa-solid fa-pen" aria-hidden="true"></i> <?= e(t('common.edit')) ?>

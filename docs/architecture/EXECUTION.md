@@ -20,6 +20,8 @@ flowchart LR
 | `profile` | CSV upload | `profile`: schema, row count, preview (50 rows) | version `ready` with its schema; resource `provisioning → active` (or `failed` with a safe error) |
 | `ingest` | `POST /datasets/{id}/ingest` | `ingest`: `CREATE OR REPLACE TABLE bronze.<table>` with normalised columns | bronze dataset version `ready`; resource `active` |
 | `cleanup` | `DELETE /datasets/{id}` | raw: none (PHP deletes files); table: `drop_table` | files and previews removed; resource `deleting → deleted` |
+| `sql_query` (priority 1) | `POST /workspaces/{id}/queries` | `query`: student SELECT, read-only, no file access | result file `meta/results/{query}.json` (24 h); `query_history` status, duration and rows |
+| `transform` (priority 3) | `POST /workspaces/{id}/transforms` | `transform`: `CREATE OR REPLACE TABLE silver\|gold.<t> AS <SELECT>` | silver/gold dataset `ready`, with the defining SQL kept in its config |
 
 Payloads contain **internal ids only**. Handlers compute storage paths from DB values, never from user input.
 
@@ -54,7 +56,27 @@ Payloads contain **internal ids only**. Handlers compute storage paths from DB v
 - **Errors** become stable codes (`CSV_PARSE_ERROR`, `HEADER_TOO_LONG`, `TOO_MANY_ROWS`, `TOO_MANY_COLUMNS`, `NOT_FOUND`, `BAD_REQUEST`, `RUNNER_ERROR`).
   - Their messages contain no filesystem paths: the literal storage and interpreter paths are removed first (paths with spaces included), then any Windows, UNC or POSIX path.
   - The dispatcher logs only the exception class and code.
-- **Student SQL** is not executed by any M4 op. The SQL Lab sandbox (read-only connection, external access disabled, SELECT-only) arrives in M5.
+- **Student SQL** (M5, `ops/sql_ops.py`) is checked in five layers:
+  1. **Statement allowlist:** exactly one statement, and `extract_statements` must report type SELECT.
+  2. **Denylist:** functions that expose server paths, settings, files or extensions, or that execute SQL held in a string (`duckdb_*`, `current_setting`, `pragma*`, `read_*`, `glob`, `query(…)`, `query_table`, `json_execute_serialized_sql`, …). The match runs on the raw text, so string literals cannot hide calls.
+  3. **Connection:** read-only for queries, with `allowed_directories = []` (no file access at all), no extensions and a locked configuration.
+  4. **Limits:** a 10 s interrupt (`QUERY_TIMEOUT`), 1,000 rows, 1.5 MB, plus the dispatcher's hard kill at 20 s.
+  5. **Output:** values containing the server path are masked, and errors are path-free.
+
+  Transforms wrap the validated SELECT in `CREATE OR REPLACE TABLE` and re-check that it parses as exactly one CREATE. 35 pytest cases (`worker/tests/test_sql_sandbox.py`) cover the escape attempts.
+- **M5 security gate (BLOCKED, then fixed):**
+  - **High:** a single query (`SELECT repeat('x', 3000000) FROM range(1001)`) peaked at 6,120 MB. DuckDB's `memory_limit` does not cover Python objects.
+    - Every result value is now cut to 1,000 characters inside DuckDB (positional-alias wrapper plus `LIMIT`), rows are fetched in batches of 100 against a byte budget, and the runner has an OS memory cap (Windows Job Object / `RLIMIT_AS`, `process_memory_mb = 1280`).
+    - The same probe now peaks at 37 MB. `peak_memory_mb` is reported in every runner response.
+  - **Medium:** `"query"(…)` and `query/**/(…)` bypassed the text denylist, and `pg_catalog.pg_settings` exposed settings.
+    - A parse-tree check (`json_serialize_sql`) now inspects function names and table references, whatever the spelling: no `pg_catalog`/`system` schemas, no file or URL replacement scans.
+    - Path-bearing settings (`temp_directory`, `secret_directory`, `home_directory`, `extension_directory`) are set to neutral values before the configuration is locked.
+    - Masking is now explicitly best-effort.
+  - **Medium:** transforms could fill the disk. Ingest and transforms now enforce `lakehouse_max_mb = 200` per workspace (CHECKPOINT, file size check, DROP on excess → `LAKEHOUSE_FULL`) and `max_columns` on the result. PHP also refuses to enqueue when the lakehouse is already full.
+- **Spike findings (DuckDB 1.5.6):**
+  - `duckdb_databases()`, `duckdb_settings()` and `current_setting()` reveal server paths even in sandbox mode. They are denylisted.
+  - `query('…')` would bypass the statement check. It is denylisted.
+  - `con.interrupt()` stops a running query within about 0.5 s.
 
 ## Storage layout (`app/Core/Storage/LocalStorage.php`)
 
@@ -97,4 +119,5 @@ The client file name is stored for display only. CSV cell values such as `=SUM(.
 | Risk | Today | Planned |
 |---|---|---|
 | On Linux a timeout kills only the runner PID, not its process group; there is no OS-level memory cap on any platform (DuckDB's `memory_limit` covers the engine only) | Development runs on Windows (`taskkill /T`); single-threaded Python ops | `setsid` + process-group kill, and `RLIMIT_AS` or Docker limits (M8/M12) |
-| One dispatcher process is a throughput bottleneck | Fair claiming + per-user job quota | Several workers with per-workspace locking (scalability roadmap) |
+| One dispatcher process is a throughput bottleneck. A student can keep it busy with up to 3 queries, each lasting up to 20 s | Fair claiming across users + per-user active-job quota + `write_user` rate limit | Several workers with per-workspace locking, or warm runner pool (scalability roadmap) |
+| Lakehouse bytes are capped per workspace (200 MB), not per user (5 workspaces → 1 GB per user) | Workspace quota (5 per user) | Count lakehouse bytes in the per-user storage quota (M11) |

@@ -131,6 +131,7 @@ final class DatasetService
         if (!$this->repo->hasActiveLakehouse($ctx, (int) $ws['id'])) {
             throw new ApiException(409, 'LAKEHOUSE_REQUIRED', 'Crea un recurso lakehouse en este workspace antes de ingerir datos.');
         }
+        $this->assertLakehouseHasRoom($ctx, (string) $ws['public_id']);
         $this->assertQuotas($ctx, (int) $ws['id'], 0);
 
         $created = $this->app->db()->transaction(function () use ($ctx, $ws, $source, $table): array {
@@ -195,6 +196,16 @@ final class DatasetService
             throw new NotFoundException('La vista previa no está disponible.');
         }
         return ['columns' => $data['columns'], 'rows' => $data['rows']];
+    }
+
+    /** Early, friendly check; the runner enforces the same cap authoritatively after writing (LAKEHOUSE_FULL). */
+    public function assertLakehouseHasRoom(TenantContext $ctx, string $workspacePublicId): void
+    {
+        $file = $this->app->storage()->lakehouseFile($ctx->tenantPublicId, $workspacePublicId);
+        $maxMb = (int) $this->app->config->get('execution.limits.lakehouse_max_mb', 200);
+        if (is_file($file) && filesize($file) >= $maxMb * 1048576) {
+            throw new QuotaExceededException("El lakehouse de este workspace alcanzó su límite de $maxMb MB. Elimina tablas que no uses.");
+        }
     }
 
     private function assertQuotas(TenantContext $ctx, int $workspaceId, int $newBytes): void
@@ -271,6 +282,7 @@ final class DatasetService
                 'status' => (string) $row['version_status'],
             ],
             'columns' => $columns,
+            'sql' => Format::jsonColumn($row['resource_config'] ?? null)['sql'] ?? null,
             'error' => $row['error_code'] === null ? null : ['code' => (string) $row['error_code'], 'message' => (string) $row['error_message']],
             'created_at' => Format::isoUtc((string) $row['created_at']),
             'updated_at' => Format::isoUtc((string) $row['updated_at']),

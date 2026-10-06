@@ -53,6 +53,12 @@ final class LocalStorage
         return $this->workspaceDir($tenantPublicId, $workspacePublicId) . '/meta/' . self::id($versionPublicId) . '.preview.json';
     }
 
+    /** SQL Lab result of one query (purged by the scheduler after 24 h). */
+    public function queryResultFile(string $tenantPublicId, string $workspacePublicId, string $queryPublicId): string
+    {
+        return $this->workspaceDir($tenantPublicId, $workspacePublicId) . '/meta/results/' . self::id($queryPublicId) . '.json';
+    }
+
     public function lakehouseFile(string $tenantPublicId, string $workspacePublicId): string
     {
         return $this->workspaceDir($tenantPublicId, $workspacePublicId) . '/lakehouse.duckdb';

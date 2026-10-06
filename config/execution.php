@@ -20,6 +20,8 @@ return [
         'profile' => 60,
         'ingest' => 120,
         'cleanup' => 60,
+        'sql_query' => 20,   // hard kill; the runner interrupts the query itself after limits.sql_timeout_s
+        'transform' => 90,
     ],
     'limits' => [
         'threads' => 2,
@@ -27,6 +29,16 @@ return [
         'max_rows' => 500_000,
         'max_columns' => 100,
         'preview_rows' => 50,
+        // SQL Lab (student SQL)
+        'sql_max_length' => 20_000,
+        'sql_max_rows' => 1000,
+        'sql_max_bytes' => 1_500_000,
+        'sql_timeout_s' => 10,
+        'transform_timeout_s' => 60,
+        'sql_max_cell_chars' => 1000,
+        'sql_max_columns' => 200,
+        'lakehouse_max_mb' => 200,        // per workspace (ingest + transforms)
+        'process_memory_mb' => 1280,      // OS cap on the whole runner process (Job Object / RLIMIT_AS)
     ],
     'max_response_bytes' => 2 * 1024 * 1024,
     'heartbeat_seconds' => 5,

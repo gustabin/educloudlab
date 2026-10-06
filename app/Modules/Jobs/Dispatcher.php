@@ -8,6 +8,8 @@ use EduCloud\Core\App;
 use EduCloud\Modules\Datasets\Jobs\CleanupHandler;
 use EduCloud\Modules\Datasets\Jobs\IngestHandler;
 use EduCloud\Modules\Datasets\Jobs\ProfileHandler;
+use EduCloud\Modules\SqlLab\Jobs\QueryHandler;
+use EduCloud\Modules\SqlLab\Jobs\TransformHandler;
 use Throwable;
 
 /**
@@ -29,6 +31,8 @@ final class Dispatcher
             'profile' => new ProfileHandler($this->app),
             'ingest' => new IngestHandler($this->app),
             'cleanup' => new CleanupHandler($this->app),
+            'sql_query' => new QueryHandler($this->app),
+            'transform' => new TransformHandler($this->app),
             default => null,
         };
     }
@@ -73,7 +77,8 @@ final class Dispatcher
                 $code = (string) ($response['error_code'] ?? 'RUNNER_ERROR');
                 $message = (string) ($response['safe_message'] ?? 'La operación falló.');
                 $handler->failed($job, $code, $message);
-                $this->jobs->finish($id, $code === 'TIMEOUT' ? 'timed_out' : 'failed', null, $code, $message);
+                $timedOut = in_array($code, ['TIMEOUT', 'QUERY_TIMEOUT'], true);
+                $this->jobs->finish($id, $timedOut ? 'timed_out' : 'failed', null, $code, $message);
             }
         } catch (Throwable $e) {
             $this->app->logger->error('job_failed', [

@@ -49,11 +49,11 @@ def quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
-def configure(con: duckdb.DuckDBPyConnection, limits: dict[str, Any], allowed_root: str) -> None:
+def configure(con: duckdb.DuckDBPyConnection, limits: dict[str, Any], allowed_root: str, file_access: bool = True) -> None:
     """Resource limits + filesystem sandbox, then locks the configuration so SQL cannot loosen it.
 
-    DuckDB may only touch files below ``allowed_root`` (the job's workspace directory); extensions can be neither
-    installed nor auto-loaded (no httpfs/network access).
+    DuckDB may only touch files below ``allowed_root`` (the job's workspace directory) - or no files at all when
+    ``file_access`` is False (student SQL); extensions can be neither installed nor auto-loaded (no httpfs/network).
     """
     threads = int(limits.get("threads", 2))
     memory_mb = int(limits.get("memory_mb", 512))
@@ -61,9 +61,24 @@ def configure(con: duckdb.DuckDBPyConnection, limits: dict[str, Any], allowed_ro
     con.execute(f"SET memory_limit = '{max(64, min(memory_mb, 4096))}MB'")
     con.execute("SET autoinstall_known_extensions = false")
     con.execute("SET autoload_known_extensions = false")
-    con.execute("SET allowed_directories = ?", [[str(Path(allowed_root).resolve())]])
+    # Neutral values for settings that otherwise reveal server paths (and no disk spilling outside the sandbox).
+    con.execute("SET temp_directory = ''")
+    con.execute("SET secret_directory = 'secrets'")
+    con.execute("SET extension_directory = 'extensions'")
+    con.execute("SET home_directory = ''")
+    con.execute("SET allowed_directories = ?", [[str(Path(allowed_root).resolve())] if file_access else []])
     con.execute("SET enable_external_access = false")
     con.execute("SET lock_configuration = true")
+
+
+def enforce_lakehouse_size(con: duckdb.DuckDBPyConnection, lakehouse: Path, limits: dict[str, Any]) -> tuple[str, str] | None:
+    """Checkpoints and returns an error tuple when the workspace lakehouse file exceeds ``lakehouse_max_mb``."""
+    con.execute("CHECKPOINT")
+    max_mb = int(limits.get("lakehouse_max_mb", 200))
+    size_mb = lakehouse.stat().st_size / (1024 * 1024) if lakehouse.exists() else 0
+    if size_mb > max_mb:
+        return ("LAKEHOUSE_FULL", f"El lakehouse de este workspace superaría su límite de {max_mb} MB. Elimina tablas que no uses.")
+    return None
 
 
 def normalise_columns(names: list[str]) -> list[str]:

@@ -32,6 +32,11 @@ foreach ([
     'ds.status.provisioning', 'ds.ingest', 'ds.ingest_title', 'ds.ingest_text', 'ds.ingest_label', 'ds.ingest_invalid',
     'ds.delete_title', 'ds.delete_text', 'ds.uploaded', 'ds.preview_named', 'ds.ingest_named', 'ds.delete_named',
     'ds.select_file', 'ds.preview_empty', 'ds.preview_note', 'status.failed', 'common.cancel',
+    'sql.catalog_layer_empty', 'sql.insert', 'sql.catalog_error', 'sql.placeholder', 'sql.failed', 'sql.status_failed',
+    'sql.result_expired', 'sql.results_empty', 'sql.rows', 'sql.duration', 'sql.truncated', 'sql.status_queued',
+    'sql.status_running', 'sql.history_empty', 'sql.state.queued', 'sql.state.running', 'sql.state.succeeded',
+    'sql.state.failed', 'sql.state.timed_out', 'sql.state.cancelled', 'sql.saving_title', 'sql.saving_text', 'sql.saved',
+    'sql.save_failed',
 ] as $key) {
     $jsStrings[$key] = t($key);
 }
@@ -39,7 +44,7 @@ $nav = [
     ['key' => 'home', 'href' => '/app', 'icon' => 'fa-house', 'label' => t('nav.home')],
     ['key' => 'workspaces', 'href' => '/app/workspaces', 'icon' => 'fa-layer-group', 'label' => t('ws.title')],
     ['key' => 'data', 'href' => null, 'icon' => 'fa-database', 'label' => t('nav.data')],
-    ['key' => 'sql', 'href' => null, 'icon' => 'fa-terminal', 'label' => t('nav.sql')],
+    ['key' => 'sql', 'href' => '/app/sql', 'icon' => 'fa-terminal', 'label' => t('nav.sql')],
     ['key' => 'labs', 'href' => null, 'icon' => 'fa-flask', 'label' => t('nav.labs')],
 ];
 $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor'), 'student' => t('role.student'), 'read_only' => t('role.read_only')];
@@ -56,6 +61,9 @@ $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor
     <link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/all.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset('vendor/sweetalert2/sweetalert2.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset('css/tokens.css')) ?>">
+<?php foreach ($extraStyles ?? [] as $style): ?>
+    <link rel="stylesheet" href="<?= e(asset((string) $style)) ?>">
+<?php endforeach; ?>
     <link rel="stylesheet" href="<?= e(asset('css/app.css')) ?>">
 </head>
 <body class="ec-app">
@@ -147,5 +155,8 @@ $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor
 <script src="<?= e(asset('js/features/portal.js')) ?>"></script>
 <script src="<?= e(asset('js/features/workspaces.js')) ?>"></script>
 <script src="<?= e(asset('js/features/datasets.js')) ?>"></script>
+<?php foreach ($extraScripts ?? [] as $script): ?>
+<script src="<?= e(asset((string) $script)) ?>"></script>
+<?php endforeach; ?>
 </body>
 </html>

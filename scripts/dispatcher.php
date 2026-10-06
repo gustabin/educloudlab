@@ -36,7 +36,7 @@ do {
         echo gmdate('c') . " processed=$processed\n";
     }
     if (!$once) {
-        sleep(1);
+        usleep(200_000); // short idle poll: SQL Lab queries are interactive
     }
 } while (!$once);
 

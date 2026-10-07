@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://educloud.local/schemas/semantic_model.schema.json",
+  "title": "EduCloud Lab semantic model",
+  "description": "One fact table, many-to-one relationships to dimension tables (star), measures and dimensions. Compiled to SQL by the runner (op semantic); students never write the query SQL.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fact", "measures"],
+  "properties": {
+    "description": { "type": "string", "maxLength": 500 },
+    "fact": { "$ref": "#/$defs/table" },
+    "relationships": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["table", "fact_column", "column"],
+        "properties": {
+          "table": { "$ref": "#/$defs/table" },
+          "fact_column": { "$ref": "#/$defs/column" },
+          "column": { "$ref": "#/$defs/column" }
+        }
+      }
+    },
+    "measures": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": { "$ref": "#/$defs/name" },
+          "label": { "$ref": "#/$defs/label" },
+          "agg": { "enum": ["sum", "count", "count_distinct", "avg", "min", "max"] },
+          "column": { "oneOf": [{ "$ref": "#/$defs/column" }, { "const": "*" }] },
+          "ratio": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/name" } },
+          "format": { "enum": ["number", "integer", "currency", "percent"] }
+        }
+      }
+    },
+    "dimensions": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "column"],
+        "properties": {
+          "name": { "$ref": "#/$defs/name" },
+          "label": { "$ref": "#/$defs/label" },
+          "table": { "$ref": "#/$defs/table" },
+          "column": { "$ref": "#/$defs/column" },
+          "grain": { "enum": ["day", "week", "month", "quarter", "year"] }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$" },
+    "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "column": { "type": "string", "pattern": "^[a-z_][a-z0-9_]{0,62}$" },
+    "table": { "type": "string", "pattern": "^(silver|gold)\\.[a-z][a-z0-9_]{0,62}$" }
+  }
+}

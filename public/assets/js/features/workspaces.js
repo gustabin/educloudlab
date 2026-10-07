@@ -198,7 +198,7 @@
         .then(function (body) {
           $list.empty();
           // Datasets and pipelines are listed (and managed) in their own screens.
-          var items = $.grep(body.data, function (r) { return r.type !== 'dataset' && r.type !== 'pipeline'; });
+          var items = $.grep(body.data, function (r) { return $.inArray(r.type, ['dataset', 'pipeline', 'semantic_model', 'dashboard']) === -1; });
           if (!items.length) {
             $list.append(fromTemplate('res-empty-template'));
             return;

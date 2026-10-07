@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace EduCloud\Modules\Jobs;
 
 use EduCloud\Core\App;
+use EduCloud\Modules\Analytics\Jobs\SemanticQueryHandler;
 use EduCloud\Modules\Datasets\Jobs\CleanupHandler;
 use EduCloud\Modules\Datasets\Jobs\IngestHandler;
 use EduCloud\Modules\Datasets\Jobs\ProfileHandler;
@@ -41,6 +42,7 @@ final class Dispatcher
             'transform' => new TransformHandler($this->app),
             'validate' => new ValidateHandler($this->app),
             'pipeline_run' => new PipelineRunHandler($this->app),
+            'semantic_query' => new SemanticQueryHandler($this->app),
             default => null,
         };
     }

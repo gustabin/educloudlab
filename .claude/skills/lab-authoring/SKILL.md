@@ -22,13 +22,16 @@ Sample data: `public/assets/datasets/retail/*.csv` (synthetic, CC0, deterministi
    - Metadata checks (PHP): `resource_exists` (name/config/tags subset), `resource_deleted`, `dataset_exists`,
      `container_exists` (optional lifecycle subset), `object_exists` (key or prefix; metadata subset, tier),
      `pipeline_has_nodes`, `pipeline_run_succeeded` (latest run, optional output table).
-   - Data checks (runner): `table_has_columns`, `column_type`, `row_count`, `null_count`, `unique`, `value_range`, `query_result_matches`.
+     M9: `semantic_model_has` and `dashboard_has_widgets` (match what measures/dimensions compute, not their names).
+   - Data checks (runner): `table_has_columns`, `column_type`, `row_count`, `null_count`, `unique`, `value_range`, `query_result_matches`,
+     `references` (M9, referential integrity).
      - `query_result_matches` without `actual_sql` grades the task's saved SQL answer and requires `"answer": true` on the task.
    - Need a new type? Add it to the schema, `LabDefinition`, `MetadataChecks` or `worker/ops/lab_ops.py` with tests first (`backend-feature` / `data-execution`). Never embed code.
 4. Validate: `php scripts/labs-import.php --dry-run labs/LAB-xxx`. Import with `php scripts/labs-import.php`. A published `code@version` is immutable: bump `version` to change it.
 5. Tests: `tests/Labs/LabSolutionsTest.php` picks up every lab automatically. For each lab, an empty attempt must score 0 and `solution/solution.json` must score the maximum.
    - Solution steps: `create_resource`, `delete_resource`, `upload_sample`, `ingest`, `transform`, `answer`,
-     `create_container`, `upload_object`, `set_lifecycle`, `create_pipeline` and `run_pipeline`.
+     `create_container`, `upload_object`, `set_lifecycle`, `create_pipeline`, `run_pipeline`, `create_model` and
+     `create_dashboard` (by model name).
    - Engine-wide rules have their own tests in `tests/Integration/Labs/LabEngineTest.php`: fabricated client payloads are rejected, each hint penalty applies once, and ownership is enforced.
 6. Write the public description in `docs/labs/LAB-xxx.md`, without solutions or check details.
 

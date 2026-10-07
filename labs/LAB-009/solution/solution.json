@@ -1,0 +1,31 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Steps are applied through the public API.",
+  "steps": [
+    { "do": "transform", "layer": "gold", "table": "dim_store",
+      "sql": "SELECT row_number() OVER (ORDER BY store_id) AS store_key, store_id, store_name, city, region FROM bronze.stores" },
+    { "do": "transform", "layer": "gold", "table": "fact_sales",
+      "sql": "SELECT o.order_id, o.order_date, s.store_key, i.quantity * i.unit_price AS line_total FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id JOIN gold.dim_store s ON s.store_id = o.store_id WHERE o.status = 'completed'" },
+    { "do": "create_model", "name": "ventas", "definition": {
+      "fact": "gold.fact_sales",
+      "relationships": [ { "table": "gold.dim_store", "fact_column": "store_key", "column": "store_key" } ],
+      "measures": [
+        { "name": "ingresos", "label": "Ingresos", "agg": "sum", "column": "line_total", "format": "currency" },
+        { "name": "pedidos", "label": "Pedidos", "agg": "count_distinct", "column": "order_id", "format": "integer" },
+        { "name": "ticket_medio", "label": "Ticket medio", "ratio": ["ingresos", "pedidos"], "format": "currency" }
+      ],
+      "dimensions": [
+        { "name": "region", "label": "Región", "table": "gold.dim_store", "column": "region" },
+        { "name": "mes", "label": "Mes", "column": "order_date", "grain": "month" }
+      ]
+    } },
+    { "do": "create_dashboard", "name": "panel-ventas", "model": "ventas", "definition": {
+      "filters": [ { "dimension": "region" } ],
+      "widgets": [
+        { "id": "ingresos", "type": "kpi", "title": "Ingresos", "measures": ["ingresos"] },
+        { "id": "ticket", "type": "kpi", "title": "Ticket medio", "measures": ["ticket_medio"] },
+        { "id": "por_region", "type": "bar", "title": "Ingresos por región", "measures": ["ingresos"], "dimension": "region" },
+        { "id": "por_mes", "type": "line", "title": "Ingresos por mes", "measures": ["ingresos"], "dimension": "mes" }
+      ]
+    } }
+  ]
+}

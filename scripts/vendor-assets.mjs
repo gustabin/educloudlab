@@ -31,6 +31,9 @@ const files = {
   'codemirror/addon/show-hint.css': 'codemirror/addon/hint/show-hint.css',
   'codemirror/addon/sql-hint.js': 'codemirror/addon/hint/sql-hint.js',
   'codemirror/LICENSE': 'codemirror/LICENSE',
+  // Chart.js 4 (M9 dashboards): UMD build, no CDN; canvas drawing needs no inline styles in markup.
+  'chartjs/chart.umd.min.js': 'chart.js/dist/chart.umd.min.js',
+  'chartjs/LICENSE.md': 'chart.js/LICENSE.md',
 };
 
 rmSync(out, { recursive: true, force: true });

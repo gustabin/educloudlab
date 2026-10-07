@@ -236,3 +236,12 @@ body {
 /* Selected list item: darker primary so its secondary text stays above 4.5:1 (WCAG AA). */
 .list-group-item.active { background-color: #0a58ca; border-color: #0a58ca; }
 .list-group-item.active .text-body-secondary { color: #fff !important; }
+
+/* Analytics (M9): KPI cards, chart containers, catalog list. */
+.ec-kpi { display: flex; flex-direction: column; margin-bottom: var(--ec-space-2); }
+.ec-kpi-value { font-size: 1.75rem; font-weight: 700; line-height: 1.2; color: var(--bs-emphasis-color); }
+.ec-kpi-label { font-size: 0.8125rem; color: var(--bs-secondary-color); }
+.ec-chart { position: relative; height: 260px; }
+.ec-catalog-list { max-height: 360px; overflow-y: auto; }
+#analytics .CodeMirror { height: 380px; border: 1px solid var(--ec-border); border-radius: var(--ec-radius-md); font-family: var(--ec-font-mono); font-size: 0.8125rem; }
+#analytics .CodeMirror-focused { outline: 3px solid var(--ec-focus); outline-offset: 1px; }

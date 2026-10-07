@@ -9,7 +9,8 @@ use EduCloud\Tests\Support\AuthHelpers;
 use EduCloud\Tests\TestCase;
 
 /**
- * Security gate M7-05: inside one organization, pipelines and object storage follow the ownership rules -
+ * Security gate M7-05 (extended in M9 to semantic models and dashboards): inside one organization, pipelines,
+ * object storage and analytics follow the ownership rules -
  * another student sees nothing (404), a read_only member cannot change anything (403 for every id, existing or not),
  * and the org admin can see and manage the owner's objects.
  */
@@ -50,7 +51,26 @@ final class M7RoleAccessTest extends TestCase
         $pipelineId = (string) $pipeline->decoded()['data']['id'];
         $run = $this->request('POST', "/api/v1/pipelines/$pipelineId/runs", [], $h);
         self::assertSame(202, $run->status, $run->body);
+        $db = $this->app()->db();
+        $wsRow = $db->selectOne('SELECT id, tenant_id, owner_user_id FROM workspaces WHERE public_id = ?', [$ws]);
+        $owner = (int) $wsRow['owner_user_id'];
+        $ctx = new \EduCloud\Core\Auth\TenantContext((int) $wsRow['tenant_id'], $this->org['public_id'], 'organization', $owner, 'student', false);
+        $resources = new \EduCloud\Modules\Resources\ResourceRepository($db);
+        $analytics = new \EduCloud\Modules\Analytics\AnalyticsRepository($db);
+        $model = ['fact' => 'gold.ventas', 'measures' => [['name' => 'ingresos', 'agg' => 'sum', 'column' => 'importe']]];
+        $modelRes = $resources->create($ctx, (int) $wsRow['id'], (int) $wsRow['owner_user_id'], 'semantic_model', 'ventas', 'edu-local-1', [], []);
+        $resources->transition($ctx, $modelRes['id'], 'provisioning', 'active');
+        $modelId = $analytics->createModel($ctx, (int) $wsRow['id'], $modelRes['id'], $model);
+        $dashRes = $resources->create($ctx, (int) $wsRow['id'], (int) $wsRow['owner_user_id'], 'dashboard', 'panel', 'edu-local-1', [], []);
+        $resources->transition($ctx, $dashRes['id'], 'provisioning', 'active');
+        $dashboard = ['widgets' => [['id' => 'k', 'type' => 'kpi', 'title' => 'Ingresos', 'measures' => ['ingresos']]]];
+        $dashId = $analytics->createDashboard($ctx, (int) $wsRow['id'], $dashRes['id'], $modelId, $dashboard);
+        $query = $analytics->createQuery($ctx, (int) $wsRow['id'], $modelId, $dashId, 'render', ['model' => $model, 'queries' => []]);
+
         $this->ids = [
+            'model' => $modelRes['public_id'],
+            'dashboard' => $dashRes['public_id'],
+            'query' => $query['public_id'],
             'storage' => $storage,
             'container' => $container,
             'object' => (string) $object->decoded()['data']['id'],
@@ -63,6 +83,7 @@ final class M7RoleAccessTest extends TestCase
     private function calls(): array
     {
         ['storage' => $s, 'container' => $c, 'object' => $o, 'pipeline' => $p, 'run' => $r] = $this->ids;
+        ['model' => $m, 'dashboard' => $d, 'query' => $q] = $this->ids;
         return [
             ['GET', "/api/v1/resources/$s/containers", null],
             ['POST', "/api/v1/resources/$s/containers", ['name' => 'intruso']],
@@ -80,6 +101,15 @@ final class M7RoleAccessTest extends TestCase
             ['GET', "/api/v1/pipelines/$p/runs", null],
             ['GET', "/api/v1/pipeline-runs/$r", null],
             ['POST', "/api/v1/pipeline-runs/$r/cancel", []],
+            ['GET', "/api/v1/semantic-models/$m", null],
+            ['PATCH', "/api/v1/semantic-models/$m", ['name' => 'hackeado']],
+            ['DELETE', "/api/v1/semantic-models/$m", null],
+            ['POST', "/api/v1/semantic-models/$m/query", ['measures' => ['ingresos']]],
+            ['GET', "/api/v1/dashboards/$d", null],
+            ['PATCH', "/api/v1/dashboards/$d", ['name' => 'hackeado']],
+            ['DELETE', "/api/v1/dashboards/$d", null],
+            ['POST', "/api/v1/dashboards/$d/render", []],
+            ['GET', "/api/v1/semantic-queries/$q", null],
         ];
     }
 
@@ -87,7 +117,11 @@ final class M7RoleAccessTest extends TestCase
     private function state(): array
     {
         $out = [];
-        foreach (['storage_containers', 'storage_objects', 'pipelines', 'pipeline_runs', 'jobs', 'resources'] as $table) {
+        $tables = [
+            'storage_containers', 'storage_objects', 'pipelines', 'pipeline_runs', 'jobs', 'resources',
+            'semantic_models', 'dashboards', 'semantic_queries',
+        ];
+        foreach ($tables as $table) {
             $out[$table] = md5((string) json_encode($this->app()->db()->select("SELECT * FROM $table ORDER BY id")));
         }
         return $out;

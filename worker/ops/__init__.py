@@ -3,6 +3,7 @@
 from .csv_ops import drop_table, ingest, profile
 from .lab_ops import validate
 from .pipeline_ops import pipeline
+from .semantic_ops import semantic
 from .sql_ops import query, transform
 
 OPS = {
@@ -13,4 +14,5 @@ OPS = {
     "transform": transform,
     "validate": validate,
     "pipeline": pipeline,
+    "semantic": semantic,
 }

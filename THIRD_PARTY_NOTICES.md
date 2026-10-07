@@ -76,6 +76,7 @@ Fetched with `npm run vendor` (see `package.json`). Each library's license file 
 | SweetAlert2 | 11.26.25 | MIT |
 | Font Awesome Free | 6.7.2 | Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT. Attribution is kept in `fontawesome/LICENSE.txt`. |
 | CodeMirror | 5.65.21 | MIT (SQL Lab editor: core, SQL mode, matchbrackets, show-hint, sql-hint) |
+| Chart.js | 4.5.1 | MIT (dashboards, M9: `chart.umd.min.js`, unmodified) |
 
 **Note on SweetAlert2:** releases since 11.4.9 contain code that changes behaviour only on pages served from Russian/Belarusian domains with a Russian-language UI. It has no effect on EduCloud Lab deployments under other domains. The issue is recorded here for transparency, and the library will be replaced if that condition ever applies.
 
@@ -91,9 +92,7 @@ Used by the end-to-end and accessibility suite (`npm run e2e`). The browser is t
 
 ## Planned components (to be verified when added)
 
-| Component | Milestone | Expected license |
-|---|---|---|
-| Chart.js 4 | M9 | MIT |
+None at the moment.
 
 ## Execution plane (Python, `worker/.venv`, not distributed with the web app)
 

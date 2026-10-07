@@ -146,6 +146,31 @@ def _unique(ctx: _Ctx, check: dict[str, Any]) -> tuple[bool, str, dict[str, Any]
     return False, f"Hay {groups} valores repetidos de ({', '.join(wanted)}) en {check['table']}.", {"duplicate_groups": groups}
 
 
+def _references(ctx: _Ctx, check: dict[str, Any]) -> tuple[bool, str, dict[str, Any]]:
+    """Referential integrity (M9, warehouse): every non-null key of ``table`` exists in ``ref_table``."""
+    qualified, cols = ctx.columns(check.get("table"))
+    ref_qualified, ref_cols = ctx.columns(check.get("ref_table"))
+    wanted = [identifier(c, "columna") for c in check.get("columns") or []]
+    ref_wanted = [identifier(c, "columna") for c in check.get("ref_columns") or []]
+    if not wanted or len(wanted) != len(ref_wanted) or len(wanted) > 5:
+        raise RunnerError("BAD_CHECK", "Comprobación mal definida (references).")
+    missing = [c for c in wanted if c not in {n for n, _ in cols}]
+    ref_missing = [c for c in ref_wanted if c not in {n for n, _ in ref_cols}]
+    if missing:
+        return False, f"A la tabla {check['table']} le faltan columnas: {', '.join(missing)}.", {"missing": missing}
+    if ref_missing:
+        return False, f"A la tabla {check['ref_table']} le faltan columnas: {', '.join(ref_missing)}.", {"missing": ref_missing}
+    on = " AND ".join(f"t.{quote_ident(a)} = r.{quote_ident(b)}" for a, b in zip(wanted, ref_wanted))
+    not_null = " AND ".join(f"t.{quote_ident(a)} IS NOT NULL" for a in wanted)
+    orphans = int(ctx.scalar(
+        f"SELECT count(*) FROM {qualified} t WHERE {not_null} AND NOT EXISTS (SELECT 1 FROM {ref_qualified} r WHERE {on})"
+    ))
+    if orphans == 0:
+        return True, "", {}
+    return False, (f"Hay {orphans} filas de {check['table']} cuya clave ({', '.join(wanted)}) no existe en "
+                   f"{check['ref_table']}."), {"orphans": orphans}
+
+
 def _value_range(ctx: _Ctx, check: dict[str, Any]) -> tuple[bool, str, dict[str, Any]]:
     qualified, column, _ = ctx.column(check.get("table"), check.get("column"))
     low, high = check.get("min"), check.get("max")
@@ -242,6 +267,7 @@ CHECKS: dict[str, Callable[[_Ctx, dict[str, Any]], tuple[bool, str, dict[str, An
     "row_count": _row_count,
     "null_count": _null_count,
     "unique": _unique,
+    "references": _references,
     "value_range": _value_range,
     "query_result_matches": _query_result_matches,
 }

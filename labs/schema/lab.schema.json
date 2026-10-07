@@ -45,6 +45,16 @@
     "sql": { "type": "string", "minLength": 6, "maxLength": 5000 },
     "containerName": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,62}$" },
     "days": { "type": "integer", "minimum": 1, "maximum": 3650 },
+    "baseMeasure": { "type": "object", "additionalProperties": false, "required": ["agg"],
+      "properties": { "agg": { "enum": ["sum", "count", "count_distinct", "avg", "min", "max"] }, "column": { "type": "string", "pattern": "^([a-z_][a-z0-9_]{0,62}|[*])$" } } },
+    "measureSpec": { "oneOf": [
+      { "$ref": "#/$defs/baseMeasure" },
+      { "type": "object", "additionalProperties": false, "required": ["ratio"],
+        "properties": { "ratio": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "$ref": "#/$defs/baseMeasure" } } } }
+    ] },
+    "dimensionSpec": { "type": "object", "additionalProperties": false, "required": ["column"],
+      "properties": { "table": { "$ref": "#/$defs/table" }, "column": { "$ref": "#/$defs/identifier" },
+        "grain": { "enum": ["day", "week", "month", "quarter", "year"] } } },
     "comparison": { "enum": ["eq", "gte", "lte", "between"] },
     "feedback": { "type": "string", "minLength": 3, "maxLength": 300 },
     "setupAction": {
@@ -111,7 +121,8 @@
         "type": {
           "enum": ["resource_exists", "resource_deleted", "dataset_exists", "table_has_columns", "column_type",
                    "row_count", "null_count", "unique", "value_range", "query_result_matches",
-                   "container_exists", "object_exists", "pipeline_has_nodes", "pipeline_run_succeeded"]
+                   "container_exists", "object_exists", "pipeline_has_nodes", "pipeline_run_succeeded",
+                   "references", "semantic_model_has", "dashboard_has_widgets"]
         }
       },
       "allOf": [
@@ -209,6 +220,35 @@
             "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "pipeline": { "$ref": "#/$defs/resourceName" },
             "node_types": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true,
               "items": { "enum": ["source", "filter", "select", "join", "aggregate", "sql", "quality_check", "output"] } }
+          } } },
+        { "if": { "properties": { "type": { "const": "references" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "table", "columns", "ref_table", "ref_columns"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "table": { "$ref": "#/$defs/table" },
+            "columns": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "$ref": "#/$defs/identifier" } },
+            "ref_table": { "$ref": "#/$defs/table" },
+            "ref_columns": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "$ref": "#/$defs/identifier" } }
+          } } },
+        { "if": { "properties": { "type": { "const": "semantic_model_has" } } }, "then": {
+          "additionalProperties": false, "required": ["type"], "minProperties": 2,
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "model": { "$ref": "#/$defs/resourceName" },
+            "fact": { "$ref": "#/$defs/table" },
+            "relationships": { "type": "array", "maxItems": 10, "items": { "type": "object", "additionalProperties": false,
+              "required": ["table"], "properties": { "table": { "$ref": "#/$defs/table" }, "fact_column": { "$ref": "#/$defs/identifier" },
+              "column": { "$ref": "#/$defs/identifier" } } } },
+            "measures": { "type": "array", "maxItems": 10, "items": { "$ref": "#/$defs/measureSpec" } },
+            "dimensions": { "type": "array", "maxItems": 10, "items": { "$ref": "#/$defs/dimensionSpec" } }
+          } } },
+        { "if": { "properties": { "type": { "const": "dashboard_has_widgets" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "widgets"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "dashboard": { "$ref": "#/$defs/resourceName" },
+            "widgets": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "object", "additionalProperties": false,
+              "required": ["type"], "properties": { "type": { "enum": ["kpi", "bar", "line", "table"] },
+              "measure": { "$ref": "#/$defs/measureSpec" }, "dimension": { "$ref": "#/$defs/dimensionSpec" } } } },
+            "filters": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/dimensionSpec" } },
+            "date_filter": { "const": true }
           } } },
         { "if": { "properties": { "type": { "const": "pipeline_run_succeeded" } } }, "then": {
           "additionalProperties": false, "required": ["type"],

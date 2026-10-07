@@ -53,6 +53,13 @@ foreach ([
     'storage.no_containers', 'storage.objects_count', 'storage.lifecycle_summary', 'storage.no_lifecycle', 'storage.no_objects', 'storage.empty_container',
     'storage.col.key', 'storage.col.size', 'storage.col.tier', 'storage.col.metadata', 'storage.col.actions', 'storage.tier_of',
     'storage.download_named', 'storage.delete_named', 'storage.archived_hint', 'storage.open',
+    'analytics.new_model', 'analytics.new_dashboard', 'analytics.edit_model', 'analytics.edit_dashboard', 'analytics.no_models',
+    'analytics.no_dashboards', 'analytics.model_summary', 'analytics.dashboard_summary', 'analytics.template', 'analytics.template.star',
+    'analytics.template.single', 'analytics.template.sales', 'analytics.delete_title', 'analytics.model_help', 'analytics.dashboard_help',
+    'analytics.invalid_json', 'analytics.model_first', 'analytics.explore', 'analytics.explore_help', 'analytics.no_dimension',
+    'analytics.loading', 'analytics.updated', 'analytics.failed', 'analytics.expired', 'analytics.no_result', 'analytics.no_rows',
+    'analytics.no_value', 'analytics.truncated', 'analytics.show_data', 'analytics.chart_summary', 'analytics.widget.bar',
+    'analytics.widget.line',
 ] as $key) {
     $jsStrings[$key] = t($key);
 }

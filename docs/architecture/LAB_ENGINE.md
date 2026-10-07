@@ -57,6 +57,9 @@ Datasets created by setup are marked `lab_setup`. They cannot be deleted (409 `L
 | `object_exists` | PHP (M7) | Exactly one of `key` or `prefix` (+ `min_count`); optional `metadata` subset and `tier` on every match |
 | `pipeline_has_nodes` | PHP (M7) | A pipeline (optionally by name) whose current definition contains all `node_types` |
 | `pipeline_run_succeeded` | PHP (M7) | The latest run of a pipeline (optionally by name) succeeded, optionally writing `output` (`silver.x` / `gold.x`) |
+| `references` | Runner (M9) | Every non-null key of `table.columns` exists in `ref_table.ref_columns` (referential integrity; reports the orphan count) |
+| `semantic_model_has` | PHP (M9) | A semantic model (optionally by name) with the expected `fact`, `relationships`, `measures` and `dimensions`, matched by what they compute (`{agg, column}`, ratios by operands, `{table, column, grain}`), not by their names |
+| `dashboard_has_widgets` | PHP (M9) | A dashboard (optionally by name) with widgets of the given type bound to the expected measure/dimension (resolved through its model), plus optional `filters` and `date_filter` |
 | `table_has_columns`, `column_type`, `row_count`, `null_count`, `unique`, `value_range` | runner | Structure and data of a `bronze\|silver\|gold.<table>` |
 | `query_result_matches` | runner | Compares the result of `expected_sql` with `actual_sql` (author SQL over the student's tables) or, for exercise tasks (`"answer": true`), the student's **saved SQL answer** |
 

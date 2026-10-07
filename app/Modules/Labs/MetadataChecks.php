@@ -20,6 +20,10 @@ final class MetadataChecks
     private ?array $containers = null;
     /** @var list<array<string, mixed>>|null */
     private ?array $pipelines = null;
+    /** @var list<array<string, mixed>>|null */
+    private ?array $models = null;
+    /** @var list<array<string, mixed>>|null */
+    private ?array $dashboards = null;
 
     public function __construct(private readonly LabStateRepository $state, private readonly int $tenantId, private readonly int $workspaceId)
     {
@@ -39,6 +43,8 @@ final class MetadataChecks
             'object_exists' => $this->objectExists($check),
             'pipeline_has_nodes' => $this->pipelineHasNodes($check),
             'pipeline_run_succeeded' => $this->pipelineRunSucceeded($check),
+            'semantic_model_has' => $this->semanticModelHas($check),
+            'dashboard_has_widgets' => $this->dashboardHasWidgets($check),
             default => self::result(false, 'Comprobación no soportada.'),
         };
     }
@@ -210,6 +216,205 @@ final class MetadataChecks
         return isset($check['output'])
             ? self::result(false, "La última ejecución $of no terminó bien o no escribió {$check['output']}.")
             : self::result(false, "La última ejecución $of no terminó bien.");
+    }
+
+    /**
+     * A semantic model (optionally by name) with the expected fact table, measures and dimensions. Measures and
+     * dimensions are matched by what they compute, not by their names: {agg, column} subsets, ratios by operands,
+     * dimensions by {table, column, grain} (table defaults to the fact table).
+     *
+     * @param array<string, mixed> $check
+     * @return array{passed: bool, feedback: string, evidence: array<string, mixed>}
+     */
+    private function semanticModelHas(array $check): array
+    {
+        $this->models ??= $this->state->semanticModels($this->tenantId, $this->workspaceId);
+        $candidates = array_filter($this->models, static fn (array $m): bool => !isset($check['model']) || $m['name'] === $check['model']);
+        if ($candidates === []) {
+            $message = isset($check['model']) ? "No existe el modelo semántico {$check['model']}." : 'No hay ningún modelo semántico.';
+            return self::result(false, $message);
+        }
+        $best = '';
+        foreach ($candidates as $m) {
+            $model = Format::jsonColumn($m['definition']);
+            $missing = $this->modelGaps($model, $check);
+            if ($missing === []) {
+                return self::result(true, '');
+            }
+            $best = $best === '' ? $missing[0] : $best;
+        }
+        return self::result(false, $best);
+    }
+
+    /**
+     * @param array<string, mixed> $model
+     * @param array<string, mixed> $check
+     * @return list<string> what is missing (Spanish feedback), empty when the model satisfies the check
+     */
+    private function modelGaps(array $model, array $check): array
+    {
+        $gaps = [];
+        if (isset($check['fact']) && ($model['fact'] ?? null) !== $check['fact']) {
+            $gaps[] = "La tabla de hechos del modelo debe ser {$check['fact']}.";
+        }
+        foreach ($check['relationships'] ?? [] as $rel) {
+            $found = array_filter($model['relationships'] ?? [], static fn (array $r): bool => self::contains($r, $rel));
+            if ($found === []) {
+                $gaps[] = "Falta la relación con {$rel['table']}.";
+            }
+        }
+        foreach ($check['measures'] ?? [] as $expected) {
+            if (self::findMeasure($model, $expected) === null) {
+                $gaps[] = 'Falta una medida: ' . self::describeMeasure($expected) . '.';
+            }
+        }
+        foreach ($check['dimensions'] ?? [] as $expected) {
+            if (self::findDimension($model, $expected) === null) {
+                $gaps[] = 'Falta una dimensión sobre ' . ($expected['table'] ?? 'la tabla de hechos') . ".{$expected['column']}"
+                    . (isset($expected['grain']) ? " (por {$expected['grain']})" : '') . '.';
+            }
+        }
+        return $gaps;
+    }
+
+    /**
+     * A dashboard (optionally by name) whose widgets include the expected ones: type plus what the bound measure and
+     * dimension compute (resolved through the dashboard's model), and optional filters on expected dimensions.
+     *
+     * @param array<string, mixed> $check
+     * @return array{passed: bool, feedback: string, evidence: array<string, mixed>}
+     */
+    private function dashboardHasWidgets(array $check): array
+    {
+        $this->dashboards ??= $this->state->dashboards($this->tenantId, $this->workspaceId);
+        $named = static fn (array $d): bool => !isset($check['dashboard']) || $d['name'] === $check['dashboard'];
+        $candidates = array_filter($this->dashboards, $named);
+        if ($candidates === []) {
+            return self::result(false, isset($check['dashboard']) ? "No existe el dashboard {$check['dashboard']}." : 'No hay ningún dashboard.');
+        }
+        $first = '';
+        foreach ($candidates as $d) {
+            $dashboard = Format::jsonColumn($d['definition']);
+            $model = Format::jsonColumn($d['model_definition']);
+            $gap = '';
+            foreach ($check['widgets'] ?? [] as $expected) {
+                if (!$this->hasWidget($dashboard, $model, $expected)) {
+                    $gap = 'Falta un widget ' . $expected['type']
+                        . (isset($expected['measure']) ? ' con ' . self::describeMeasure($expected['measure']) : '')
+                        . (isset($expected['dimension']) ? " por {$expected['dimension']['column']}" : '') . '.';
+                    break;
+                }
+            }
+            foreach ($gap === '' ? ($check['filters'] ?? []) : [] as $expected) {
+                $names = array_column($dashboard['filters'] ?? [], 'dimension');
+                $dim = self::findDimension($model, $expected);
+                if ($dim === null || !in_array($dim['name'], $names, true)) {
+                    $gap = "Falta un filtro por {$expected['column']}.";
+                    break;
+                }
+            }
+            if ($gap === '' && isset($check['date_filter']) && ($dashboard['date_filter'] ?? null) === null) {
+                $gap = 'Falta el filtro de fechas.';
+            }
+            if ($gap === '') {
+                return self::result(true, '');
+            }
+            $first = $first === '' ? $gap : $first;
+        }
+        return self::result(false, $first);
+    }
+
+    /**
+     * @param array<string, mixed> $dashboard
+     * @param array<string, mixed> $model
+     * @param array<string, mixed> $expected {type, measure?, dimension?}
+     */
+    private function hasWidget(array $dashboard, array $model, array $expected): bool
+    {
+        $measure = isset($expected['measure']) ? self::findMeasure($model, $expected['measure']) : null;
+        $dimension = isset($expected['dimension']) ? self::findDimension($model, $expected['dimension']) : null;
+        if ((isset($expected['measure']) && $measure === null) || (isset($expected['dimension']) && $dimension === null)) {
+            return false;
+        }
+        foreach ($dashboard['widgets'] ?? [] as $w) {
+            if ($w['type'] !== $expected['type']) {
+                continue;
+            }
+            if ($measure !== null && !in_array($measure['name'], $w['measures'] ?? [], true)) {
+                continue;
+            }
+            if ($dimension !== null && ($w['dimension'] ?? null) !== $dimension['name']) {
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $model
+     * @param array<string, mixed> $expected {agg, column} subset, or {ratio: [measure, measure]}
+     * @return array<string, mixed>|null
+     */
+    private static function findMeasure(array $model, array $expected): ?array
+    {
+        foreach ($model['measures'] ?? [] as $m) {
+            if (isset($expected['ratio'])) {
+                if (!isset($m['ratio']) || count($m['ratio']) !== 2) {
+                    continue;
+                }
+                $a = self::measureByName($model, (string) $m['ratio'][0]);
+                $b = self::measureByName($model, (string) $m['ratio'][1]);
+                if ($a !== null && $b !== null && self::contains($a, $expected['ratio'][0]) && self::contains($b, $expected['ratio'][1])) {
+                    return $m;
+                }
+            } elseif (!isset($m['ratio']) && self::contains($m, $expected)) {
+                return $m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $model
+     * @return array<string, mixed>|null
+     */
+    private static function measureByName(array $model, string $name): ?array
+    {
+        foreach ($model['measures'] ?? [] as $m) {
+            if ($m['name'] === $name) {
+                return $m;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $model
+     * @param array<string, mixed> $expected {column, table?, grain?} (table defaults to the fact table)
+     * @return array<string, mixed>|null
+     */
+    private static function findDimension(array $model, array $expected): ?array
+    {
+        foreach ($model['dimensions'] ?? [] as $d) {
+            $table = $d['table'] ?? ($model['fact'] ?? null);
+            if (
+                $table === ($expected['table'] ?? ($model['fact'] ?? null)) && $d['column'] === $expected['column']
+                && ($d['grain'] ?? null) === ($expected['grain'] ?? null)
+            ) {
+                return $d;
+            }
+        }
+        return null;
+    }
+
+    /** @param array<string, mixed> $m */
+    private static function describeMeasure(array $m): string
+    {
+        if (isset($m['ratio'])) {
+            return 'un cociente ' . self::describeMeasure($m['ratio'][0]) . ' / ' . self::describeMeasure($m['ratio'][1]);
+        }
+        return ($m['agg'] ?? 'agregación') . '(' . ($m['column'] ?? '*') . ')';
     }
 
     /**

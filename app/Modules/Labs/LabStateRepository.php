@@ -75,6 +75,29 @@ final class LabStateRepository
         );
     }
 
+    /** @return list<array<string, mixed>> active semantic models of the workspace (name, definition) (M9) */
+    public function semanticModels(int $tenantId, int $workspaceId): array
+    {
+        return $this->db->select(
+            "SELECT r.name, m.definition FROM semantic_models m JOIN resources r ON r.tenant_id = m.tenant_id AND r.id = m.resource_id
+              WHERE m.tenant_id = ? AND m.workspace_id = ? AND r.status = 'active'",
+            [$tenantId, $workspaceId]
+        );
+    }
+
+    /** @return list<array<string, mixed>> active dashboards with the definition of their model (M9) */
+    public function dashboards(int $tenantId, int $workspaceId): array
+    {
+        return $this->db->select(
+            "SELECT r.name, d.definition, m.definition AS model_definition
+               FROM dashboards d
+               JOIN resources r ON r.tenant_id = d.tenant_id AND r.id = d.resource_id
+               JOIN semantic_models m ON m.tenant_id = d.tenant_id AND m.id = d.model_id
+              WHERE d.tenant_id = ? AND d.workspace_id = ? AND r.status = 'active'",
+            [$tenantId, $workspaceId]
+        );
+    }
+
     public function activeJobs(int $tenantId, int $workspaceId, ?string $type = null): int
     {
         $sql = "SELECT COUNT(*) FROM jobs WHERE tenant_id = ? AND workspace_id = ? AND status IN ('queued', 'running')";

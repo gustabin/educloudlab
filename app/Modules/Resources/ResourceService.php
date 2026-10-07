@@ -179,6 +179,9 @@ final class ResourceService
         if ($row['type'] === 'pipeline') {
             throw new ApiException(409, 'MANAGED_RESOURCE', 'Los pipelines se gestionan desde su propia sección del workspace.');
         }
+        if (in_array($row['type'], ['semantic_model', 'dashboard'], true)) {
+            throw new ApiException(409, 'MANAGED_RESOURCE', 'Los modelos semánticos y dashboards se gestionan desde la sección Analítica.');
+        }
         if (!$this->policy->canModify($ctx, (int) $row['owner_user_id'], $permission)) {
             $this->app->audit()->record(
                 $request,

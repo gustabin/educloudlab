@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "code": "LAB-009",
+  "version": "1.0.0",
+  "slug": "dashboard-analitico",
+  "status": "published",
+  "title": "Dashboard analítico",
+  "summary": "Define un modelo semántico con medidas y dimensiones sobre un esquema en estrella y construye un dashboard con KPI, gráficos y filtros.",
+  "difficulty": "intermediate",
+  "estimated_minutes": 50,
+  "prerequisites": ["LAB-007"],
+  "objectives": [
+    "Entender qué aporta una capa semántica sobre las tablas gold",
+    "Definir medidas (agregaciones y cocientes) y dimensiones (atributos y fechas)",
+    "Relacionar la tabla de hechos con sus dimensiones",
+    "Construir un dashboard con KPI, gráficos de barras y líneas y filtros"
+  ],
+  "setup": [
+    { "action": "create_resource", "type": "lakehouse", "name": "lago" },
+    { "action": "load_sample", "sample": "retail/stores.csv", "name": "stores", "ingest_to": "bronze.stores" },
+    { "action": "load_sample", "sample": "retail/orders.csv", "name": "orders", "ingest_to": "bronze.orders" },
+    { "action": "load_sample", "sample": "retail/order_items.csv", "name": "order_items", "ingest_to": "bronze.order_items" }
+  ],
+  "tasks": [
+    {
+      "key": "t1", "title": "Prepara el esquema en estrella", "points": 20,
+      "hints": [ { "text": "Copia las dos consultas de las instrucciones en el SQL Lab y guárdalas como tablas gold con esos nombres.", "penalty": 4 } ],
+      "checks": [
+        { "type": "dataset_exists", "layer": "gold", "name": "dim_store" },
+        { "type": "dataset_exists", "layer": "gold", "name": "fact_sales" },
+        { "type": "table_has_columns", "table": "gold.fact_sales", "columns": ["order_id", "order_date", "store_key", "line_total"] },
+        { "type": "references", "table": "gold.fact_sales", "columns": ["store_key"], "ref_table": "gold.dim_store", "ref_columns": ["store_key"] }
+      ]
+    },
+    {
+      "key": "t2", "title": "Modelo semántico de ventas", "points": 40,
+      "hints": [
+        { "text": "En Analítica, usa la plantilla «Esquema en estrella de ventas» y adáptala: la fecha está en la propia tabla de hechos (order_date), así que no necesitas dim_date.", "penalty": 6 },
+        { "text": "El ticket medio es un cociente: {\"name\": \"ticket_medio\", \"ratio\": [\"ingresos\", \"pedidos\"]}.", "penalty": 6 }
+      ],
+      "checks": [
+        { "type": "semantic_model_has", "model": "ventas", "fact": "gold.fact_sales",
+          "relationships": [ { "table": "gold.dim_store", "fact_column": "store_key", "column": "store_key" } ],
+          "feedback": "Crea el modelo «ventas» con gold.fact_sales como hechos, relacionado con gold.dim_store por store_key." },
+        { "type": "semantic_model_has", "model": "ventas",
+          "measures": [
+            { "agg": "sum", "column": "line_total" },
+            { "agg": "count_distinct", "column": "order_id" },
+            { "ratio": [ { "agg": "sum", "column": "line_total" }, { "agg": "count_distinct", "column": "order_id" } ] }
+          ] },
+        { "type": "semantic_model_has", "model": "ventas",
+          "dimensions": [
+            { "table": "gold.dim_store", "column": "region" },
+            { "table": "gold.fact_sales", "column": "order_date", "grain": "month" }
+          ] }
+      ]
+    },
+    {
+      "key": "t3", "title": "Dashboard de ventas", "points": 40,
+      "hints": [
+        { "text": "Usa la plantilla «Panel de ventas»: necesitas un KPI de ingresos, barras por región y líneas por mes.", "penalty": 6 },
+        { "text": "El filtro por región se declara con \"filters\": [{\"dimension\": \"region\"}].", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "dashboard_has_widgets", "dashboard": "panel-ventas",
+          "widgets": [
+            { "type": "kpi", "measure": { "agg": "sum", "column": "line_total" } },
+            { "type": "kpi", "measure": { "ratio": [ { "agg": "sum", "column": "line_total" }, { "agg": "count_distinct", "column": "order_id" } ] } },
+            { "type": "bar", "measure": { "agg": "sum", "column": "line_total" }, "dimension": { "table": "gold.dim_store", "column": "region" } },
+            { "type": "line", "measure": { "agg": "sum", "column": "line_total" }, "dimension": { "table": "gold.fact_sales", "column": "order_date", "grain": "month" } }
+          ],
+          "filters": [ { "table": "gold.dim_store", "column": "region" } ],
+          "feedback": "El dashboard «panel-ventas» necesita: KPI de ingresos y de ticket medio, barras de ingresos por región, líneas de ingresos por mes y un filtro por región." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 14 }
+}

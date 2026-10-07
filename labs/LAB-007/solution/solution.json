@@ -1,0 +1,15 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Steps are applied through the public API.",
+  "steps": [
+    { "do": "transform", "layer": "gold", "table": "dim_store",
+      "sql": "SELECT row_number() OVER (ORDER BY store_id) AS store_key, store_id, store_name, city, region FROM bronze.stores" },
+    { "do": "transform", "layer": "gold", "table": "dim_product",
+      "sql": "SELECT row_number() OVER (ORDER BY product_id) AS product_key, product_id, product_name, category, price FROM bronze.products" },
+    { "do": "transform", "layer": "gold", "table": "dim_date",
+      "sql": "SELECT CAST(strftime(d, '%Y%m%d') AS INTEGER) AS date_key, d AS full_date, year(d) AS year, month(d) AS month FROM (SELECT DISTINCT order_date AS d FROM bronze.orders)" },
+    { "do": "transform", "layer": "gold", "table": "dim_customer",
+      "sql": "SELECT row_number() OVER (ORDER BY customer_id) AS customer_key, customer_id, first_name, last_name, lower(trim(email)) AS email, city FROM (SELECT *, row_number() OVER (PARTITION BY customer_id ORDER BY signup_date DESC) AS rn FROM bronze.customers) WHERE rn = 1" },
+    { "do": "transform", "layer": "gold", "table": "fact_sales",
+      "sql": "SELECT o.order_id, CAST(strftime(o.order_date, '%Y%m%d') AS INTEGER) AS date_key, s.store_key, p.product_key, c.customer_key, i.quantity, i.unit_price, i.quantity * i.unit_price AS line_total FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id JOIN gold.dim_store s ON s.store_id = o.store_id JOIN gold.dim_product p ON p.product_id = i.product_id LEFT JOIN gold.dim_customer c ON c.customer_id = o.customer_id WHERE o.status = 'completed'" }
+  ]
+}

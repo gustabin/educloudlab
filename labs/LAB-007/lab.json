@@ -1,0 +1,119 @@
+{
+  "schema_version": 1,
+  "code": "LAB-007",
+  "version": "1.0.0",
+  "slug": "crea-un-data-warehouse",
+  "status": "published",
+  "title": "Crea un data warehouse",
+  "summary": "Modela las ventas como un esquema en estrella en la capa gold: dimensiones con claves sustitutas, una dimensión de fechas, una dimensión de clientes tipo SCD 1 y una tabla de hechos con integridad referencial.",
+  "difficulty": "intermediate",
+  "estimated_minutes": 75,
+  "prerequisites": ["LAB-005"],
+  "objectives": [
+    "Distinguir tablas de hechos y de dimensiones",
+    "Generar claves sustitutas y conservar las claves de negocio",
+    "Construir una dimensión de fechas",
+    "Aplicar SCD tipo 1 (una fila por entidad con sus valores actuales)",
+    "Garantizar la integridad referencial entre hechos y dimensiones"
+  ],
+  "setup": [
+    { "action": "create_resource", "type": "lakehouse", "name": "lago" },
+    { "action": "load_sample", "sample": "retail/stores.csv", "name": "stores", "ingest_to": "bronze.stores" },
+    { "action": "load_sample", "sample": "retail/products.csv", "name": "products", "ingest_to": "bronze.products" },
+    { "action": "load_sample", "sample": "retail/customers.csv", "name": "customers", "ingest_to": "bronze.customers" },
+    { "action": "load_sample", "sample": "retail/orders.csv", "name": "orders", "ingest_to": "bronze.orders" },
+    { "action": "load_sample", "sample": "retail/order_items.csv", "name": "order_items", "ingest_to": "bronze.order_items" }
+  ],
+  "tasks": [
+    {
+      "key": "t1", "title": "gold.dim_store con clave sustituta", "points": 15,
+      "hints": [
+        { "text": "row_number() OVER (ORDER BY store_id) genera una clave entera única y estable.", "penalty": 3 }
+      ],
+      "checks": [
+        { "type": "table_has_columns", "table": "gold.dim_store", "columns": ["store_key", "store_id", "store_name", "city", "region"] },
+        { "type": "unique", "table": "gold.dim_store", "columns": ["store_key"], "feedback": "store_key debe identificar cada fila (sin repetidos)." },
+        { "type": "null_count", "table": "gold.dim_store", "column": "store_key", "op": "eq", "value": 0 },
+        { "type": "unique", "table": "gold.dim_store", "columns": ["store_id"], "feedback": "Debe haber una sola fila por tienda (store_id)." },
+        { "type": "query_result_matches", "actual_sql": "SELECT count(*) FROM gold.dim_store", "expected_sql": "SELECT count(*) FROM bronze.stores",
+          "feedback": "gold.dim_store debe contener todas las tiendas." }
+      ]
+    },
+    {
+      "key": "t2", "title": "gold.dim_product con clave sustituta", "points": 15,
+      "hints": [ { "text": "Igual que dim_store, ordenando por product_id.", "penalty": 3 } ],
+      "checks": [
+        { "type": "table_has_columns", "table": "gold.dim_product", "columns": ["product_key", "product_id", "product_name", "category", "price"] },
+        { "type": "unique", "table": "gold.dim_product", "columns": ["product_key"] },
+        { "type": "null_count", "table": "gold.dim_product", "column": "product_key", "op": "eq", "value": 0 },
+        { "type": "unique", "table": "gold.dim_product", "columns": ["product_id"] },
+        { "type": "query_result_matches", "actual_sql": "SELECT count(*) FROM gold.dim_product", "expected_sql": "SELECT count(*) FROM bronze.products",
+          "feedback": "gold.dim_product debe contener todos los productos." }
+      ]
+    },
+    {
+      "key": "t3", "title": "gold.dim_date: la dimensión de fechas", "points": 20,
+      "hints": [
+        { "text": "Parte de las fechas distintas de bronze.orders (order_date).", "penalty": 4 },
+        { "text": "date_key como entero AAAAMMDD: CAST(strftime(fecha, '%Y%m%d') AS INTEGER).", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "table_has_columns", "table": "gold.dim_date", "columns": ["date_key", "full_date", "year", "month"] },
+        { "type": "column_type", "table": "gold.dim_date", "column": "full_date", "types": ["DATE"] },
+        { "type": "column_type", "table": "gold.dim_date", "column": "date_key", "types": ["INTEGER", "BIGINT"] },
+        { "type": "unique", "table": "gold.dim_date", "columns": ["date_key"] },
+        { "type": "query_result_matches",
+          "actual_sql": "SELECT count(*) FROM bronze.orders o WHERE NOT EXISTS (SELECT 1 FROM gold.dim_date d WHERE d.full_date = o.order_date)",
+          "expected_sql": "SELECT 0",
+          "feedback": "Todas las fechas de pedido deben existir en gold.dim_date." },
+        { "type": "query_result_matches",
+          "actual_sql": "SELECT count(*) FROM gold.dim_date WHERE date_key <> CAST(strftime(full_date, '%Y%m%d') AS INTEGER) OR year <> year(full_date) OR month <> month(full_date)",
+          "expected_sql": "SELECT 0",
+          "feedback": "date_key, year y month deben corresponder a full_date (date_key = AAAAMMDD)." }
+      ]
+    },
+    {
+      "key": "t4", "title": "gold.dim_customer: SCD tipo 1", "points": 20,
+      "hints": [
+        { "text": "bronze.customers tiene clientes repetidos: quédate con una fila por customer_id (por ejemplo, la de signup_date más reciente con row_number() OVER (PARTITION BY customer_id …)).", "penalty": 5 },
+        { "text": "Normaliza el email con lower(trim(email)) y añade customer_key con row_number() OVER (ORDER BY customer_id).", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "table_has_columns", "table": "gold.dim_customer", "columns": ["customer_key", "customer_id", "email", "city"] },
+        { "type": "unique", "table": "gold.dim_customer", "columns": ["customer_id"], "feedback": "SCD tipo 1: una sola fila por cliente (customer_id)." },
+        { "type": "unique", "table": "gold.dim_customer", "columns": ["customer_key"] },
+        { "type": "query_result_matches", "actual_sql": "SELECT count(*) FROM gold.dim_customer",
+          "expected_sql": "SELECT count(DISTINCT customer_id) FROM bronze.customers",
+          "feedback": "Debe haber exactamente una fila por cada cliente de bronze.customers." },
+        { "type": "query_result_matches", "actual_sql": "SELECT count(*) FROM gold.dim_customer WHERE email <> lower(trim(email))",
+          "expected_sql": "SELECT 0", "feedback": "Los emails deben quedar normalizados (minúsculas y sin espacios)." }
+      ]
+    },
+    {
+      "key": "t5", "title": "gold.fact_sales con integridad referencial", "points": 30,
+      "hints": [
+        { "text": "Grano: una fila por línea de pedido completado (bronze.order_items unida con bronze.orders, status = 'completed').", "penalty": 5 },
+        { "text": "Une con las dimensiones por su clave de negocio (store_id, product_id, customer_id) para obtener las claves sustitutas.", "penalty": 5 },
+        { "text": "date_key se calcula igual que en dim_date a partir de order_date.", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "table_has_columns", "table": "gold.fact_sales",
+          "columns": ["order_id", "date_key", "store_key", "product_key", "customer_key", "quantity", "unit_price", "line_total"] },
+        { "type": "references", "table": "gold.fact_sales", "columns": ["store_key"], "ref_table": "gold.dim_store", "ref_columns": ["store_key"] },
+        { "type": "references", "table": "gold.fact_sales", "columns": ["product_key"], "ref_table": "gold.dim_product", "ref_columns": ["product_key"] },
+        { "type": "references", "table": "gold.fact_sales", "columns": ["date_key"], "ref_table": "gold.dim_date", "ref_columns": ["date_key"] },
+        { "type": "references", "table": "gold.fact_sales", "columns": ["customer_key"], "ref_table": "gold.dim_customer", "ref_columns": ["customer_key"] },
+        { "type": "null_count", "table": "gold.fact_sales", "column": "store_key", "op": "eq", "value": 0 },
+        { "type": "query_result_matches", "decimals": 2,
+          "actual_sql": "SELECT count(*), round(sum(line_total), 2) FROM gold.fact_sales",
+          "expected_sql": "SELECT count(*), round(sum(i.quantity * i.unit_price), 2) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id WHERE o.status = 'completed'",
+          "feedback": "El número de líneas o el importe total no coinciden: una fila por línea de pedido completado." },
+        { "type": "query_result_matches", "decimals": 2,
+          "actual_sql": "SELECT s.region, round(sum(f.line_total), 2) FROM gold.fact_sales f JOIN gold.dim_store s ON s.store_key = f.store_key GROUP BY 1",
+          "expected_sql": "SELECT s.region, round(sum(i.quantity * i.unit_price), 2) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id JOIN bronze.stores s ON s.store_id = o.store_id WHERE o.status = 'completed' GROUP BY 1",
+          "feedback": "Las claves de tienda no apuntan a la tienda correcta: los ingresos por región no coinciden." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 14 }
+}

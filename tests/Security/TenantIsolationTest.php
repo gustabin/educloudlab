@@ -33,7 +33,16 @@ final class TenantIsolationTest extends TestCase
         'sessions', 'refresh_tokens', 'lab_attempts', 'lab_hint_usage', 'lab_task_answers', 'lab_task_results',
         'courses', 'enrollments', 'course_labs',
         'pipelines', 'pipeline_runs', 'dataset_lineage', 'storage_containers', 'storage_objects',
+        'semantic_models', 'dashboards', 'semantic_queries',
     ];
+
+    private const MODEL = [
+        'fact' => 'gold.ventas',
+        'measures' => [['name' => 'ingresos', 'agg' => 'sum', 'column' => 'importe']],
+        'dimensions' => [['name' => 'region', 'column' => 'region']],
+    ];
+
+    private const DASHBOARD = ['widgets' => [['id' => 'k', 'type' => 'kpi', 'title' => 'Ingresos', 'measures' => ['ingresos']]]];
 
     private const PIPELINE = ['nodes' => [
         ['id' => 'leer', 'type' => 'source', 'table' => 'bronze.clientes'],
@@ -62,6 +71,13 @@ final class TenantIsolationTest extends TestCase
         'POST /api/v1/resources/{resource_id}/containers' => ['name' => 'intruso'],
         'PATCH /api/v1/containers/{container_id}' => ['lifecycle' => null],
         'PATCH /api/v1/objects/{object_id}' => ['tier' => 'cool'],
+        'POST /api/v1/workspaces/{workspace_id}/semantic-models' => ['name' => 'intruso', 'definition' => self::MODEL],
+        'POST /api/v1/workspaces/{workspace_id}/semantic-models/validate' => ['definition' => self::MODEL],
+        'PATCH /api/v1/semantic-models/{model_id}' => ['name' => 'hackeado'],
+        'POST /api/v1/semantic-models/{model_id}/query' => ['measures' => ['ingresos']],
+        'POST /api/v1/workspaces/{workspace_id}/dashboards' => ['name' => 'intruso', 'definition' => self::DASHBOARD],
+        'PATCH /api/v1/dashboards/{dashboard_id}' => ['name' => 'hackeado'],
+        'POST /api/v1/dashboards/{dashboard_id}/render' => [],
     ];
 
     /** @var array<string, string> route parameter => victim object id */
@@ -140,7 +156,12 @@ final class TenantIsolationTest extends TestCase
         $run = $this->request('POST', "/api/v1/pipelines/$pipelineId/runs", [], ['X-CSRF-Token' => $csrf]);
         self::assertSame(202, $run->status, $run->body);
 
+        $analytics = $this->analyticsFixtures($wsId);
+
         $this->victimIds = [
+            'model_id' => $analytics['model'],
+            'dashboard_id' => $analytics['dashboard'],
+            'semantic_query_id' => $analytics['query'],
             'workspace_id' => $wsId,
             'resource_id' => (string) $res->decoded()['data']['id'],
             'dataset_id' => (string) $upload->decoded()['data']['dataset']['id'],
@@ -161,6 +182,31 @@ final class TenantIsolationTest extends TestCase
             ),
         ];
         $this->cookieJar = [];
+    }
+
+    /**
+     * Semantic model, dashboard and render query owned by alice, inserted through the repositories (the API would
+     * need real gold tables in the catalog, which needs the runner; this suite runs without it).
+     *
+     * @return array{model: string, dashboard: string, query: string}
+     */
+    private function analyticsFixtures(string $workspacePublicId): array
+    {
+        $db = $this->app()->db();
+        $ws = $db->selectOne('SELECT id, tenant_id, owner_user_id FROM workspaces WHERE public_id = ?', [$workspacePublicId]);
+        self::assertNotNull($ws);
+        $tenant = (string) $db->scalar('SELECT public_id FROM tenants WHERE id = ?', [$ws['tenant_id']]);
+        $ctx = new \EduCloud\Core\Auth\TenantContext((int) $ws['tenant_id'], $tenant, 'organization', (int) $ws['owner_user_id'], 'student', false);
+        $resources = new \EduCloud\Modules\Resources\ResourceRepository($db);
+        $repo = new \EduCloud\Modules\Analytics\AnalyticsRepository($db);
+        $model = $resources->create($ctx, (int) $ws['id'], (int) $ws['owner_user_id'], 'semantic_model', 'ventas', 'edu-local-1', [], []);
+        $resources->transition($ctx, $model['id'], 'provisioning', 'active');
+        $modelId = $repo->createModel($ctx, (int) $ws['id'], $model['id'], self::MODEL);
+        $dashboard = $resources->create($ctx, (int) $ws['id'], (int) $ws['owner_user_id'], 'dashboard', 'panel', 'edu-local-1', [], []);
+        $resources->transition($ctx, $dashboard['id'], 'provisioning', 'active');
+        $dashboardId = $repo->createDashboard($ctx, (int) $ws['id'], $dashboard['id'], $modelId, self::DASHBOARD);
+        $query = $repo->createQuery($ctx, (int) $ws['id'], $modelId, $dashboardId, 'render', ['model' => self::MODEL, 'queries' => []]);
+        return ['model' => $model['public_id'], 'dashboard' => $dashboard['public_id'], 'query' => $query['public_id']];
     }
 
     /** @return iterable<string, array{string}> */
@@ -213,7 +259,7 @@ final class TenantIsolationTest extends TestCase
             $checked[] = $key;
         }
 
-        $minimum = $attacker === 'bob-bearer' ? 53 : 61; // every {id} route of the registry (M7)
+        $minimum = $attacker === 'bob-bearer' ? 67 : 77; // every {id} route of the registry (M9)
         self::assertGreaterThanOrEqual($minimum, count($checked), "[$attacker] matrix covered too few routes: " . implode(', ', $checked));
     }
 
@@ -249,6 +295,13 @@ final class TenantIsolationTest extends TestCase
             "/api/v1/pipelines/{$this->victimIds['pipeline_id']}",
             "/api/v1/pipelines/{$this->victimIds['pipeline_id']}/runs",
             "/api/v1/pipeline-runs/{$this->victimIds['run_id']}",
+            "/api/v1/workspaces/$ws/semantic-models",
+            "/api/v1/workspaces/$ws/dashboards",
+            "/app/workspaces/$ws/analytics",
+            "/api/v1/semantic-models/{$this->victimIds['model_id']}",
+            "/api/v1/dashboards/{$this->victimIds['dashboard_id']}",
+            "/app/dashboards/{$this->victimIds['dashboard_id']}",
+            "/api/v1/semantic-queries/{$this->victimIds['semantic_query_id']}",
         ];
         foreach ($paths as $path) {
             self::assertSame(200, $this->request('GET', $path)->status, $path);

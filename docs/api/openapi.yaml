@@ -1957,6 +1957,375 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/semantic-models:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    get:
+      operationId: listSemanticModels
+      summary: Semantic models of a workspace
+      tags: [analytics]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Models
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/SemanticModel' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createSemanticModel
+      summary: Create a semantic model (validated against the workspace catalog)
+      tags: [analytics]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, definition]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                definition: { $ref: '#/components/schemas/SemanticModelDefinition' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SemanticModel' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/semantic-models/validate:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    post:
+      operationId: validateSemanticModel
+      summary: Validate a model definition against the catalog without saving it
+      tags: [analytics]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [definition]
+              properties:
+                definition: { $ref: '#/components/schemas/SemanticModelDefinition' }
+      responses:
+        '200':
+          description: Valid
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: object, properties: { valid: { type: boolean }, measures: { type: integer }, dimensions: { type: integer } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /semantic-models/{model_id}:
+    parameters: [{ $ref: '#/components/parameters/ModelId' }]
+    get:
+      operationId: getSemanticModel
+      summary: Semantic model with its definition
+      tags: [analytics]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Model
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SemanticModel' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateSemanticModel
+      summary: Rename and/or replace the definition (409 MODEL_IN_USE if a dashboard would break)
+      tags: [analytics]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                definition: { $ref: '#/components/schemas/SemanticModelDefinition' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SemanticModel' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteSemanticModel
+      summary: Delete a model (409 MODEL_IN_USE while dashboards use it)
+      tags: [analytics]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /semantic-models/{model_id}/query:
+    parameters: [{ $ref: '#/components/parameters/ModelId' }]
+    post:
+      operationId: exploreSemanticModel
+      summary: Ad-hoc query (measures by dimensions, with filters) compiled from the model (202)
+      tags: [analytics]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                measures: { type: array, maxItems: 10, items: { type: string } }
+                dimensions: { type: array, maxItems: 3, items: { type: string } }
+                filters:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required: [dimension, op, value]
+                    properties:
+                      dimension: { type: string }
+                      op: { type: string, enum: [eq, ne, gt, gte, lt, lte, in, not_in, between] }
+                      value: { description: 'scalar; list for in/not_in; [from, to] for between' }
+                order: { type: object, properties: { by: { type: string }, dir: { type: string, enum: [asc, desc] } } }
+                limit: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+      responses:
+        '202':
+          description: Query queued (poll GET /semantic-queries/{id})
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SemanticQuery' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/dashboards:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    get:
+      operationId: listDashboards
+      summary: Dashboards of a workspace
+      tags: [analytics]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Dashboards
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Dashboard' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createDashboard
+      summary: Create a dashboard bound to a semantic model of the same workspace
+      tags: [analytics]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, model_id, definition]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                model_id: { type: string, description: ULID of a semantic model of the same workspace }
+                definition: { $ref: '#/components/schemas/DashboardDefinition' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Dashboard' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /dashboards/{dashboard_id}:
+    parameters: [{ $ref: '#/components/parameters/DashboardId' }]
+    get:
+      operationId: getDashboard
+      summary: Dashboard with its definition and the labels/formats of its model
+      tags: [analytics]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Dashboard
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Dashboard' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateDashboard
+      summary: Rename, rebind or replace the definition
+      tags: [analytics]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                model_id: { type: string }
+                definition: { $ref: '#/components/schemas/DashboardDefinition' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Dashboard' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteDashboard
+      summary: Delete a dashboard
+      tags: [analytics]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /dashboards/{dashboard_id}/render:
+    parameters: [{ $ref: '#/components/parameters/DashboardId' }]
+    post:
+      operationId: renderDashboard
+      summary: Run every widget query (and filter values) in one job (202)
+      tags: [analytics]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                date_from: { type: string, format: date, description: needs a date_filter in the dashboard }
+                date_to: { type: string, format: date }
+                filters: { type: object, additionalProperties: { type: array, maxItems: 50, items: { type: string, maxLength: 200 } }, description: 'declared filter dimension => selected values' }
+      responses:
+        '202':
+          description: Render queued (poll GET /semantic-queries/{id})
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SemanticQuery' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /semantic-queries/{semantic_query_id}:
+    parameters: [{ $ref: '#/components/parameters/SemanticQueryId' }]
+    get:
+      operationId: getSemanticQuery
+      summary: Status of an exploration or render; results (kept 24 h) once it succeeded
+      tags: [analytics]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Query
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/SemanticQuery' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
 components:
   parameters:
     CourseId: { name: course_id, in: path, required: true, schema: { type: string, description: ULID of the course } }
@@ -1969,6 +2338,9 @@ components:
     RunId: { name: run_id, in: path, required: true, schema: { type: string, description: ULID of the pipeline run } }
     ContainerId: { name: container_id, in: path, required: true, schema: { type: string, description: ULID of the container } }
     ObjectId: { name: object_id, in: path, required: true, schema: { type: string, description: ULID of the object } }
+    ModelId: { name: model_id, in: path, required: true, schema: { type: string, description: ULID of the semantic model resource } }
+    DashboardId: { name: dashboard_id, in: path, required: true, schema: { type: string, description: ULID of the dashboard resource } }
+    SemanticQueryId: { name: semantic_query_id, in: path, required: true, schema: { type: string, description: ULID of the semantic query } }
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: ecsid }
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
@@ -2258,11 +2630,93 @@ components:
         tier: { type: string, enum: [hot, cool, archive] }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    SemanticModelDefinition:
+      type: object
+      description: >-
+        One fact table (silver/gold), many-to-one relationships to dimension tables, measures ({agg, column} with agg in
+        sum|count|count_distinct|avg|min|max, or {ratio: [measure, measure]}) and dimensions ({column, table?, grain?}).
+        Full grammar in app/Modules/Analytics/semantic_model.schema.json. Tables and columns must exist in the catalog.
+      required: [fact, measures]
+      properties:
+        description: { type: string, maxLength: 500 }
+        fact: { type: string, pattern: '^(silver|gold)\.[a-z][a-z0-9_]{0,62}$' }
+        relationships: { type: array, maxItems: 10, items: { type: object, required: [table, fact_column, column] } }
+        measures: { type: array, minItems: 1, maxItems: 50, items: { type: object, required: [name] } }
+        dimensions: { type: array, maxItems: 50, items: { type: object, required: [name, column] } }
+    DashboardDefinition:
+      type: object
+      description: Widgets (kpi|bar|line|table) bound to measures and dimensions of the model; optional date_filter and filters.
+      required: [widgets]
+      properties:
+        description: { type: string, maxLength: 500 }
+        date_filter: { type: object, properties: { dimension: { type: string } } }
+        filters: { type: array, maxItems: 3, items: { type: object, properties: { dimension: { type: string } } } }
+        widgets:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items:
+            type: object
+            required: [id, type, title, measures]
+            properties:
+              id: { type: string, pattern: '^[a-z][a-z0-9_]{0,29}$' }
+              type: { type: string, enum: [kpi, bar, line, table] }
+              title: { type: string, maxLength: 80 }
+              measures: { type: array, minItems: 1, maxItems: 4, items: { type: string } }
+              dimension: { type: string }
+              order: { type: object, properties: { by: { type: string }, dir: { type: string, enum: [asc, desc] } } }
+              limit: { type: integer, minimum: 1, maximum: 100 }
+    SemanticModel:
+      type: object
+      properties:
+        id: { type: string, description: ULID (public id of the semantic_model resource) }
+        workspace_id: { type: string }
+        name: { type: string }
+        version: { type: integer }
+        definition: { $ref: '#/components/schemas/SemanticModelDefinition' }
+        dashboard_count: { type: integer }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    Dashboard:
+      type: object
+      properties:
+        id: { type: string, description: ULID (public id of the dashboard resource) }
+        workspace_id: { type: string }
+        name: { type: string }
+        version: { type: integer }
+        model:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            measures: { type: array, items: { type: object, properties: { name: { type: string }, label: { type: string }, format: { type: string } } } }
+            dimensions: { type: array, items: { type: object, properties: { name: { type: string }, label: { type: string }, grain: { type: string } } } }
+        definition: { $ref: '#/components/schemas/DashboardDefinition' }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    SemanticQuery:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        kind: { type: string, enum: [explore, render] }
+        status: { type: string, enum: [queued, succeeded, failed, cancelled, timed_out] }
+        model_id: { type: string }
+        dashboard_id: { type: [string, 'null'] }
+        values: { type: object, description: render filter values }
+        error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }
+        duration_ms: { type: [integer, 'null'] }
+        results:
+          type: [object, 'null']
+          description: 'key (q | w_<widget> | f_<dimension>) => {columns: [{name, role: dimension|date|measure}], rows, truncated} or {error: {code, message}}'
+          additionalProperties: true
+        result_expired: { type: boolean }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
     Job:
       type: object
       properties:
         id: { type: string, description: ULID }
-        type: { type: string, enum: [profile, ingest, cleanup, sql_query, transform, validate, pipeline_run] }
+        type: { type: string, enum: [profile, ingest, cleanup, sql_query, transform, validate, pipeline_run, semantic_query] }
         status: { type: string, enum: [queued, running, succeeded, failed, cancelled, timed_out] }
         workspace_id: { type: [string, 'null'] }
         error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }

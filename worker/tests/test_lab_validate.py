@@ -176,3 +176,23 @@ def test_missing_lakehouse_and_bad_payloads(tmp_path: Path) -> None:
         validate({"lakehouse_path": str(tmp_path / "x.duckdb"), "checks": "nope"}, LIMITS, str(tmp_path))
     with pytest.raises(RunnerError):
         validate({"lakehouse_path": "C:/Windows/x.duckdb", "checks": []}, LIMITS, str(tmp_path))
+
+
+def test_references_detects_orphan_keys(ws: Path) -> None:
+    con = duckdb.connect(str(ws / "lakehouse.duckdb"))
+    con.execute("CREATE TABLE gold.dim_store AS SELECT * FROM (VALUES (1), (2)) t(store_key)")
+    con.execute("CREATE TABLE gold.fact_ok AS SELECT * FROM (VALUES (1), (2), (NULL)) t(store_key)")
+    con.execute("CREATE TABLE gold.fact_bad AS SELECT * FROM (VALUES (1), (3), (4)) t(store_key)")
+    con.close()
+    base = {"type": "references", "columns": ["store_key"], "ref_table": "gold.dim_store", "ref_columns": ["store_key"]}
+    out = validate({"lakehouse_path": str(ws / "lakehouse.duckdb"), "checks": [
+        {"id": "ok", **base, "table": "gold.fact_ok"},
+        {"id": "bad", **base, "table": "gold.fact_bad"},
+        {"id": "col", **base, "table": "gold.fact_ok", "columns": ["nope"]},
+        {"id": "inj", **base, "table": "gold.fact_ok", "columns": ["store_key) OR (1=1"]},
+    ]}, LIMITS, str(ws))
+    by_id = {r["id"]: r for r in out["results"]}
+    assert by_id["ok"]["passed"] is True
+    assert by_id["bad"]["passed"] is False and "Hay 2 filas" in by_id["bad"]["feedback"]
+    assert by_id["col"]["passed"] is False and "nope" in by_id["col"]["feedback"]
+    assert by_id["inj"]["passed"] is False

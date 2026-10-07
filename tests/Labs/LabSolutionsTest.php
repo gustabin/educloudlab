@@ -136,6 +136,34 @@ final class LabSolutionsTest extends TestCase
         self::assertSame([['status' => 'failed']], $runs);
     }
 
+    public function testWarehouseAndSemanticChecksExplainWhatIsMissing(): void
+    {
+        $attempt = $this->startLab($this->student, 'LAB-009');
+        $this->runJobs();
+        $ws = (string) $attempt['workspace']['id'];
+        $this->applySteps('LAB-009', $ws, (string) $attempt['id'], [
+            ['do' => 'transform', 'layer' => 'gold', 'table' => 'dim_store',
+                'sql' => 'SELECT row_number() OVER (ORDER BY store_id) AS store_key, store_id, region FROM bronze.stores'],
+            // Wrong keys: store_id + 100 does not exist in dim_store (orphans).
+            ['do' => 'transform', 'layer' => 'gold', 'table' => 'fact_sales',
+                'sql' => 'SELECT o.order_id, o.order_date, o.store_id + 100 AS store_key, i.quantity * i.unit_price AS line_total '
+                    . 'FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id'],
+            ['do' => 'create_model', 'name' => 'ventas', 'definition' => [
+                'fact' => 'gold.fact_sales',
+                'relationships' => [['table' => 'gold.dim_store', 'fact_column' => 'store_key', 'column' => 'store_key']],
+                'measures' => [['name' => 'ingresos', 'agg' => 'avg', 'column' => 'line_total']],
+                'dimensions' => [['name' => 'region', 'table' => 'gold.dim_store', 'column' => 'region']],
+            ]],
+            ['do' => 'create_dashboard', 'name' => 'panel-ventas', 'model' => 'ventas', 'definition' => [
+                'widgets' => [['id' => 'k', 'type' => 'kpi', 'title' => 'Ingresos', 'measures' => ['ingresos']]],
+            ]],
+        ]);
+        $byTask = self::feedback($this->submitAndGrade($this->student, (string) $attempt['id']));
+        self::assertStringContainsString('cuya clave (store_key) no existe en gold.dim_store', $byTask['t1']);
+        self::assertStringContainsString('Falta una medida: sum(line_total)', $byTask['t2']);
+        self::assertStringContainsString('panel-ventas', $byTask['t3']);
+    }
+
     /**
      * @param array<string, mixed> $graded
      * @return array<string, string> task key => feedback ('' when passed)
@@ -204,6 +232,12 @@ final class LabSolutionsTest extends TestCase
                     ['lifecycle' => $step['lifecycle']]
                 ),
                 'upload_object' => $this->uploadObject($workspaceId, $step),
+                'create_model' => $this->as($this->student, 'POST', "/api/v1/workspaces/$workspaceId/semantic-models", [
+                    'name' => $step['name'], 'definition' => $step['definition'],
+                ]),
+                'create_dashboard' => $this->as($this->student, 'POST', "/api/v1/workspaces/$workspaceId/dashboards", [
+                    'name' => $step['name'], 'model_id' => $this->modelId($workspaceId, $step['model']), 'definition' => $step['definition'],
+                ]),
                 'create_pipeline' => $this->as($this->student, 'POST', "/api/v1/workspaces/$workspaceId/pipelines", [
                     'name' => $step['name'], 'definition' => $step['definition'],
                 ]),
@@ -229,6 +263,16 @@ final class LabSolutionsTest extends TestCase
             }
         }
         self::fail("Container $name not found");
+    }
+
+    private function modelId(string $workspaceId, string $name): string
+    {
+        foreach ($this->as($this->student, 'GET', "/api/v1/workspaces/$workspaceId/semantic-models")->decoded()['data'] as $model) {
+            if ($model['name'] === $name) {
+                return (string) $model['id'];
+            }
+        }
+        self::fail("Semantic model $name not found");
     }
 
     private function pipelineId(string $workspaceId, string $name): string

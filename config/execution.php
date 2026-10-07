@@ -24,6 +24,7 @@ return [
         'transform' => 90,
         'validate' => 150,   // lab grading: every check is interrupted after limits.sql_timeout_s
         'pipeline_run' => 300, // each pipeline step is interrupted after limits.transform_timeout_s
+        'semantic_query' => 60, // M9: model exploration / dashboard render; each query is interrupted after limits.sql_timeout_s
     ],
     'limits' => [
         'threads' => 2,
@@ -36,6 +37,7 @@ return [
         'sql_max_rows' => 1000,
         'sql_max_bytes' => 1_500_000,
         'sql_timeout_s' => 10,
+        'semantic_max_rows' => 1000, // per semantic query (dashboard widget)
         'transform_timeout_s' => 60,
         'sql_max_cell_chars' => 1000,
         'sql_max_columns' => 200,

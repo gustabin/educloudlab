@@ -26,6 +26,9 @@
         </p>
     </div>
     <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="<?= e(url('/app/workspaces/' . $workspace['id'] . '/analytics')) ?>">
+            <i class="fa-solid fa-chart-pie" aria-hidden="true"></i> <?= e(t('analytics.open')) ?>
+        </a>
         <a class="btn btn-outline-primary" href="<?= e(url('/app/workspaces/' . $workspace['id'] . '/pipelines')) ?>">
             <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> <?= e(t('pipelines.open')) ?>
         </a>

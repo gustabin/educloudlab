@@ -25,6 +25,7 @@ return [
         'validate' => 150,   // lab grading: every check is interrupted after limits.sql_timeout_s
         'pipeline_run' => 300, // each pipeline step is interrupted after limits.transform_timeout_s
         'semantic_query' => 60, // M9: model exploration / dashboard render; each query is interrupted after limits.sql_timeout_s
+        'notebook_run' => 120, // M8: whole run (all cells) in the Docker sandbox; the container is killed after this
     ],
     'limits' => [
         'threads' => 2,
@@ -47,4 +48,23 @@ return [
     ],
     'max_response_bytes' => 2 * 1024 * 1024,
     'heartbeat_seconds' => 5,
+    // M8 notebooks (ADR-010). mode: off | demo (edit only, default) | docker (runs in the sandbox below).
+    'notebooks' => [
+        'mode' => in_array($env['NOTEBOOKS_MODE'] ?? 'demo', ['off', 'demo', 'docker'], true) ? ($env['NOTEBOOKS_MODE'] ?? 'demo') : 'demo',
+        'docker' => $env['DOCKER_BIN'] ?? 'docker',
+        'image' => 'educloud-nb:1',
+        'memory' => '512m',
+        'cpus' => '1',
+        'pids' => 128,
+        'nofile' => 256,
+        'tmpfs_mb' => 64,
+        'cell_timeout_s' => 30,
+        'shm_mb' => 16,
+        // Notebook runs are claimed by their own worker (php scripts/dispatcher.php --notebooks), never by the main one.
+        'dedicated_worker' => ($env['NOTEBOOKS_DEDICATED_WORKER'] ?? '1') !== '0',
+        'log_max_mb' => 4,                     // container stdout: json-file in the Docker VM, rotated (4 MB x 2)
+        'max_log_bytes' => 9 * 1024 * 1024,     // the log read back after the run (never more than the rotation keeps)
+        'max_cells' => 50,
+        'max_cell_chars' => 20_000,
+    ],
 ];

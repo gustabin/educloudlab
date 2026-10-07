@@ -98,6 +98,25 @@ final class LabStateRepository
         );
     }
 
+    /**
+     * Active notebooks of the workspace with their latest run status and the artifacts of their latest SUCCESSFUL run.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function notebooks(int $tenantId, int $workspaceId): array
+    {
+        return $this->db->select(
+            "SELECT r.name,
+                    (SELECT nr.status FROM notebook_runs nr WHERE nr.tenant_id = n.tenant_id AND nr.notebook_id = n.id
+                      ORDER BY nr.id DESC LIMIT 1) AS last_status,
+                    (SELECT nr.artifacts FROM notebook_runs nr WHERE nr.tenant_id = n.tenant_id AND nr.notebook_id = n.id
+                        AND nr.status = 'succeeded' ORDER BY nr.id DESC LIMIT 1) AS artifacts
+               FROM notebooks n JOIN resources r ON r.tenant_id = n.tenant_id AND r.id = n.resource_id
+              WHERE n.tenant_id = ? AND n.workspace_id = ? AND r.status = 'active'",
+            [$tenantId, $workspaceId]
+        );
+    }
+
     public function activeJobs(int $tenantId, int $workspaceId, ?string $type = null): int
     {
         $sql = "SELECT COUNT(*) FROM jobs WHERE tenant_id = ? AND workspace_id = ? AND status IN ('queued', 'running')";

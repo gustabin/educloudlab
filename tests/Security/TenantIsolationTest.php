@@ -35,7 +35,10 @@ final class TenantIsolationTest extends TestCase
         'pipelines', 'pipeline_runs', 'dataset_lineage', 'storage_containers', 'storage_objects',
         'semantic_models', 'dashboards', 'semantic_queries',
         'course_modules', 'course_lessons', 'lesson_progress', 'notifications',
+        'notebooks', 'notebook_runs',
     ];
+
+    private const CELLS = [['id' => 'c1', 'type' => 'code', 'source' => 'print(1)']];
 
     private const MODEL = [
         'fact' => 'gold.ventas',
@@ -85,6 +88,10 @@ final class TenantIsolationTest extends TestCase
         'PATCH /api/v1/lessons/{lesson_id}' => ['title' => 'Hackeada'],
         'POST /api/v1/lessons/{lesson_id}/complete' => [],
         'POST /api/v1/notifications/{notification_id}/read' => [],
+        'POST /api/v1/workspaces/{workspace_id}/notebooks' => ['name' => 'intruso', 'cells' => self::CELLS],
+        'PATCH /api/v1/notebooks/{notebook_id}' => ['name' => 'hackeado'],
+        'POST /api/v1/notebooks/{notebook_id}/runs' => [],
+        'POST /api/v1/notebook-runs/{notebook_run_id}/cancel' => [],
     ];
 
     /** @var array<string, string> route parameter => victim object id */
@@ -183,11 +190,19 @@ final class TenantIsolationTest extends TestCase
         self::assertSame(202, $run->status, $run->body);
 
         $analytics = $this->analyticsFixtures($wsId);
+        $notebook = $this->request('POST', "/api/v1/workspaces/$wsId/notebooks", ['name' => 'exploracion', 'cells' => self::CELLS], [
+            'X-CSRF-Token' => $csrf,
+        ]);
+        self::assertSame(201, $notebook->status, $notebook->body);
+        $notebookId = (string) $notebook->decoded()['data']['id'];
+        $notebookRunId = $this->notebookRunFixture($notebookId);
 
         $this->victimIds = [
             'module_id' => $moduleId,
             'lesson_id' => $lessonId,
             'notification_id' => $notificationId,
+            'notebook_id' => $notebookId,
+            'notebook_run_id' => $notebookRunId,
             'model_id' => $analytics['model'],
             'dashboard_id' => $analytics['dashboard'],
             'semantic_query_id' => $analytics['query'],
@@ -236,6 +251,30 @@ final class TenantIsolationTest extends TestCase
         $dashboardId = $repo->createDashboard($ctx, (int) $ws['id'], $dashboard['id'], $modelId, self::DASHBOARD);
         $query = $repo->createQuery($ctx, (int) $ws['id'], $modelId, $dashboardId, 'render', ['model' => self::MODEL, 'queries' => []]);
         return ['model' => $model['public_id'], 'dashboard' => $dashboard['public_id'], 'query' => $query['public_id']];
+    }
+
+    /** A queued run of alice's notebook (runs need the Docker mode through the API; the row is enough here). */
+    private function notebookRunFixture(string $notebookPublicId): string
+    {
+        $db = $this->app()->db();
+        $nb = $db->selectOne(
+            'SELECT n.id, n.tenant_id, w.owner_user_id, t.public_id AS tenant_public_id FROM notebooks n
+               JOIN resources r ON r.tenant_id = n.tenant_id AND r.id = n.resource_id
+               JOIN workspaces w ON w.tenant_id = n.tenant_id AND w.id = n.workspace_id
+               JOIN tenants t ON t.id = n.tenant_id WHERE r.public_id = ?',
+            [$notebookPublicId]
+        );
+        self::assertNotNull($nb);
+        $owner = (int) $nb['owner_user_id'];
+        $ctx = new \EduCloud\Core\Auth\TenantContext(
+            (int) $nb['tenant_id'],
+            (string) $nb['tenant_public_id'],
+            'organization',
+            $owner,
+            'student',
+            false
+        );
+        return (new \EduCloud\Modules\Notebooks\NotebookRepository($db))->createRun($ctx, (int) $nb['id'], 1, self::CELLS)['public_id'];
     }
 
     /** @return iterable<string, array{string}> */
@@ -291,7 +330,7 @@ final class TenantIsolationTest extends TestCase
             $checked[] = $key;
         }
 
-        $minimum = $attacker === 'bob-bearer' ? 78 : 89; // every {id} route of the registry (M10b)
+        $minimum = $attacker === 'bob-bearer' ? 87 : 99; // every {id} route of the registry (M8)
         self::assertGreaterThanOrEqual($minimum, count($checked), "[$attacker] matrix covered too few routes: " . implode(', ', $checked));
     }
 
@@ -337,6 +376,11 @@ final class TenantIsolationTest extends TestCase
             "/api/v1/courses/{$this->victimIds['course_id']}/modules",
             "/api/v1/lessons/{$this->victimIds['lesson_id']}",
             "/app/lessons/{$this->victimIds['lesson_id']}",
+            "/api/v1/workspaces/$ws/notebooks",
+            "/app/workspaces/$ws/notebooks",
+            "/api/v1/notebooks/{$this->victimIds['notebook_id']}",
+            "/api/v1/notebooks/{$this->victimIds['notebook_id']}/runs",
+            "/api/v1/notebook-runs/{$this->victimIds['notebook_run_id']}",
         ];
         foreach ($paths as $path) {
             self::assertSame(200, $this->request('GET', $path)->status, $path);

@@ -47,6 +47,13 @@ final class LabSolutionsTest extends TestCase
     /** @dataProvider labs */
     public function testEmptyAttemptScoresZeroAndReferenceSolutionScoresMax(string $code): void
     {
+        if ($code === 'LAB-008') {
+            // Notebook labs need the Docker sandbox (ADR-010): run them in docker mode when it is available.
+            if (!(new \EduCloud\Modules\Notebooks\DockerSandbox($this->app()->config, $this->app()->storage()))->available()) {
+                self::markTestSkipped('LAB-008 needs Docker and the educloud-nb:1 image.');
+            }
+            $this->app = \EduCloud\Core\App::create($this->app()->config->with('execution.notebooks.mode', 'docker'), testDatabase: true);
+        }
         $attempt = $this->startLab($this->student, $code);
         $this->runJobs(); // setup (profile + ingest of samples)
         $ready = $this->attempt($this->student, $attempt['id']);
@@ -232,6 +239,15 @@ final class LabSolutionsTest extends TestCase
                     ['lifecycle' => $step['lifecycle']]
                 ),
                 'upload_object' => $this->uploadObject($workspaceId, $step),
+                'create_notebook' => $this->as($this->student, 'POST', "/api/v1/workspaces/$workspaceId/notebooks", [
+                    'name' => $step['name'], 'cells' => $step['cells'],
+                ]),
+                'run_notebook' => $this->as(
+                    $this->student,
+                    'POST',
+                    '/api/v1/notebooks/' . $this->resourceByName($this->student, $workspaceId, $step['name'])['id'] . '/runs',
+                    []
+                ),
                 'create_model' => $this->as($this->student, 'POST', "/api/v1/workspaces/$workspaceId/semantic-models", [
                     'name' => $step['name'], 'definition' => $step['definition'],
                 ]),

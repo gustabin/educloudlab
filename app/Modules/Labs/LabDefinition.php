@@ -21,10 +21,11 @@ final class LabDefinition
     public const METADATA_CHECKS = [
         'resource_exists', 'resource_deleted', 'dataset_exists',
         'container_exists', 'object_exists', 'pipeline_has_nodes', 'pipeline_run_succeeded',
-        'semantic_model_has', 'dashboard_has_widgets',
+        'semantic_model_has', 'dashboard_has_widgets', 'notebook_run_succeeded',
     ];
     public const DATA_CHECKS = [
         'table_has_columns', 'column_type', 'row_count', 'null_count', 'unique', 'value_range', 'query_result_matches', 'references',
+        'notebook_artifact_matches',
     ];
 
     /**

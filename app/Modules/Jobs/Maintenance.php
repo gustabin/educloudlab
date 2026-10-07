@@ -43,6 +43,10 @@ final class Maintenance
                 (new \EduCloud\Modules\ObjectStorage\ObjectStorageService($this->app))->applyLifecycle()
             ),
             'notifications' => (new \EduCloud\Modules\Notifications\NotificationService($this->app))->maintenance(),
+            // Notebook containers whose dispatcher died (only stopped or past the PID 1 guard; gate M8-F1).
+            'notebook_containers_reaped' => $this->app->config->get('execution.notebooks.mode') === 'docker'
+                ? (new \EduCloud\Modules\Notebooks\DockerSandbox($this->app->config, $this->app->storage()))->reapOrphans(false)
+                : 0,
             'storage_gauges_refreshed' => (new UsageService($this->app))->refreshAll(),
         ];
     }

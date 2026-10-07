@@ -179,6 +179,19 @@ php scripts/labs-import.php             # import/publish (a changed lab needs a 
 
 Lab setup and grading run as jobs, so the dispatcher must be running. The scheduler expires inactive lab workspaces. The synthetic retail sample data in `public/assets/datasets/retail/` is committed. Regenerate it only when lab content changes: `php scripts/generate-retail-data.php`.
 
+### Notebooks (M8, optional: Docker Desktop)
+
+Notebooks run student Python only inside a Docker sandbox (ADR-010). Without Docker they stay in **demo** mode: notebooks can be edited but not run, and LAB-008 cannot start.
+
+1. Install and start Docker Desktop (WSL2 backend).
+2. Build the image (this downloads `python:3.11-slim` by digest and the pinned, hash-checked wheels):
+   `php scripts/notebook-image.php build`
+3. Run the isolation suite on this machine. It must pass: `vendor/bin/phpunit --testsuite Sandbox`
+4. Enable execution: set `NOTEBOOKS_MODE=docker` in `.env`. Check with `php scripts/check-env.php`.
+5. Start the dedicated notebook worker next to the main dispatcher: `php scripts/dispatcher.php --notebooks`. The main dispatcher never claims notebook runs. It needs access to the Docker CLI (`docker` on `PATH`, or `DOCKER_BIN`). At start it removes containers left by a previous crash.
+
+Repeat steps 2–3 after updating the image or Docker Desktop.
+
 ## 5b. Email in development
 
 Auth emails (verification, password reset) are queued in `email_outbox`. Deliver them with:

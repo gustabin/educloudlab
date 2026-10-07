@@ -65,20 +65,33 @@ final class JobRepository
     /**
      * Claims the next queued job (single dispatcher, ADR-005) and marks it running.
      *
+     * @param list<string>|null $onlyTypes   claim only these job types (dedicated workers, e.g. notebooks)
+     * @param list<string>      $exceptTypes never claim these types
      * @return array<string, mixed>|null job row incl. tenant_public_id and workspace_public_id
      */
-    public function claimNext(string $workerId): ?array
+    public function claimNext(string $workerId, ?array $onlyTypes = null, array $exceptTypes = []): ?array
     {
-        return $this->db->transaction(function () use ($workerId): ?array {
+        return $this->db->transaction(function () use ($workerId, $onlyTypes, $exceptTypes): ?array {
+            $filter = '';
+            $params = [];
+            if ($onlyTypes !== null) {
+                $filter .= ' AND j.type IN (' . implode(', ', array_fill(0, max(1, count($onlyTypes)), '?')) . ')';
+                $params = $onlyTypes === [] ? [''] : $onlyTypes;
+            }
+            if ($exceptTypes !== []) {
+                $filter .= ' AND j.type NOT IN (' . implode(', ', array_fill(0, count($exceptTypes), '?')) . ')';
+                $params = [...$params, ...$exceptTypes];
+            }
             // Fairness: among queued jobs, prefer the user whose most recent job started longest ago, so one user's
             // burst cannot starve everyone else on the single dispatcher.
             $row = $this->db->selectOne(
                 "SELECT j.id FROM jobs j
-                  WHERE j.status = 'queued'
+                  WHERE j.status = 'queued'$filter
                   ORDER BY j.priority ASC,
                            COALESCE((SELECT MAX(p.started_at) FROM jobs p WHERE p.user_id = j.user_id), '1970-01-01') ASC,
                            j.queued_at ASC, j.id ASC
-                  LIMIT 1 FOR UPDATE"
+                  LIMIT 1 FOR UPDATE",
+                $params
             );
             if ($row === null) {
                 return null;

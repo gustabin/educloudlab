@@ -60,6 +60,8 @@ Datasets created by setup are marked `lab_setup`. They cannot be deleted (409 `L
 | `references` | Runner (M9) | Every non-null key of `table.columns` exists in `ref_table.ref_columns` (referential integrity; reports the orphan count) |
 | `semantic_model_has` | PHP (M9) | A semantic model (optionally by name) with the expected `fact`, `relationships`, `measures` and `dimensions`, matched by what they compute (`{agg, column}`, ratios by operands, `{table, column, grain}`), not by their names |
 | `dashboard_has_widgets` | PHP (M9) | A dashboard (optionally by name) with widgets of the given type bound to the expected measure/dimension (resolved through its model), plus optional `filters` and `date_filter` |
+| `notebook_run_succeeded` | PHP (M8) | The latest run of a notebook (optionally by name) succeeded |
+| `notebook_artifact_matches` | Runner (M8) | The artifact `name` saved with `save_result()` in the notebook's latest **successful** run (resolved server-side from `notebook_runs`) has the same rows as `expected_sql` (unordered unless `ordered`, numeric tolerance `decimals`) |
 | `table_has_columns`, `column_type`, `row_count`, `null_count`, `unique`, `value_range` | runner | Structure and data of a `bronze\|silver\|gold.<table>` |
 | `query_result_matches` | runner | Compares the result of `expected_sql` with `actual_sql` (author SQL over the student's tables) or, for exercise tasks (`"answer": true`), the student's **saved SQL answer** |
 
@@ -127,3 +129,7 @@ Accepted residual risks:
 - Expiry warning email at day 11 (M11a).
 - `pipeline_run_succeeded` and `job_succeeded` checks (M7).
 - Instructor UI authoring (release 1.2).
+
+## Capability requirements (M8)
+
+A lab may declare `"requires": ["notebooks"]`. When the platform does not run notebooks in the Docker sandbox (`execution.notebooks.mode` is not `docker`), the catalog shows the lab as unavailable (`available: false`) and starting it answers 409 `LAB_UNAVAILABLE`. LAB-008 uses this.

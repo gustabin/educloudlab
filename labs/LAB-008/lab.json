@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "code": "LAB-008",
+  "version": "1.0.0",
+  "slug": "exploracion-con-notebooks",
+  "status": "published",
+  "title": "Exploración de datos con notebooks",
+  "summary": "Explora el lakehouse con Python, pandas y DuckDB en un notebook aislado: consulta, agrupa, calcula indicadores y guarda tus resultados.",
+  "difficulty": "intermediate",
+  "estimated_minutes": 50,
+  "prerequisites": ["LAB-005"],
+  "requires": ["notebooks"],
+  "objectives": [
+    "Leer tablas del lakehouse desde Python",
+    "Transformar y agrupar datos con pandas",
+    "Combinar SQL y pandas en un mismo análisis",
+    "Guardar resultados reproducibles"
+  ],
+  "setup": [
+    { "action": "create_resource", "type": "lakehouse", "name": "lago" },
+    { "action": "load_sample", "sample": "retail/stores.csv", "name": "stores", "ingest_to": "bronze.stores" },
+    { "action": "load_sample", "sample": "retail/orders.csv", "name": "orders", "ingest_to": "bronze.orders" },
+    { "action": "load_sample", "sample": "retail/order_items.csv", "name": "order_items", "ingest_to": "bronze.order_items" }
+  ],
+  "tasks": [
+    {
+      "key": "t1", "title": "Tu primer notebook", "points": 20,
+      "hints": [ { "text": "En el workspace del laboratorio, abre Notebooks, crea uno llamado exploracion y pulsa «Ejecutar todo».", "penalty": 4 } ],
+      "checks": [
+        { "type": "notebook_run_succeeded", "notebook": "exploracion",
+          "feedback": "Crea el notebook exploracion y ejecútalo hasta que termine sin errores." }
+      ]
+    },
+    {
+      "key": "t2", "title": "Pedidos completados por región", "points": 40,
+      "hints": [
+        { "text": "Carga los pedidos y las tiendas con lakehouse().sql(\"SELECT * FROM bronze.orders\").df() y únelos con pandas.merge por store_id.", "penalty": 6 },
+        { "text": "Filtra status == 'completed', agrupa con groupby('region').size() y conviértelo en un DataFrame con reset_index(name='pedidos').", "penalty": 6 }
+      ],
+      "checks": [
+        { "type": "notebook_artifact_matches", "notebook": "exploracion", "artifact": "pedidos_por_region",
+          "expected_sql": "SELECT s.region, count(*) FROM bronze.orders o JOIN bronze.stores s ON s.store_id = o.store_id WHERE o.status = 'completed' GROUP BY s.region",
+          "feedback": "El resultado pedidos_por_region debe tener dos columnas (región, número de pedidos completados) y una fila por región." }
+      ]
+    },
+    {
+      "key": "t3", "title": "Ingresos mensuales", "points": 40,
+      "hints": [
+        { "text": "El importe de cada línea es quantity * unit_price; une order_items con los pedidos completados por order_id.", "penalty": 6 },
+        { "text": "El mes como texto AAAA-MM: df['mes'] = df['order_date'].dt.strftime('%Y-%m'), y luego groupby('mes')['importe'].sum().", "penalty": 6 }
+      ],
+      "checks": [
+        { "type": "notebook_artifact_matches", "notebook": "exploracion", "artifact": "ingresos_mensuales", "decimals": 2,
+          "expected_sql": "SELECT strftime(o.order_date, '%Y-%m'), round(sum(i.quantity * i.unit_price), 2) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id WHERE o.status = 'completed' GROUP BY 1",
+          "feedback": "ingresos_mensuales debe tener el mes (texto AAAA-MM) y la suma de quantity * unit_price de los pedidos completados." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 14 }
+}

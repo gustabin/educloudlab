@@ -1,0 +1,12 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Steps are applied through the public API; needs NOTEBOOKS_MODE=docker.",
+  "steps": [
+    { "do": "create_notebook", "name": "exploracion", "cells": [
+      { "id": "intro", "type": "markdown", "source": "## Exploración de ventas" },
+      { "id": "carga", "type": "code", "source": "import pandas as pd\ncon = lakehouse()\npedidos = con.sql(\"SELECT * FROM bronze.orders\").df()\ntiendas = con.sql(\"SELECT * FROM bronze.stores\").df()\nlineas = con.sql(\"SELECT * FROM bronze.order_items\").df()\npedidos.head()" },
+      { "id": "regiones", "type": "code", "source": "completados = pedidos[pedidos.status == 'completed']\npor_region = completados.merge(tiendas, on='store_id').groupby('region').size().reset_index(name='pedidos')\nsave_result('pedidos_por_region', por_region)\npor_region" },
+      { "id": "meses", "type": "code", "source": "df = lineas.merge(completados, on='order_id')\ndf['importe'] = df['quantity'] * df['unit_price']\ndf['mes'] = pd.to_datetime(df['order_date']).dt.strftime('%Y-%m')\nmensual = df.groupby('mes')['importe'].sum().round(2).reset_index(name='ingresos')\nsave_result('ingresos_mensuales', mensual)\nmensual" }
+    ] },
+    { "do": "run_notebook", "name": "exploracion" }
+  ]
+}

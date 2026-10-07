@@ -25,7 +25,7 @@ final class LabDefinitionTest extends TestCase
     public function testShippedLabsAreValid(): void
     {
         $labs = glob(LabImporter::labsDir() . '/LAB-*', GLOB_ONLYDIR) ?: [];
-        self::assertCount(8, $labs);
+        self::assertCount(9, $labs);
         foreach ($labs as $dir) {
             $result = LabDefinition::load($dir, LabImporter::samplesDir());
             self::assertSame([], $result['errors'], basename($dir));

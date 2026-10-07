@@ -20,6 +20,9 @@
         <testsuite name="Security">
             <directory>tests/Security</directory>
         </testsuite>
+        <testsuite name="Sandbox">
+            <directory>tests/Sandbox</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>

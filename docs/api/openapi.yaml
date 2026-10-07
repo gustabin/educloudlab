@@ -2639,12 +2639,223 @@ paths:
         '204': { description: Marked }
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/notebooks:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    get:
+      operationId: listNotebooks
+      summary: "Notebooks of a workspace; meta.mode is off, demo or docker"
+      tags: [notebooks]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Notebooks
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Notebook' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createNotebook
+      summary: "Create a notebook (allowed in demo mode; running needs docker mode)"
+      tags: [notebooks]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, cells]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                cells: { $ref: '#/components/schemas/NotebookCells' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Notebook' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /notebooks/{notebook_id}:
+    parameters: [{ $ref: '#/components/parameters/NotebookId' }]
+    get:
+      operationId: getNotebook
+      summary: "Notebook with its cells"
+      tags: [notebooks]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Notebook
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Notebook' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateNotebook
+      summary: "Rename and/or replace the cells (version + 1)"
+      tags: [notebooks]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                cells: { $ref: '#/components/schemas/NotebookCells' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Notebook' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteNotebook
+      summary: "Delete a notebook (409 while a run is active)"
+      tags: [notebooks]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /notebooks/{notebook_id}/runs:
+    parameters: [{ $ref: '#/components/parameters/NotebookId' }]
+    post:
+      operationId: runNotebook
+      summary: "Run every code cell in a fresh Docker sandbox (202); 409 NOTEBOOKS_DISABLED outside docker mode, 409 when a run is active"
+      tags: [notebooks]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+      responses:
+        '202':
+          description: Run queued
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/NotebookRun' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    get:
+      operationId: listNotebookRuns
+      summary: "Latest runs of a notebook (newest first, max 10)"
+      tags: [notebooks]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Runs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/NotebookRun' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /notebook-runs/{notebook_run_id}:
+    parameters: [{ $ref: '#/components/parameters/NotebookRunId' }]
+    get:
+      operationId: getNotebookRun
+      summary: "A run with its per-cell outputs and saved artifacts"
+      tags: [notebooks]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Run
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/NotebookRun' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /notebook-runs/{notebook_run_id}/cancel:
+    parameters: [{ $ref: '#/components/parameters/NotebookRunId' }]
+    post:
+      operationId: cancelNotebookRun
+      summary: "Cancel a queued run, or stop a running container"
+      tags: [notebooks]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Cancelled or cancellation requested
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/NotebookRun' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
 components:
   parameters:
     CourseId: { name: course_id, in: path, required: true, schema: { type: string, description: ULID of the course } }
     ModuleId: { name: module_id, in: path, required: true, schema: { type: string, description: ULID of the course module } }
     LessonId: { name: lesson_id, in: path, required: true, schema: { type: string, description: ULID of the lesson } }
     NotificationId: { name: notification_id, in: path, required: true, schema: { type: string, description: ULID of the notification } }
+    NotebookId: { name: notebook_id, in: path, required: true, schema: { type: string, description: ULID of the notebook resource } }
+    NotebookRunId: { name: notebook_run_id, in: path, required: true, schema: { type: string, description: ULID of the notebook run } }
     AttemptId: { name: attempt_id, in: path, required: true, schema: { type: string, description: ULID of the lab attempt } }
     TenantId: { name: tenant_id, in: path, required: true, schema: { type: string, description: ULID } }
     WorkspaceId: { name: workspace_id, in: path, required: true, schema: { type: string, description: ULID } }
@@ -2717,6 +2928,8 @@ components:
         max_score: { type: integer }
         objectives: { type: array, items: { type: string } }
         prerequisites: { type: array, items: { type: string } }
+        requires: { type: array, items: { type: string, enum: [notebooks] }, description: platform capabilities the lab needs (M8) }
+        available: { type: boolean, description: false when a required capability is disabled; starting answers 409 LAB_UNAVAILABLE }
         downloads: { type: array, items: { type: object, properties: { name: { type: string }, url: { type: string } } } }
         task_count: { type: integer }
         my_attempt:
@@ -3078,11 +3291,60 @@ components:
         url: { type: [string, 'null'], description: server-generated app URL }
         read: { type: boolean }
         created_at: { type: string, format: date-time }
+    NotebookCells:
+      type: array
+      minItems: 1
+      maxItems: 50
+      items:
+        type: object
+        additionalProperties: false
+        required: [id, type, source]
+        properties:
+          id: { type: string, pattern: '^[a-z0-9][a-z0-9_-]{0,39}$' }
+          type: { type: string, enum: [markdown, code] }
+          source: { type: string, maxLength: 20000 }
+    Notebook:
+      type: object
+      properties:
+        id: { type: string, description: ULID (public id of the notebook resource) }
+        workspace_id: { type: string }
+        name: { type: string }
+        version: { type: integer }
+        cells: { $ref: '#/components/schemas/NotebookCells' }
+        last_run_status: { type: [string, 'null'] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    NotebookRun:
+      type: object
+      description: Outputs are student-produced data, normalised and size-capped by the server; render them as text only.
+      properties:
+        id: { type: string, description: ULID }
+        notebook: { type: object, properties: { id: { type: string }, name: { type: string } } }
+        status: { type: string, enum: [queued, running, succeeded, failed, cancelled, timed_out] }
+        cancel_requested: { type: boolean }
+        notebook_version: { type: integer }
+        outputs:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              status: { type: string, enum: [succeeded, failed] }
+              stdout: { type: string }
+              stderr: { type: string }
+              value: { type: [string, 'null'], description: repr of the last expression }
+              table: { type: [object, 'null'], description: '{columns, rows (max 50), total_rows}' }
+              error: { type: [object, 'null'], properties: { type: { type: string }, message: { type: string }, line: { type: [integer, 'null'] } } }
+        artifacts: { type: object, description: 'name => {columns, rows (max 1000), total_rows} saved with save_result()' }
+        error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }
+        duration_ms: { type: [integer, 'null'] }
+        created_at: { type: string, format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
     Job:
       type: object
       properties:
         id: { type: string, description: ULID }
-        type: { type: string, enum: [profile, ingest, cleanup, sql_query, transform, validate, pipeline_run, semantic_query] }
+        type: { type: string, enum: [profile, ingest, cleanup, sql_query, transform, validate, pipeline_run, semantic_query, notebook_run] }
         status: { type: string, enum: [queued, running, succeeded, failed, cancelled, timed_out] }
         workspace_id: { type: [string, 'null'] }
         error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }

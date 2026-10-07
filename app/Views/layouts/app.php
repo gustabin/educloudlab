@@ -62,6 +62,8 @@ foreach ([
     'analytics.widget.line',
     'content.module_title', 'content.module_summary', 'content.new_module', 'content.edit_module', 'content.save', 'content.delete_title', 'content.new_lesson',
     'content.lesson_title', 'content.create', 'content.body_placeholder', 'notif.label', 'notif.label_unread', 'notif.empty', 'notif.unread',
+    'notebooks.none', 'notebooks.delete_title', 'notebooks.cell_code', 'notebooks.cell_text', 'notebooks.move_up', 'notebooks.move_down',
+    'notebooks.remove_cell', 'notebooks.running', 'notebooks.last_run', 'notebooks.output_of', 'notebooks.rows_shown', 'notebooks.line',
 ] as $key) {
     $jsStrings[$key] = t($key);
 }

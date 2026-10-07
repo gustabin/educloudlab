@@ -49,6 +49,9 @@ final class ValidateHandler implements JobHandler
                 if ($check['type'] === 'query_result_matches' && !isset($check['actual_sql'])) {
                     $check['student_sql'] = $answers[(string) $task['key']] ?? null;
                 }
+                if ($check['type'] === 'notebook_artifact_matches') {
+                    $check += $this->artifact($job, $check);
+                }
                 $checks[] = $check;
             }
         }
@@ -60,6 +63,30 @@ final class ValidateHandler implements JobHandler
             'lakehouse_path' => $storage->lakehouseFile((string) $job['tenant_public_id'], (string) $job['workspace_public_id']),
             'checks' => $checks,
         ]];
+    }
+
+    /**
+     * Rows of the artifact a notebook saved in its latest successful run (M8), resolved from the database: the runner
+     * compares them with the author's expected SQL. Never anything the client sends.
+     *
+     * @param array<string, mixed> $job
+     * @param array<string, mixed> $check
+     * @return array<string, mixed>
+     */
+    private function artifact(array $job, array $check): array
+    {
+        $state = new LabStateRepository($this->app->db());
+        foreach ($state->notebooks((int) $job['tenant_id'], (int) $job['workspace_id']) as $n) {
+            if (isset($check['notebook']) && $n['name'] !== $check['notebook']) {
+                continue;
+            }
+            $artifacts = $n['artifacts'] === null ? [] : \EduCloud\Core\Format::jsonColumn($n['artifacts']);
+            $table = $artifacts[$check['artifact']] ?? null;
+            if (is_array($table) && is_array($table['rows'] ?? null) && is_array($table['columns'] ?? null)) {
+                return ['actual_rows' => array_values($table['rows']), 'actual_column_count' => count($table['columns'])];
+            }
+        }
+        return ['artifact_missing' => "No encontramos el resultado «{$check['artifact']}»: guárdalo con save_result() y ejecuta el notebook."];
     }
 
     public function succeeded(array $job, array $data): array

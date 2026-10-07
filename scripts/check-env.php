@@ -129,6 +129,18 @@ $add(
     'Docker (optional, M8)',
     $docker !== null ? "daemon $docker" : 'daemon not running - notebooks stay in demo mode'
 );
+$image = $docker !== null ? $run('docker image inspect --format "{{.Id}}" educloud-nb:1') : null;
+$mode = $env['NOTEBOOKS_MODE'] ?? 'demo';
+if ($mode === 'docker' && ($docker === null || $image === null)) {
+    $add('FAIL', 'Notebooks (M8)', 'NOTEBOOKS_MODE=docker but the daemon or the educloud-nb:1 image is missing'
+        . ' (php scripts/notebook-image.php build)');
+} elseif ($mode === 'docker') {
+    $add('OK', 'Notebooks (M8)', 'docker mode, image ' . substr((string) $image, 7, 12)
+        . ' - run vendor/bin/phpunit --testsuite Sandbox after any image or flag change');
+} else {
+    $hint = $image !== null ? ' (image present: set NOTEBOOKS_MODE=docker after the Sandbox suite passes)' : '';
+    $add('OK', 'Notebooks (M8)', "$mode mode" . $hint);
+}
 
 // --- Report ------------------------------------------------------------------
 $fail = 0;

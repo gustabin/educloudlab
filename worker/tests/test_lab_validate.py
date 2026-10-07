@@ -196,3 +196,31 @@ def test_references_detects_orphan_keys(ws: Path) -> None:
     assert by_id["bad"]["passed"] is False and "Hay 2 filas" in by_id["bad"]["feedback"]
     assert by_id["col"]["passed"] is False and "nope" in by_id["col"]["feedback"]
     assert by_id["inj"]["passed"] is False
+
+
+def test_notebook_artifact_matches_compares_saved_rows_with_expected_sql(ws: Path) -> None:
+    con = duckdb.connect(str(ws / "lakehouse.duckdb"))
+    con.execute("CREATE TABLE gold.zonas AS SELECT * FROM (VALUES ('Norte', 3), ('Sur', 5)) t(region, pedidos)")
+    con.close()
+    expected = "SELECT region, pedidos FROM gold.zonas"
+    out = validate({"lakehouse_path": str(ws / "lakehouse.duckdb"), "checks": [
+        {"id": "ok", "type": "notebook_artifact_matches", "artifact": "a", "expected_sql": expected,
+         "actual_rows": [["Sur", 5.0], ["Norte", 3]], "actual_column_count": 2},
+        {"id": "wrong", "type": "notebook_artifact_matches", "artifact": "a", "expected_sql": expected,
+         "actual_rows": [["Norte", 3], ["Sur", 6]], "actual_column_count": 2},
+        {"id": "shape", "type": "notebook_artifact_matches", "artifact": "a", "expected_sql": expected,
+         "actual_rows": [["Norte"]], "actual_column_count": 1},
+        {"id": "ragged", "type": "notebook_artifact_matches", "artifact": "a", "expected_sql": expected,
+         "actual_rows": [["Norte"], ["Sur", 5]], "actual_column_count": 2},
+        {"id": "missing", "type": "notebook_artifact_matches", "artifact": "a", "expected_sql": expected,
+         "artifact_missing": "No encontramos el resultado «a»."},
+        {"id": "bad", "type": "notebook_artifact_matches", "artifact": "a", "expected_sql": expected,
+         "actual_rows": "DROP TABLE", "actual_column_count": 2},
+    ]}, LIMITS, str(ws))
+    by_id = {r["id"]: r for r in out["results"]}
+    assert by_id["ok"]["passed"] is True
+    assert by_id["wrong"]["passed"] is False and "no coinciden" in by_id["wrong"]["feedback"]
+    assert by_id["shape"]["feedback"] == "El resultado guardado tiene 1 columnas; se esperaban 2."
+    assert by_id["ragged"]["passed"] is False and "incompletas" in by_id["ragged"]["feedback"]
+    assert by_id["missing"]["feedback"] == "No encontramos el resultado «a»."
+    assert by_id["bad"]["passed"] is False

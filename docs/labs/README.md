@@ -11,6 +11,7 @@ Student-facing descriptions of the shipped labs. They never contain checks, expe
 | [LAB-005](LAB-005.md) | Arquitectura medallion: bronze, silver y gold | Intermedio | 75 | MVP |
 | [LAB-006](LAB-006.md) | Construye un pipeline ETL | Intermedio | 60 | 1.1 |
 | [LAB-007](LAB-007.md) | Crea un data warehouse | Intermedio | 75 | 1.2 |
+| [LAB-008](LAB-008.md) | Exploración de datos con notebooks (requiere Docker) | Intermedio | 50 | 1.3 |
 | [LAB-009](LAB-009.md) | Dashboard analítico | Intermedio | 50 | 1.2 |
 
 All sample data is synthetic (fictitious retail company) and dedicated to the public domain (CC0). Generator: `scripts/generate-retail-data.php`.

@@ -45,6 +45,7 @@ final class MetadataChecks
             'pipeline_run_succeeded' => $this->pipelineRunSucceeded($check),
             'semantic_model_has' => $this->semanticModelHas($check),
             'dashboard_has_widgets' => $this->dashboardHasWidgets($check),
+            'notebook_run_succeeded' => $this->notebookRunSucceeded($check),
             default => self::result(false, 'Comprobación no soportada.'),
         };
     }
@@ -216,6 +217,30 @@ final class MetadataChecks
         return isset($check['output'])
             ? self::result(false, "La última ejecución $of no terminó bien o no escribió {$check['output']}.")
             : self::result(false, "La última ejecución $of no terminó bien.");
+    }
+
+    /**
+     * The latest run of a notebook (optionally by name) succeeded (M8).
+     *
+     * @param array<string, mixed> $check
+     * @return array{passed: bool, feedback: string, evidence: array<string, mixed>}
+     */
+    private function notebookRunSucceeded(array $check): array
+    {
+        $candidates = array_filter(
+            $this->state->notebooks($this->tenantId, $this->workspaceId),
+            static fn (array $n): bool => !isset($check['notebook']) || $n['name'] === $check['notebook']
+        );
+        if ($candidates === []) {
+            return self::result(false, isset($check['notebook']) ? "No existe el notebook {$check['notebook']}." : 'No hay ningún notebook.');
+        }
+        foreach ($candidates as $n) {
+            if ($n['last_status'] === 'succeeded') {
+                return self::result(true, '');
+            }
+        }
+        $label = isset($check['notebook']) ? "del notebook {$check['notebook']}" : 'de tu notebook';
+        return self::result(false, "La última ejecución $label no terminó bien (o aún no lo has ejecutado).");
     }
 
     /**

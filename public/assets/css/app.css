@@ -261,3 +261,14 @@ body {
 .ec-notif-menu { width: min(360px, 92vw); max-height: 420px; overflow-y: auto; }
 .ec-notif-item { white-space: normal; border-bottom: 1px solid var(--ec-border); }
 .ec-notif-unread { background: var(--bs-primary-bg-subtle); }
+
+/* Notebooks (M8). */
+.ec-nb-cell { border-top: 1px solid var(--ec-border); padding: var(--ec-space-2) 0; }
+.ec-nb-cell:first-child { border-top: 0; }
+#notebooks .CodeMirror { height: auto; min-height: 4rem; border: 1px solid var(--ec-border); border-radius: var(--ec-radius-md); font-family: var(--ec-font-mono); font-size: 0.8125rem; }
+#notebooks .CodeMirror-focused { outline: 3px solid var(--ec-focus); outline-offset: 1px; }
+.ec-nb-output pre { margin: var(--ec-space-1) 0 0; padding: var(--ec-space-2); border-radius: var(--ec-radius-md); font-size: 0.8125rem; white-space: pre-wrap;
+    word-break: break-word; max-height: 320px; overflow: auto; }
+.ec-nb-stdout, .ec-nb-value { background: var(--bs-tertiary-bg); }
+.ec-nb-stderr { background: #fef3c7; color: #713f12; }
+.ec-nb-error { background: #fee2e2; color: #7f1d1d; }

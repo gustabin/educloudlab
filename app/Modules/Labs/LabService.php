@@ -55,6 +55,7 @@ final class LabService
             $definition = Format::jsonColumn($row['definition']);
             $attempt = $mine[(string) $row['code']] ?? null;
             $out[] = self::presentLab($row, $definition) + [
+                'available' => $this->capabilitiesAvailable($definition),
                 'task_count' => count($definition['tasks'] ?? []),
                 'my_attempt' => $attempt === null ? null : [
                     'id' => (string) $attempt['public_id'],
@@ -262,6 +263,10 @@ final class LabService
     /** @param array<string, mixed> $definition */
     private function assertCanStart(TenantContext $ctx, array $definition): void
     {
+        if (!$this->capabilitiesAvailable($definition)) {
+            $message = 'Este laboratorio necesita el entorno de notebooks, que no está activado en este servidor.';
+            throw new ApiException(409, 'LAB_UNAVAILABLE', $message);
+        }
         $max = (int) $this->app->config->get('quotas.active_lab_attempts_per_user', 3);
         if ($this->attempts->countInProgress($ctx) >= $max) {
             throw new QuotaExceededException("Ya tienes $max laboratorios en curso. Termina o abandona alguno para empezar otro.");
@@ -478,6 +483,21 @@ final class LabService
     }
 
     /**
+     * Platform capabilities a lab declares in "requires" (M8: notebooks need the Docker sandbox to be enabled).
+     *
+     * @param array<string, mixed> $definition
+     */
+    public function capabilitiesAvailable(array $definition): bool
+    {
+        foreach ($definition['requires'] ?? [] as $capability) {
+            if ($capability === 'notebooks' && $this->app->config->get('execution.notebooks.mode') !== 'docker') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
      * @param array<string, mixed> $row          labs row (code, version, title, … )
      * @param array<string, mixed> $definition
      * @return array<string, mixed>
@@ -495,6 +515,7 @@ final class LabService
             'max_score' => LabDefinition::maxScore($definition),
             'objectives' => array_values(array_map('strval', $definition['objectives'] ?? [])),
             'prerequisites' => array_values(array_map('strval', $definition['prerequisites'] ?? [])),
+            'requires' => array_values(array_map('strval', $definition['requires'] ?? [])),
             'downloads' => array_map(static fn (array $d): array => [
                 'name' => basename((string) $d['sample']),
                 'url' => asset('datasets/' . $d['sample']),

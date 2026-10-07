@@ -10,6 +10,7 @@ use EduCloud\Modules\Datasets\Jobs\CleanupHandler;
 use EduCloud\Modules\Datasets\Jobs\IngestHandler;
 use EduCloud\Modules\Datasets\Jobs\ProfileHandler;
 use EduCloud\Modules\Labs\Jobs\ValidateHandler;
+use EduCloud\Modules\Notebooks\Jobs\NotebookRunHandler;
 use EduCloud\Modules\Pipelines\Jobs\PipelineRunHandler;
 use EduCloud\Modules\SqlLab\Jobs\QueryHandler;
 use EduCloud\Modules\SqlLab\Jobs\TransformHandler;
@@ -27,8 +28,16 @@ final class Dispatcher
 
     private JobRepository $jobs;
 
-    public function __construct(private readonly App $app, private readonly string $workerId = 'dispatcher')
-    {
+    /**
+     * @param list<string>|null $onlyTypes   dedicated worker: claim only these job types
+     * @param list<string>      $exceptTypes claim everything except these types
+     */
+    public function __construct(
+        private readonly App $app,
+        private readonly string $workerId = 'dispatcher',
+        private readonly ?array $onlyTypes = null,
+        private readonly array $exceptTypes = []
+    ) {
         $this->jobs = new JobRepository($app->db());
     }
 
@@ -43,6 +52,7 @@ final class Dispatcher
             'validate' => new ValidateHandler($this->app),
             'pipeline_run' => new PipelineRunHandler($this->app),
             'semantic_query' => new SemanticQueryHandler($this->app),
+            'notebook_run' => new NotebookRunHandler($this->app),
             default => null,
         };
     }
@@ -50,7 +60,7 @@ final class Dispatcher
     /** Processes one queued job. Returns false when the queue is empty. */
     public function runOnce(): bool
     {
-        $job = $this->jobs->claimNext($this->workerId);
+        $job = $this->jobs->claimNext($this->workerId, $this->onlyTypes, $this->exceptTypes);
         if ($job === null) {
             return false;
         }
@@ -75,16 +85,18 @@ final class Dispatcher
                 $allowedRoot = $storage->workspaceDir((string) $job['tenant_public_id'], (string) $job['workspace_public_id']);
                 $storage->ensureDir($allowedRoot);
             }
-            $response = $request === null
-                ? ['ok' => true, 'data' => []]
-                : (new RunnerProcess($this->app->config, $this->app->storage()))->run(
+            $response = match (true) {
+                $request === null => ['ok' => true, 'data' => []],
+                $handler instanceof CustomExecutor => $handler->execute($job, $request, fn () => $this->jobs->heartbeat($id)),
+                default => (new RunnerProcess($this->app->config, $this->app->storage()))->run(
                     (string) $job['public_id'],
                     $request['op'],
                     $request['args'],
                     (int) $job['timeout_s'],
                     fn () => $this->jobs->heartbeat($id),
                     $allowedRoot,
-                );
+                ),
+            };
 
             $durationMs = isset($response['stats']['duration_ms']) ? (int) $response['stats']['duration_ms'] : null;
             if ($response['ok'] === true) {

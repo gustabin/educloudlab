@@ -24,6 +24,7 @@ flowchart LR
 | `transform` (priority 3) | `POST /workspaces/{id}/transforms` | `transform`: `CREATE OR REPLACE TABLE silver\|gold.<t> AS <SELECT>` | silver/gold dataset `ready`, with the defining SQL kept in its config |
 | `pipeline_run` (M7, priority 3) | `POST /pipelines/{id}/runs` | `pipeline`: compiles the node chain into parameterised DuckDB SQL, one TEMP table per step, writes `silver\|gold.<t>` | run status + per-step report (also on failure), output dataset version `ready`, lineage edges (`docs/architecture/PIPELINES_AND_STORAGE.md`) |
 | `semantic_query` (M9, priority 1) | `POST /semantic-models/{id}/query`, `POST /dashboards/{id}/render` | `semantic`: compiles each request from the semantic model (fact + needed dimension joins, measures, filters bound as parameters), read-only, no file access | results file `meta/results/{query}.json` (24 h); `semantic_queries` status and duration (`docs/architecture/ANALYTICS.md`) |
+| `notebook_run` (M8, priority 3) | `POST /notebooks/{id}/runs` (docker mode only) | **No Python runner**: `NotebookRunHandler` implements `CustomExecutor` and runs every code cell in an ephemeral Docker container (`DockerSandbox`) | per-cell outputs and `save_result()` artifacts in `notebook_runs` (`docs/architecture/NOTEBOOKS.md`) |
 | `validate` (M6) | `POST /lab-attempts/{id}/submit` | metadata checks in PHP, then `validate`: data checks and saved SQL answers, read-only and sandboxed (none when the lab has only metadata checks) | `lab_task_results`, score, best score and status of the attempt (`docs/architecture/LAB_ENGINE.md`) |
 
 Payloads contain **internal ids only**. Handlers compute storage paths from DB values, never from user input.
@@ -35,7 +36,7 @@ Payloads contain **internal ids only**. Handlers compute storage paths from DB v
 - **Process launch:** `proc_open` with an argument array and `bypass_shell` (no shell). Python runs in isolated mode `-I`.
 - **Environment:** only `PATH`, `SYSTEMROOT`, `TEMP`/`TMP` and `WINDIR` are passed.
 - **I/O:** request and response files live in `STORAGE_PATH/jobs` and are deleted after every job. Windows pipes cannot be `select()`ed, so files are used instead.
-- **Timeouts:** wall-clock per type (`config/execution.php`: profile 60 s, ingest 120 s, cleanup 60 s, sql_query 20 s, transform 90 s, validate 150 s, pipeline_run 300 s, semantic_query 60 s). The whole process tree is killed (`taskkill /T /F`), and the job ends `timed_out`.
+- **Timeouts:** wall-clock per type (`config/execution.php`: profile 60 s, ingest 120 s, cleanup 60 s, sql_query 20 s, transform 90 s, validate 150 s, pipeline_run 300 s, semantic_query 60 s, notebook_run 120 s). The whole process tree is killed (`taskkill /T /F`), and the job ends `timed_out`.
 - **Response cap:** 2 MB. A heartbeat is written every 5 s.
 - **Stale jobs:** a running job with no heartbeat for `timeout + 60 s` is failed by the scheduler (`INTERRUPTED`).
 - **Cancellation (M7):** `jobs.cancel_requested` is set by the API. A queued job is finished at once; for a running

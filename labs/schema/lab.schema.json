@@ -17,6 +17,8 @@
     "difficulty": { "enum": ["beginner", "intermediate", "advanced"] },
     "estimated_minutes": { "type": "integer", "minimum": 5, "maximum": 600 },
     "prerequisites": { "type": "array", "items": { "type": "string", "pattern": "^LAB-[0-9]{3}$" }, "uniqueItems": true },
+    "requires": { "type": "array", "items": { "enum": ["notebooks"] }, "uniqueItems": true,
+      "description": "Platform capabilities the lab needs (M8: notebooks = execution.notebooks.mode docker)." },
     "objectives": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "type": "string", "minLength": 3, "maxLength": 200 } },
     "downloads": {
       "type": "array",
@@ -122,7 +124,8 @@
           "enum": ["resource_exists", "resource_deleted", "dataset_exists", "table_has_columns", "column_type",
                    "row_count", "null_count", "unique", "value_range", "query_result_matches",
                    "container_exists", "object_exists", "pipeline_has_nodes", "pipeline_run_succeeded",
-                   "references", "semantic_model_has", "dashboard_has_widgets"]
+                   "references", "semantic_model_has", "dashboard_has_widgets",
+                   "notebook_run_succeeded", "notebook_artifact_matches"]
         }
       },
       "allOf": [
@@ -249,6 +252,17 @@
               "measure": { "$ref": "#/$defs/measureSpec" }, "dimension": { "$ref": "#/$defs/dimensionSpec" } } } },
             "filters": { "type": "array", "maxItems": 3, "items": { "$ref": "#/$defs/dimensionSpec" } },
             "date_filter": { "const": true }
+          } } },
+        { "if": { "properties": { "type": { "const": "notebook_run_succeeded" } } }, "then": {
+          "additionalProperties": false, "required": ["type"],
+          "properties": { "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "notebook": { "$ref": "#/$defs/resourceName" } } } },
+        { "if": { "properties": { "type": { "const": "notebook_artifact_matches" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "artifact", "expected_sql"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "notebook": { "$ref": "#/$defs/resourceName" },
+            "artifact": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,39}$" },
+            "expected_sql": { "$ref": "#/$defs/sql" }, "ordered": { "type": "boolean" },
+            "decimals": { "type": "integer", "minimum": 0, "maximum": 6 }
           } } },
         { "if": { "properties": { "type": { "const": "pipeline_run_succeeded" } } }, "then": {
           "additionalProperties": false, "required": ["type"],

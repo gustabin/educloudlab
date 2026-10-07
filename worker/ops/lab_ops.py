@@ -244,14 +244,43 @@ def _query_result_matches(ctx: _Ctx, check: dict[str, Any]) -> tuple[bool, str, 
 
     if expected_truncated or actual_truncated:
         return False, "El resultado es demasiado grande para compararlo. Revisa los filtros o la agregación.", {"truncated": True}
-    if actual_cols != expected_cols:
-        return False, f"La consulta devuelve {actual_cols} columnas; se esperaban {expected_cols}.", {"columns": actual_cols}
-    if len(actual_rows) != len(expected_rows):
-        return False, f"La consulta devuelve {len(actual_rows)} filas; se esperaban {len(expected_rows)}.", {"rows": len(actual_rows)}
+    return _compare_rows(actual_cols, actual_rows, expected_cols, expected_rows, decimals, bool(check.get("ordered", False)), "La consulta devuelve")
 
-    actual = [tuple(_normalise(v, decimals) for v in r) for r in actual_rows]
+
+def _notebook_artifact_matches(ctx: _Ctx, check: dict[str, Any]) -> tuple[bool, str, dict[str, Any]]:
+    """M8: rows saved by a notebook (save_result) vs the author's expected SQL. The rows are student data, resolved
+    server-side from the latest successful run (never sent by the client) and only ever compared here."""
+    if check.get("artifact_missing"):
+        return False, str(check["artifact_missing"])[:300], {"artifact": False}
+    decimals = int(check.get("decimals", 2))
+    if not 0 <= decimals <= 6:
+        raise RunnerError("BAD_CHECK", "Comprobación mal definida (decimales).")
+    rows = check.get("actual_rows")
+    columns = check.get("actual_column_count")
+    if not isinstance(rows, list) or not isinstance(columns, int) or len(rows) > 1000 or not all(isinstance(r, list) for r in rows):
+        raise RunnerError("BAD_CHECK", "Comprobación mal definida (resultado).")
+    try:
+        expected_cols, expected_rows, expected_truncated = ctx.fetch(validate_select(check.get("expected_sql"), int(ctx.limits.get("sql_max_length", 20000))))
+    except RunnerError as exc:
+        return False, "No se pudo calcular el resultado esperado. Avisa a tu instructor.", {"expected_error": exc.code}
+    if expected_truncated:
+        return False, "El resultado esperado es demasiado grande para compararlo.", {"truncated": True}
+    return _compare_rows(columns, [tuple(r) for r in rows], expected_cols, expected_rows, decimals, bool(check.get("ordered", False)),
+                         "El resultado guardado tiene")
+
+
+def _compare_rows(actual_cols: int, actual_rows: list[tuple[Any, ...]], expected_cols: int, expected_rows: list[tuple[Any, ...]], decimals: int,
+             ordered: bool, subject: str) -> tuple[bool, str, dict[str, Any]]:
+    if actual_cols != expected_cols:
+        return False, f"{subject} {actual_cols} columnas; se esperaban {expected_cols}.", {"columns": actual_cols}
+    if len(actual_rows) != len(expected_rows):
+        return False, f"{subject} {len(actual_rows)} filas; se esperaban {len(expected_rows)}.", {"rows": len(actual_rows)}
+    if any(len(r) != actual_cols for r in actual_rows):
+        # zip() below would silently ignore missing or extra values (gate M8-F8).
+        return False, f"{subject} filas incompletas.", {"rows": len(actual_rows)}
+    actual =[tuple(_normalise(v, decimals) for v in r) for r in actual_rows]
     expected = [tuple(_normalise(v, decimals) for v in r) for r in expected_rows]
-    if not check.get("ordered", False):
+    if not ordered:
         actual.sort(key=_sort_key)
         expected.sort(key=_sort_key)
     tolerance = 0.5 * 10 ** -decimals + 1e-9
@@ -270,6 +299,7 @@ CHECKS: dict[str, Callable[[_Ctx, dict[str, Any]], tuple[bool, str, dict[str, An
     "references": _references,
     "value_range": _value_range,
     "query_result_matches": _query_result_matches,
+    "notebook_artifact_matches": _notebook_artifact_matches,
 }
 
 

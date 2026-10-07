@@ -45,6 +45,21 @@ final class JobQueueTest extends TestCase
         self::assertSame([$anaId, $bobId, $anaId, $anaId], $order, 'bob does not wait behind ana\'s whole burst');
     }
 
+    public function testDedicatedWorkersOnlyClaimTheirJobTypes(): void
+    {
+        $ana = $this->actor('ana@test.example');
+        self::assertSame(202, $this->uploadAs($ana, (string) $this->createWorkspace($ana)['id'], 'a1', "x\n1\n")->status);
+        $type = (string) $this->app()->db()->scalar('SELECT type FROM jobs');
+
+        $repo = new JobRepository($this->app()->db());
+        self::assertNull($repo->claimNext('nb', ['notebook_run']), 'the notebook worker ignores other job types');
+        self::assertNull($repo->claimNext('main', null, [$type]), 'excluded types are never claimed');
+        self::assertNull($repo->claimNext('none', []), 'an empty allowlist claims nothing');
+        $job = $repo->claimNext('main', null, ['notebook_run']);
+        self::assertNotNull($job);
+        self::assertSame($type, $job['type']);
+    }
+
     public function testActiveJobQuotaIsEnforced(): void
     {
         $ana = $this->actor('ana@test.example');

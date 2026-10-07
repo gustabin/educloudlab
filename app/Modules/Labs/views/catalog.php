@@ -60,6 +60,8 @@
                 </span>
 <?php if ($open): ?>
                 <a class="btn btn-primary btn-sm" href="<?= e(url('/app/lab-attempts/' . $mine['id'])) ?>"><?= e(t('labs.continue')) ?></a>
+<?php elseif ($canStart && !$lab['available']): ?>
+                <span class="small text-body-secondary"><i class="fa-solid fa-lock me-1" aria-hidden="true"></i><?= e(t('labs.requires_notebooks')) ?></span>
 <?php elseif ($canStart): ?>
                 <button class="btn btn-primary btn-sm" type="button" data-lab-start="<?= e($lab['code']) ?>">
                     <?= e($mine === null ? t('labs.start') : t('labs.restart')) ?>

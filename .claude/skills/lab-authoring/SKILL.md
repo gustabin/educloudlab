@@ -23,6 +23,8 @@ Sample data: `public/assets/datasets/retail/*.csv` (synthetic, CC0, deterministi
      `container_exists` (optional lifecycle subset), `object_exists` (key or prefix; metadata subset, tier),
      `pipeline_has_nodes`, `pipeline_run_succeeded` (latest run, optional output table).
      M9: `semantic_model_has` and `dashboard_has_widgets` (match what measures/dimensions compute, not their names).
+     M8: `notebook_run_succeeded`; data check `notebook_artifact_matches` (save_result rows vs expected SQL). Labs that
+     need notebooks declare `"requires": ["notebooks"]`.
    - Data checks (runner): `table_has_columns`, `column_type`, `row_count`, `null_count`, `unique`, `value_range`, `query_result_matches`,
      `references` (M9, referential integrity).
      - `query_result_matches` without `actual_sql` grades the task's saved SQL answer and requires `"answer": true` on the task.
@@ -31,7 +33,7 @@ Sample data: `public/assets/datasets/retail/*.csv` (synthetic, CC0, deterministi
 5. Tests: `tests/Labs/LabSolutionsTest.php` picks up every lab automatically. For each lab, an empty attempt must score 0 and `solution/solution.json` must score the maximum.
    - Solution steps: `create_resource`, `delete_resource`, `upload_sample`, `ingest`, `transform`, `answer`,
      `create_container`, `upload_object`, `set_lifecycle`, `create_pipeline`, `run_pipeline`, `create_model` and
-     `create_dashboard` (by model name).
+     `create_dashboard` (by model name), `create_notebook` and `run_notebook` (LAB-008 runs only when Docker is available).
    - Engine-wide rules have their own tests in `tests/Integration/Labs/LabEngineTest.php`: fabricated client payloads are rejected, each hint penalty applies once, and ownership is enforced.
 6. Write the public description in `docs/labs/LAB-xxx.md`, without solutions or check details.
 

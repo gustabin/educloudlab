@@ -140,6 +140,14 @@ final class ResourceService
             throw new ApiException(409, 'INVALID_STATE', 'El recurso no se puede eliminar en su estado actual.');
         }
         $this->app->db()->transaction(function () use ($ctx, $row, $from): void {
+            if ($row['type'] === 'storage') {
+                // Under the resource row lock that container creation also takes.
+                $containers = new \EduCloud\Modules\ObjectStorage\ObjectStorageRepository($this->app->db());
+                $containers->lockStorage($ctx, (int) $row['id']);
+                if ($containers->countContainers($ctx, (int) $row['id']) > 0) {
+                    throw new ApiException(409, 'STORAGE_NOT_EMPTY', 'Elimina primero los contenedores de este almacenamiento.');
+                }
+            }
             if (!$this->repo->transition($ctx, (int) $row['id'], $from, 'deleting')) {
                 throw new ConflictException('El recurso cambió mientras se eliminaba. Inténtalo de nuevo.');
             }
@@ -167,6 +175,9 @@ final class ResourceService
         if ($row['type'] === 'dataset') {
             // Datasets own files/tables; their lifecycle is driven by the datasets API (cleanup jobs).
             throw new ApiException(409, 'MANAGED_RESOURCE', 'Los datasets se gestionan desde la API de datasets.');
+        }
+        if ($row['type'] === 'pipeline') {
+            throw new ApiException(409, 'MANAGED_RESOURCE', 'Los pipelines se gestionan desde su propia sección del workspace.');
         }
         if (!$this->policy->canModify($ctx, (int) $row['owner_user_id'], $permission)) {
             $this->app->audit()->record(

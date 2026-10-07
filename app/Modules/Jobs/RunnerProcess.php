@@ -22,7 +22,7 @@ final class RunnerProcess
 
     /**
      * @param array<string, mixed> $args
-     * @param callable(): void     $heartbeat called every few seconds while the runner works
+     * @param callable(): bool     $heartbeat called every few seconds while the runner works; true = cancel requested
      * @return array<string, mixed> runner response, or a synthetic error response
      */
     public function run(string $jobPublicId, string $op, array $args, int $timeoutSeconds, callable $heartbeat, ?string $allowedRoot = null): array
@@ -64,6 +64,7 @@ final class RunnerProcess
             $lastBeat = $started;
             $beatEvery = (int) $this->config->get('execution.heartbeat_seconds', 5);
             $timedOut = false;
+            $cancelled = false;
             while (($status = proc_get_status($process))['running']) {
                 if (microtime(true) - $started > $timeoutSeconds) {
                     self::killTree((int) $status['pid']);
@@ -71,13 +72,20 @@ final class RunnerProcess
                     break;
                 }
                 if (microtime(true) - $lastBeat >= $beatEvery) {
-                    $heartbeat();
+                    if ($heartbeat() === true) {
+                        self::killTree((int) $status['pid']);
+                        $cancelled = true;
+                        break;
+                    }
                     $lastBeat = microtime(true);
                 }
                 usleep(100_000);
             }
             proc_close($process);
 
+            if ($cancelled) {
+                return self::error('CANCELLED', 'La ejecución se canceló a petición del usuario.');
+            }
             if ($timedOut) {
                 return self::error('TIMEOUT', "La operación superó el tiempo máximo de {$timeoutSeconds} s y se canceló.");
             }

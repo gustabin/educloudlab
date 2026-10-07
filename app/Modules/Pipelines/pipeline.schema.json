@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://educloud.local/schemas/pipeline.schema.json",
+  "title": "EduCloud Lab pipeline definition",
+  "description": "Linear chain of allowlisted nodes (ADR-009). Validated in PHP before saving and again by the runner.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["nodes"],
+  "properties": {
+    "description": { "type": "string", "maxLength": 500 },
+    "retries": { "type": "integer", "minimum": 0, "maximum": 2 },
+    "nodes": { "type": "array", "minItems": 2, "maxItems": 20, "items": { "$ref": "#/$defs/node" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,39}$" },
+    "column": { "type": "string", "pattern": "^[a-z_][a-z0-9_]{0,62}$" },
+    "identifier": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$" },
+    "table": { "type": "string", "pattern": "^(bronze|silver|gold)\\.[a-z][a-z0-9_]{0,62}$" },
+    "scalar": { "type": ["string", "number", "boolean", "null"], "maxLength": 1000 },
+    "node": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "type": { "enum": ["source", "filter", "select", "join", "aggregate", "sql", "quality_check", "output"] }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "source" } } }, "then": {
+          "additionalProperties": false,
+          "properties": { "id": { "$ref": "#/$defs/id" }, "type": true, "table": { "$ref": "#/$defs/table" }, "raw": { "$ref": "#/$defs/identifier" } },
+          "oneOf": [ { "required": ["table"] }, { "required": ["raw"] } ] } },
+        { "if": { "properties": { "type": { "const": "filter" } } }, "then": {
+          "additionalProperties": false, "required": ["conditions"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" }, "type": true, "match": { "enum": ["all", "any"] },
+            "conditions": { "type": "array", "minItems": 1, "maxItems": 20, "items": {
+              "type": "object", "additionalProperties": false, "required": ["column", "op"],
+              "properties": {
+                "column": { "$ref": "#/$defs/column" },
+                "op": { "enum": ["eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in", "is_null", "not_null", "contains", "starts_with"] },
+                "value": { "oneOf": [ { "$ref": "#/$defs/scalar" }, { "type": "array", "minItems": 1, "maxItems": 100, "items": { "$ref": "#/$defs/scalar" } } ] }
+              } } }
+          } } },
+        { "if": { "properties": { "type": { "const": "select" } } }, "then": {
+          "additionalProperties": false, "required": ["columns"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" }, "type": true,
+            "columns": { "type": "array", "minItems": 1, "maxItems": 100, "items": {
+              "type": "object", "additionalProperties": false, "required": ["column"],
+              "properties": {
+                "column": { "$ref": "#/$defs/column" }, "as": { "$ref": "#/$defs/column" },
+                "transform": { "enum": ["lower", "upper", "trim", "abs", "round", "year", "month", "date", "month_start"] },
+                "cast": { "enum": ["varchar", "integer", "bigint", "double", "decimal", "date", "timestamp", "boolean"] }
+              } } }
+          } } },
+        { "if": { "properties": { "type": { "const": "join" } } }, "then": {
+          "additionalProperties": false, "required": ["table", "on", "columns"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" }, "type": true, "table": { "$ref": "#/$defs/table" },
+            "kind": { "enum": ["inner", "left"] },
+            "on": { "type": "array", "minItems": 1, "maxItems": 5, "items": {
+              "type": "object", "additionalProperties": false, "required": ["left", "right"],
+              "properties": { "left": { "$ref": "#/$defs/column" }, "right": { "$ref": "#/$defs/column" } } } },
+            "columns": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/$defs/column" } }
+          } } },
+        { "if": { "properties": { "type": { "const": "aggregate" } } }, "then": {
+          "additionalProperties": false, "required": ["measures"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" }, "type": true,
+            "group_by": { "type": "array", "maxItems": 10, "items": { "$ref": "#/$defs/column" } },
+            "measures": { "type": "array", "minItems": 1, "maxItems": 20, "items": {
+              "type": "object", "additionalProperties": false, "required": ["fn", "as"],
+              "properties": {
+                "fn": { "enum": ["sum", "count", "avg", "min", "max", "count_distinct"] },
+                "column": { "oneOf": [ { "$ref": "#/$defs/column" }, { "const": "*" } ] },
+                "as": { "$ref": "#/$defs/column" }
+              } } }
+          } } },
+        { "if": { "properties": { "type": { "const": "sql" } } }, "then": {
+          "additionalProperties": false, "required": ["sql"],
+          "properties": { "id": { "$ref": "#/$defs/id" }, "type": true, "sql": { "type": "string", "minLength": 6, "maxLength": 20000 } } } },
+        { "if": { "properties": { "type": { "const": "quality_check" } } }, "then": {
+          "additionalProperties": false, "required": ["rules"],
+          "properties": {
+            "id": { "$ref": "#/$defs/id" }, "type": true, "on_fail": { "enum": ["stop", "warn"] },
+            "rules": { "type": "array", "minItems": 1, "maxItems": 20, "items": {
+              "type": "object", "additionalProperties": false, "required": ["rule"],
+              "properties": {
+                "rule": { "enum": ["not_null", "unique", "row_count", "range", "accepted_values"] },
+                "column": { "$ref": "#/$defs/column" },
+                "columns": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "$ref": "#/$defs/column" } },
+                "min": { "type": "number" }, "max": { "type": "number" },
+                "values": { "type": "array", "minItems": 1, "maxItems": 100, "items": { "$ref": "#/$defs/scalar" } }
+              } } }
+          } } },
+        { "if": { "properties": { "type": { "const": "output" } } }, "then": {
+          "additionalProperties": false, "required": ["layer", "table"],
+          "properties": { "id": { "$ref": "#/$defs/id" }, "type": true, "layer": { "enum": ["silver", "gold"] }, "table": { "$ref": "#/$defs/identifier" } } } }
+      ]
+    }
+  }
+}

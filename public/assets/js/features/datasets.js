@@ -69,6 +69,8 @@
       var label = ds.table || ds.name;
       if (ds.status === 'active') {
         iconButton('fa-table', t('ds.preview_named', { name: label }), { 'data-ec-preview': ds.id, 'data-label': label }).appendTo($actions);
+        $actions.append(' ');
+        iconButton('fa-diagram-project', t('ds.lineage_named', { name: label }), { 'data-ec-lineage': ds.id, 'data-label': label }).appendTo($actions);
         if (ds.layer === 'raw' && canCreate) {
           $actions.append(' ');
           iconButton('fa-right-to-bracket', t('ds.ingest_named', { name: ds.name }), { 'data-ec-ingest': ds.id, 'data-name': ds.name }, 'btn-outline-primary').appendTo($actions);
@@ -146,6 +148,28 @@
     });
 
     // Preview -------------------------------------------------------------------------------------
+    $list.on('click', '[data-ec-lineage]', function () {
+      var $btn = $(this);
+      api.request({ url: '/api/v1/datasets/' + encodeURIComponent(String($btn.attr('data-ec-lineage'))) + '/lineage', button: $btn }).then(function (body) {
+        var $body = $('#ds-lineage-body').empty();
+        $('#ds-lineage-title').text(t('ds.lineage_named', { name: String($btn.attr('data-label')) }));
+        $.each([['upstream', 'ds.lineage_upstream'], ['downstream', 'ds.lineage_downstream']], function (_, part) {
+          $('<h3 class="h6"></h3>').text(t(part[1])).appendTo($body);
+          var items = body.data[part[0]];
+          if (!items.length) { $('<p class="small text-body-secondary"></p>').text(t('ds.lineage_none')).appendTo($body); return; }
+          var $ul = $('<ul class="list-unstyled small"></ul>').appendTo($body);
+          $.each(items, function (_, n) {
+            var $li = $('<li class="mb-1"></li>').appendTo($ul);
+            $('<span class="ec-layer"></span>').addClass('ec-layer-' + n.layer).text(n.layer).appendTo($li);
+            $('<span class="ms-2 font-monospace"></span>').text(n.table || n.name).appendTo($li);
+            var via = t('ds.lineage_via.' + n.via) + (n.pipeline ? ' «' + n.pipeline.name + '»' : '');
+            $('<span class="ms-2 text-body-secondary"></span>').text('(' + via + (n.status === 'deleted' ? ', ' + t('status.deleted') : '') + ')').appendTo($li);
+          });
+        });
+        window.bootstrap.Modal.getOrCreateInstance(document.getElementById('ds-lineage-modal')).show();
+      });
+    });
+
     $list.on('click', '[data-ec-preview]', function () {
       var $btn = $(this);
       var id = String($btn.data('ecPreview'));

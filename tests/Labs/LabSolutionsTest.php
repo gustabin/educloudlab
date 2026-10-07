@@ -95,12 +95,72 @@ final class LabSolutionsTest extends TestCase
         self::assertStringContainsString('Guarda una respuesta', (string) $byTask['t5']);
     }
 
+    public function testStorageAndPipelineChecksExplainWhatIsMissing(): void
+    {
+        $storage = $this->startLab($this->student, 'LAB-002');
+        $ws = (string) $storage['workspace']['id'];
+        $this->applySteps('LAB-002', $ws, (string) $storage['id'], [
+            ['do' => 'create_resource', 'type' => 'storage', 'name' => 'almacen'],
+            ['do' => 'create_container', 'storage' => 'almacen', 'name' => 'ventas-crudas'],
+            ['do' => 'upload_object', 'storage' => 'almacen', 'container' => 'ventas-crudas', 'key' => '2025/pedidos.csv',
+                'sample' => 'retail/orders.csv', 'metadata' => ['origen' => 'crm']],
+            ['do' => 'upload_object', 'storage' => 'almacen', 'container' => 'ventas-crudas', 'key' => 'productos.csv',
+                'sample' => 'retail/products.csv', 'tier' => 'archive'],
+            ['do' => 'set_lifecycle', 'storage' => 'almacen', 'container' => 'ventas-crudas', 'lifecycle' => ['archive_after_days' => 30]],
+        ]);
+        $byTask = self::feedback($this->submitAndGrade($this->student, (string) $storage['id']));
+        self::assertSame('', $byTask['t1']);
+        self::assertStringContainsString('No existe el objeto 2025/productos.csv', $byTask['t2']);
+        self::assertStringContainsString('debe tener el metadato origen = erp', $byTask['t3']);
+        self::assertStringContainsString('su nivel debe ser cool', $byTask['t4']);
+        self::assertStringContainsString('archivar a los 30 días y eliminar a los 365', $byTask['t5']);
+
+        $etl = $this->startLab($this->student, 'LAB-006');
+        $this->runJobs();
+        $ws = (string) $etl['workspace']['id'];
+        // A quality gate that cannot pass (status is not unique) stops the run: no table, failed run.
+        $this->applySteps('LAB-006', $ws, (string) $etl['id'], [
+            ['do' => 'create_pipeline', 'name' => 'pedidos-completados', 'definition' => ['nodes' => [
+                ['id' => 'leer', 'type' => 'source', 'table' => 'bronze.orders'],
+                ['id' => 'calidad', 'type' => 'quality_check', 'rules' => [['rule' => 'unique', 'columns' => ['status']]]],
+                ['id' => 'guardar', 'type' => 'output', 'layer' => 'silver', 'table' => 'orders_completed'],
+            ]]],
+            ['do' => 'run_pipeline', 'name' => 'pedidos-completados'],
+        ]);
+        $byTask = self::feedback($this->submitAndGrade($this->student, (string) $etl['id']));
+        self::assertStringContainsString('debe tener pasos source, filter', $byTask['t1']);
+        self::assertStringContainsString('La última ejecución del pipeline pedidos-completados no terminó bien', $byTask['t1']);
+        self::assertStringContainsString('No existe el pipeline ingresos-region', $byTask['t2']);
+        self::assertStringContainsString('No existe el pipeline catalogo', $byTask['t3']);
+        $runs = $this->app()->db()->select('SELECT status FROM pipeline_runs');
+        self::assertSame([['status' => 'failed']], $runs);
+    }
+
+    /**
+     * @param array<string, mixed> $graded
+     * @return array<string, string> task key => feedback ('' when passed)
+     */
+    private static function feedback(array $graded): array
+    {
+        $out = [];
+        foreach ($graded['tasks'] as $task) {
+            $out[$task['key']] = $task['result']['passed'] ? '' : (string) $task['result']['feedback'];
+        }
+        return $out;
+    }
+
     private function applySolution(string $code, string $workspaceId, string $attemptId): void
     {
         $file = LabImporter::labsDir() . "/$code/solution/solution.json";
         $solution = json_decode((string) file_get_contents($file), true);
         self::assertIsArray($solution['steps'] ?? null, "$code has no solution.json");
-        foreach ($solution['steps'] as $i => $step) {
+        $this->applySteps($code, $workspaceId, $attemptId, $solution['steps']);
+    }
+
+    /** @param list<array<string, mixed>> $steps */
+    private function applySteps(string $code, string $workspaceId, string $attemptId, array $steps): void
+    {
+        foreach ($steps as $i => $step) {
             $r = match ($step['do']) {
                 'create_resource' => $this->as($this->student, 'POST', "/api/v1/workspaces/$workspaceId/resources", array_intersect_key(
                     $step,
@@ -131,10 +191,75 @@ final class LabSolutionsTest extends TestCase
                     'task_key' => $step['task'],
                     'sql' => $step['sql'],
                 ]),
+                'create_container' => $this->as(
+                    $this->student,
+                    'POST',
+                    '/api/v1/resources/' . $this->resourceByName($this->student, $workspaceId, $step['storage'])['id'] . '/containers',
+                    ['name' => $step['name']]
+                ),
+                'set_lifecycle' => $this->as(
+                    $this->student,
+                    'PATCH',
+                    '/api/v1/containers/' . $this->containerId($workspaceId, $step['storage'], $step['container']),
+                    ['lifecycle' => $step['lifecycle']]
+                ),
+                'upload_object' => $this->uploadObject($workspaceId, $step),
+                'create_pipeline' => $this->as($this->student, 'POST', "/api/v1/workspaces/$workspaceId/pipelines", [
+                    'name' => $step['name'], 'definition' => $step['definition'],
+                ]),
+                'run_pipeline' => $this->as(
+                    $this->student,
+                    'POST',
+                    '/api/v1/pipelines/' . $this->pipelineId($workspaceId, $step['name']) . '/runs',
+                    []
+                ),
                 default => self::fail("Unknown solution step {$step['do']}"),
             };
             self::assertContains($r->status, [200, 201, 202, 204], "$code step $i ({$step['do']}): {$r->body}");
             $this->runJobs();
+        }
+    }
+
+    private function containerId(string $workspaceId, string $storage, string $name): string
+    {
+        $resource = $this->resourceByName($this->student, $workspaceId, $storage)['id'];
+        foreach ($this->as($this->student, 'GET', "/api/v1/resources/$resource/containers")->decoded()['data'] as $container) {
+            if ($container['name'] === $name) {
+                return (string) $container['id'];
+            }
+        }
+        self::fail("Container $name not found");
+    }
+
+    private function pipelineId(string $workspaceId, string $name): string
+    {
+        foreach ($this->as($this->student, 'GET', "/api/v1/workspaces/$workspaceId/pipelines")->decoded()['data'] as $pipeline) {
+            if ($pipeline['name'] === $name) {
+                return (string) $pipeline['id'];
+            }
+        }
+        self::fail("Pipeline $name not found");
+    }
+
+    /** @param array<string, mixed> $step */
+    private function uploadObject(string $workspaceId, array $step): \EduCloud\Core\Response
+    {
+        $fields = ['key' => $step['key'], 'tier' => $step['tier'] ?? 'hot'];
+        if (isset($step['metadata'])) {
+            $fields['metadata'] = (string) json_encode($step['metadata']);
+        }
+        $source = (string) file_get_contents(LabImporter::samplesDir() . '/' . $step['sample']);
+        $jar = $this->cookieJar;
+        $this->cookieJar = [];
+        try {
+            return $this->upload(
+                '/api/v1/containers/' . $this->containerId($workspaceId, $step['storage'], $step['container']) . '/objects',
+                $fields,
+                ['file' => [$this->fixtureFile($source), basename($step['sample'])]],
+                ['Authorization' => 'Bearer ' . $this->student]
+            );
+        } finally {
+            $this->cookieJar = $jar;
         }
     }
 }

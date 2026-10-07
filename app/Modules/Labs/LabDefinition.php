@@ -18,7 +18,10 @@ use Opis\JsonSchema\Validator as SchemaValidator;
 final class LabDefinition
 {
     /** Check types evaluated by PHP from metadata (the rest run in the execution plane, op "validate"). */
-    public const METADATA_CHECKS = ['resource_exists', 'resource_deleted', 'dataset_exists'];
+    public const METADATA_CHECKS = [
+        'resource_exists', 'resource_deleted', 'dataset_exists',
+        'container_exists', 'object_exists', 'pipeline_has_nodes', 'pipeline_run_succeeded',
+    ];
     public const DATA_CHECKS = ['table_has_columns', 'column_type', 'row_count', 'null_count', 'unique', 'value_range', 'query_result_matches'];
 
     /**
@@ -107,6 +110,9 @@ final class LabDefinition
                 }
                 if (($check['op'] ?? null) === 'between' && !is_array($check['value'])) {
                     $errors[] = "tasks[$i].checks[$j]: op between needs [min, max]";
+                }
+                if ($check['type'] === 'object_exists' && isset($check['key']) === isset($check['prefix'])) {
+                    $errors[] = "tasks[$i].checks[$j]: object_exists needs exactly one of key or prefix";
                 }
                 if ($check['type'] === 'query_result_matches' && !isset($check['actual_sql'])) {
                     $usesAnswer = true;

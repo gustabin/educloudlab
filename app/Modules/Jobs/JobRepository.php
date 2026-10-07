@@ -19,12 +19,23 @@ final class JobRepository
      * @param array<string, mixed> $payload internal ids only (never paths or user-supplied text)
      * @return array{id: int, public_id: string}
      */
-    public function create(TenantContext $ctx, ?int $workspaceId, string $type, array $payload, int $timeoutSeconds, int $priority = 5): array
-    {
+    public function create(
+        TenantContext $ctx,
+        ?int $workspaceId,
+        string $type,
+        array $payload,
+        int $timeoutSeconds,
+        int $priority = 5,
+        int $maxAttempts = 1,
+    ): array {
         $publicId = Ulid::generate();
         $id = $this->db->insert(
-            'INSERT INTO jobs (public_id, tenant_id, workspace_id, user_id, type, priority, payload, timeout_s) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [$publicId, $ctx->tenantId, $workspaceId, $ctx->userId, $type, $priority, (string) json_encode($payload), $timeoutSeconds]
+            'INSERT INTO jobs (public_id, tenant_id, workspace_id, user_id, type, priority, payload, timeout_s, max_attempts)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [
+                $publicId, $ctx->tenantId, $workspaceId, $ctx->userId, $type, $priority, (string) json_encode($payload),
+                $timeoutSeconds, max(1, $maxAttempts),
+            ]
         );
         return ['id' => $id, 'public_id' => $publicId];
     }
@@ -99,9 +110,41 @@ final class JobRepository
         );
     }
 
-    public function heartbeat(int $id): void
+    /** Keeps a running job alive; returns true when cancellation was requested (the dispatcher then stops the runner). */
+    public function heartbeat(int $id): bool
     {
         $this->db->execute("UPDATE jobs SET heartbeat_at = UTC_TIMESTAMP(3) WHERE id = ? AND status = 'running'", [$id]);
+        return (int) $this->db->scalar('SELECT cancel_requested FROM jobs WHERE id = ?', [$id]) === 1;
+    }
+
+    /**
+     * Cancels a job of the tenant: a queued job is cancelled at once (returns 'cancelled'); a running one is flagged
+     * and stopped by the dispatcher at its next heartbeat (returns 'requested'). Finished jobs return null.
+     */
+    public function cancel(int $tenantId, int $id): ?string
+    {
+        $cancelled = $this->db->execute(
+            "UPDATE jobs SET status = 'cancelled', error_code = 'CANCELLED', finished_at = UTC_TIMESTAMP(3)
+              WHERE tenant_id = ? AND id = ? AND status = 'queued'",
+            [$tenantId, $id]
+        );
+        if ($cancelled === 1) {
+            return 'cancelled';
+        }
+        return $this->db->execute(
+            "UPDATE jobs SET cancel_requested = 1 WHERE tenant_id = ? AND id = ? AND status = 'running'",
+            [$tenantId, $id]
+        ) === 1 ? 'requested' : null;
+    }
+
+    /** Puts a failed attempt back in the queue (transient failure, attempts < max_attempts). */
+    public function requeue(int $id): bool
+    {
+        return $this->db->execute(
+            "UPDATE jobs SET status = 'queued', locked_by = NULL, started_at = NULL, heartbeat_at = NULL, queued_at = UTC_TIMESTAMP(3)
+              WHERE id = ? AND status = 'running' AND attempts < max_attempts AND cancel_requested = 0",
+            [$id]
+        ) === 1;
     }
 
     /** @param array<string, mixed>|null $summary */

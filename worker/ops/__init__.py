@@ -2,6 +2,7 @@
 (success, limits, malicious input) and document it in docs/architecture/EXECUTION.md."""
 from .csv_ops import drop_table, ingest, profile
 from .lab_ops import validate
+from .pipeline_ops import pipeline
 from .sql_ops import query, transform
 
 OPS = {
@@ -11,4 +12,5 @@ OPS = {
     "query": query,
     "transform": transform,
     "validate": validate,
+    "pipeline": pipeline,
 }

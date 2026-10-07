@@ -68,7 +68,7 @@ final class DatasetRepository
     public function findVersionForJob(int $tenantId, int $versionId): ?array
     {
         return $this->db->selectOne(
-            'SELECT id, public_id, dataset_id, version_no, storage_key, status FROM dataset_versions WHERE tenant_id = ? AND id = ?',
+            'SELECT id, public_id, dataset_id, version_no, storage_key, format, status FROM dataset_versions WHERE tenant_id = ? AND id = ?',
             [$tenantId, $versionId]
         );
     }
@@ -166,6 +166,35 @@ final class DatasetRepository
         $this->db->execute(
             "UPDATE dataset_versions SET status = 'failed', error_code = ?, error_message = ? WHERE tenant_id = ? AND id = ?",
             [$code, mb_substr($message, 0, 300), $tenantId, $versionId]
+        );
+    }
+
+    public function releaseTableName(int $tenantId, int $datasetId): void
+    {
+        $this->db->execute('UPDATE datasets SET table_name = NULL WHERE tenant_id = ? AND id = ?', [$tenantId, $datasetId]);
+    }
+
+    /** Removes a version that never became ready (e.g. a failed pipeline re-run that left the previous table intact). */
+    public function deleteVersion(int $tenantId, int $versionId): void
+    {
+        $this->db->execute("DELETE FROM dataset_versions WHERE tenant_id = ? AND id = ? AND status <> 'ready'", [$tenantId, $versionId]);
+    }
+
+    /** @return array<string, mixed>|null live dataset of a workspace by layer and table */
+    public function findTable(TenantContext $ctx, int $workspaceId, string $layer, string $table): ?array
+    {
+        return $this->db->selectOne(
+            self::SELECT . " WHERE d.tenant_id = ? AND d.workspace_id = ? AND d.layer = ? AND d.table_name = ? AND r.status <> 'deleted'",
+            [$ctx->tenantId, $workspaceId, $layer, $table]
+        );
+    }
+
+    /** @return array<string, mixed>|null ready raw dataset of a workspace by name */
+    public function findRaw(TenantContext $ctx, int $workspaceId, string $name): ?array
+    {
+        return $this->db->selectOne(
+            self::SELECT . " WHERE d.tenant_id = ? AND d.workspace_id = ? AND d.layer = 'raw' AND r.name = ? AND r.status = 'active'",
+            [$ctx->tenantId, $workspaceId, $name]
         );
     }
 

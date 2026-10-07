@@ -49,6 +49,10 @@ foreach ([
     'admin.col.type', 'admin.col.status', 'admin.col.tenant', 'admin.col.user', 'admin.col.error', 'admin.col.queued',
     'admin.col.duration', 'admin.col.when', 'admin.col.action', 'admin.col.outcome', 'admin.col.actor', 'admin.col.resource',
     'admin.col.name', 'admin.col.email', 'admin.col.last_login', 'admin.col.storage', 'admin.col.actions',
+    'pipelines.state.queued', 'pipelines.state.running', 'pipelines.state.succeeded', 'pipelines.state.failed', 'pipelines.state.cancelled', 'pipelines.state.timed_out', 'pipelines.step.succeeded', 'pipelines.step.failed', 'pipelines.step.warning', 'pipelines.step.skipped', 'pipelines.step.running', 'pipelines.col.step', 'pipelines.col.type', 'pipelines.col.status', 'pipelines.col.rows', 'pipelines.col.ms', 'pipelines.col.message', 'pipelines.none', 'pipelines.no_runs', 'pipelines.running', 'pipelines.cancel', 'pipelines.cancelling', 'pipelines.invalid_json', 'pipelines.save_first', 'pipelines.delete_title', 'pipelines.delete_text', 'ds.lineage_named', 'ds.lineage_upstream', 'ds.lineage_downstream', 'ds.lineage_none', 'ds.lineage_via.ingest', 'ds.lineage_via.transform', 'ds.lineage_via.pipeline',
+    'storage.no_containers', 'storage.objects_count', 'storage.lifecycle_summary', 'storage.no_lifecycle', 'storage.no_objects', 'storage.empty_container',
+    'storage.col.key', 'storage.col.size', 'storage.col.tier', 'storage.col.metadata', 'storage.col.actions', 'storage.tier_of',
+    'storage.download_named', 'storage.delete_named', 'storage.archived_hint', 'storage.open',
 ] as $key) {
     $jsStrings[$key] = t($key);
 }

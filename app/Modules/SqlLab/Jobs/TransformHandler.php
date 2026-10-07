@@ -45,6 +45,9 @@ final class TransformHandler implements JobHandler
         $rows = (int) ($data['row_count'] ?? 0);
         $this->repo->markVersionReady((int) $job['tenant_id'], (int) $version['id'], $rows, $columns);
         $this->repo->setResourceStatus((int) $job['tenant_id'], (int) $dataset['resource_id'], 'provisioning', 'active');
+        $lineage = new \EduCloud\Modules\Datasets\LineageRepository($this->app->db());
+        $sources = $lineage->resolve((int) $job['tenant_id'], (int) $job['workspace_id'], array_map('strval', (array) ($data['sources'] ?? [])));
+        $lineage->record((int) $job['tenant_id'], (int) $job['workspace_id'], (int) $dataset['dataset_id'], $sources, 'transform');
         return ['table' => $dataset['layer'] . '.' . $dataset['table_name'], 'row_count' => $rows, 'column_count' => count($columns)];
     }
 

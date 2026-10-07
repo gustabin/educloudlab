@@ -26,6 +26,9 @@
         </p>
     </div>
     <div class="d-flex gap-2">
+        <a class="btn btn-outline-primary" href="<?= e(url('/app/workspaces/' . $workspace['id'] . '/pipelines')) ?>">
+            <i class="fa-solid fa-diagram-project" aria-hidden="true"></i> <?= e(t('pipelines.open')) ?>
+        </a>
         <a class="btn btn-outline-primary" href="<?= e(url('/app/workspaces/' . $workspace['id'] . '/sql')) ?>">
             <i class="fa-solid fa-terminal" aria-hidden="true"></i> <?= e(t('sql.open')) ?>
         </a>
@@ -73,7 +76,7 @@
             </div>
             <div class="col-12 col-md-5">
                 <label class="form-label" for="ds-file"><?= e(t('ds.field.file')) ?></label>
-                <input class="form-control" id="ds-file" name="file" type="file" accept=".csv,text/csv" required aria-describedby="ds-file-help">
+                <input class="form-control" id="ds-file" name="file" type="file" accept=".csv,.json,.jsonl,.ndjson,.parquet,text/csv,application/json" required aria-describedby="ds-file-help">
                 <div id="ds-file-help" class="form-text"><?= e(t('ds.field.file_help', ['mb' => (int) round($uploadMaxBytes / 1048576)])) ?></div>
             </div>
             <div class="col-12 col-md-3">
@@ -100,6 +103,18 @@
         <button class="btn btn-sm btn-outline-danger" type="button" data-ec-retry><?= e(t('common.retry')) ?></button>
     </div>
 </template>
+
+<div class="modal fade" id="ds-lineage-modal" tabindex="-1" aria-labelledby="ds-lineage-title" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="ds-lineage-title"><?= e(t('ds.lineage')) ?></h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<?= e(t('nav.close')) ?>"></button>
+            </div>
+            <div class="modal-body" id="ds-lineage-body"></div>
+        </div>
+    </div>
+</div>
 
 <div class="modal fade" id="ds-preview-modal" tabindex="-1" aria-labelledby="ds-preview-title" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-scrollable">

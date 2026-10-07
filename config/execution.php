@@ -23,6 +23,7 @@ return [
         'sql_query' => 20,   // hard kill; the runner interrupts the query itself after limits.sql_timeout_s
         'transform' => 90,
         'validate' => 150,   // lab grading: every check is interrupted after limits.sql_timeout_s
+        'pipeline_run' => 300, // each pipeline step is interrupted after limits.transform_timeout_s
     ],
     'limits' => [
         'threads' => 2,

@@ -50,6 +50,8 @@ final class CleanupHandler implements JobHandler
             $storage->delete($storage->previewFile($tenant, $ws, (string) $version['public_id']));
         }
         $this->repo->setResourceStatus((int) $job['tenant_id'], (int) $dataset['resource_id'], 'deleting', 'deleted');
+        // Frees <layer>.<table> for a new dataset (unique per workspace); the deleted dataset keeps its name for history.
+        $this->repo->releaseTableName((int) $job['tenant_id'], (int) $dataset['dataset_id']);
         return ['files_removed' => $removed, 'table_dropped' => (bool) ($data['dropped'] ?? false)];
     }
 

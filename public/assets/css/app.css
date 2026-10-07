@@ -216,3 +216,23 @@ body {
 /* WCAG AA contrast on the grey page background (axe, M11a): darker text for Bootstrap's outline variants. */
 .btn-outline-secondary { --bs-btn-color: #495057; --bs-btn-border-color: #6c757d; --bs-btn-hover-bg: #495057; --bs-btn-hover-border-color: #495057; }
 .btn-outline-danger { --bs-btn-color: #b02a37; --bs-btn-border-color: #b02a37; --bs-btn-hover-bg: #b02a37; --bs-btn-hover-border-color: #b02a37; }
+
+/* Pipelines */
+.ec-pipeline-steps { padding-left: 1.25rem; margin-bottom: 0; }
+.ec-pipeline-steps li { margin-bottom: 0.25rem; }
+.ec-node-type { display: inline-block; min-width: 7.5rem; padding: 1px 8px; border-radius: var(--ec-radius-sm); font-size: 0.75rem; font-weight: 700;
+  font-family: var(--ec-font-mono); background: var(--ec-surface-2); border: 1px solid var(--ec-border); color: var(--ec-text); }
+#pipelines .CodeMirror { height: 380px; border: 1px solid var(--ec-border); border-radius: var(--ec-radius-md); font-family: var(--ec-font-mono); font-size: 0.8125rem; }
+#pipelines .CodeMirror-focused { outline: 3px solid var(--ec-focus); outline-offset: 1px; }
+.ec-run, .ec-step { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; border: 1px solid var(--ec-border);
+  background: var(--ec-surface-2); color: var(--ec-text); }
+.ec-run-succeeded, .ec-step-succeeded { background: #dcfce7; color: #14532d; border-color: #86efac; }
+.ec-run-failed, .ec-run-timed_out, .ec-step-failed { background: #fee2e2; color: #7f1d1d; border-color: #fca5a5; }
+.ec-run-queued, .ec-run-running, .ec-step-running { background: #e0f2fe; color: #0c4a6e; border-color: #7dd3fc; }
+.ec-step-warning { background: #fef3c7; color: #713f12; border-color: #fcd34d; }
+.ec-run-item { border-top: 1px solid var(--ec-border); padding: var(--ec-space-2) 0; }
+.ec-run-item summary { cursor: pointer; }
+
+/* Selected list item: darker primary so its secondary text stays above 4.5:1 (WCAG AA). */
+.list-group-item.active { background-color: #0a58ca; border-color: #0a58ca; }
+.list-group-item.active .text-body-secondary { color: #fff !important; }

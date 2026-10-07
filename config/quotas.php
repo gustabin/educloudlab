@@ -16,4 +16,6 @@ return [
     'datasets_per_workspace' => 50,
     'active_jobs_per_user' => 3,               // queued + running (lab setup jobs count too; they finish in seconds)
     'active_lab_attempts_per_user' => 3,       // in-progress lab attempts (each has its own lab workspace)
+    'containers_per_storage' => 20,            // object storage (M7)
+    'objects_per_container' => 200,
 ];

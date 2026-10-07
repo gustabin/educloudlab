@@ -26,7 +26,8 @@ final class ProfileHandler implements JobHandler
         $tenant = (string) $job['tenant_public_id'];
         $ws = (string) $job['workspace_public_id'];
         return ['op' => 'profile', 'args' => [
-            'csv_path' => $storage->rawFile($tenant, $ws, (string) $version['storage_key']),
+            'file_path' => $storage->rawFile($tenant, $ws, (string) $version['storage_key']),
+            'format' => (string) $version['format'],
             'preview_path' => $storage->previewFile($tenant, $ws, (string) $version['public_id']),
         ]];
     }

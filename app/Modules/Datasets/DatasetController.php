@@ -53,6 +53,12 @@ final class DatasetController
         return Response::json($preview, 200, '', ['request_id' => $request->requestId]);
     }
 
+    public function lineage(Request $request): Response
+    {
+        $lineage = $this->service->lineage($this->ctx($request), WorkspaceController::id($request, 'dataset_id'));
+        return Response::json($lineage, 200, '', ['request_id' => $request->requestId]);
+    }
+
     public function ingest(Request $request): Response
     {
         $body = $request->json();

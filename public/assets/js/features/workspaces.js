@@ -176,7 +176,13 @@
       $('<td></td>').append(statusBadge(res.status)).appendTo($tr);
       $('<td></td>').text(res.region).appendTo($tr);
       $('<td class="small text-body-secondary"></td>').text(configSummary(res)).appendTo($tr);
-      var $actions = $('<td class="text-end"></td>').appendTo($tr);
+      var $actions = $('<td class="text-end text-nowrap"></td>').appendTo($tr);
+      if (res.type === 'storage' && res.status === 'active') {
+        $('<a class="btn btn-sm btn-outline-primary me-1"></a>')
+          .attr('href', api.url('/app/resources/' + encodeURIComponent(res.id) + '/storage'))
+          .attr('aria-label', t('storage.open', { name: res.name }))
+          .append('<i class="fa-solid fa-folder-open" aria-hidden="true"></i>').appendTo($actions);
+      }
       if (String($detail.data('canDelete')) === '1') {
         $('<button type="button" class="btn btn-sm btn-outline-danger"></button>')
           .attr('data-ec-delete-resource', res.id).attr('data-name', res.name)
@@ -191,8 +197,8 @@
       api.request({ url: '/api/v1/workspaces/' + encodeURIComponent(workspaceId) + '/resources', silent: true })
         .then(function (body) {
           $list.empty();
-          // Datasets are listed (and managed) in their own section.
-          var items = $.grep(body.data, function (r) { return r.type !== 'dataset'; });
+          // Datasets and pipelines are listed (and managed) in their own screens.
+          var items = $.grep(body.data, function (r) { return r.type !== 'dataset' && r.type !== 'pipeline'; });
           if (!items.length) {
             $list.append(fromTemplate('res-empty-template'));
             return;

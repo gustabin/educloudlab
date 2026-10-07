@@ -49,8 +49,12 @@ DENYLIST = re.compile(
 # table references, independent of how they are spelled in the text.
 DENIED_FUNCTION = re.compile(
     r"^(duckdb_.*|pragma_.*|read_.*|parquet_.*|current_setting|getenv|glob|sniff_csv|query|query_table|"
-    r"json_execute_serialized_sql|json_serialize_sql|which_secret|load_extension|sql_auto_complete|.*_settings?)$"
+    r"json_execute_serialized_sql|json_serialize_sql|which_secret|load_extension|sql_auto_complete|.*_settings?|"
+    r"enable_.*|disable_.*|.*checkpoint|truncate_duckdb_logs)$"
 )
+# Table functions (FROM f(...)) are allowlisted: DuckDB keeps adding table functions with side effects
+# (enable_profiling(save_location := ...) writes files, checkpoint, logging), so only pure generators are accepted.
+ALLOWED_TABLE_FUNCTIONS = {"range", "generate_series", "unnest", "json_each", "json_tree"}
 DENIED_SCHEMAS = {"pg_catalog", "system"}
 SAFE_TABLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
@@ -70,6 +74,10 @@ def _check_parse_tree(sql: str) -> None:
             name = node.get("function_name")
             if isinstance(name, str) and DENIED_FUNCTION.match(name.lower()):
                 raise RunnerError("SQL_FORBIDDEN", f"La función «{name}» no está permitida en el SQL Lab.")
+            if node.get("type") == "TABLE_FUNCTION":
+                fn = str((node.get("function") or {}).get("function_name", "")).lower()
+                if fn not in ALLOWED_TABLE_FUNCTIONS:
+                    raise RunnerError("SQL_FORBIDDEN", f"La función de tabla «{fn}» no está permitida en el SQL Lab.")
             if node.get("type") == "BASE_TABLE":
                 table = str(node.get("table_name", ""))
                 schema = str(node.get("schema_name", "")).lower()
@@ -85,6 +93,29 @@ def _check_parse_tree(sql: str) -> None:
                 walk(value)
 
     walk(tree)
+
+
+def read_tables(sql: str) -> list[str]:
+    """Lakehouse tables (layer.table) referenced by a validated SELECT, from its parse tree (lineage)."""
+    parser = duckdb.connect(":memory:")
+    try:
+        tree = json.loads(parser.execute("SELECT json_serialize_sql(?)", [sql]).fetchone()[0])
+    finally:
+        parser.close()
+    found: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "BASE_TABLE" and node.get("schema_name") in ("bronze", "silver", "gold"):
+                found.add(f"{node['schema_name']}.{node.get('table_name')}")
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(tree)
+    return sorted(found)
 
 
 def validate_select(sql: Any, max_length: int) -> str:
@@ -286,6 +317,7 @@ def transform(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -
             "table": table,
             "row_count": row_count,
             "columns": [{"name": n, "type": t} for n, t in schema_rows],
+            "sources": read_tables(select),
         }
     finally:
         con.close()

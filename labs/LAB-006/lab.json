@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "code": "LAB-006",
+  "version": "1.0.0",
+  "slug": "construye-un-pipeline-etl",
+  "status": "published",
+  "title": "Construye un pipeline ETL",
+  "summary": "Encadena pasos de lectura, filtrado, unión, agregación y control de calidad en pipelines que alimentan las capas silver y gold, y revisa su ejecución paso a paso.",
+  "difficulty": "intermediate",
+  "estimated_minutes": 60,
+  "prerequisites": ["LAB-005"],
+  "objectives": [
+    "Definir un pipeline como una cadena de pasos declarativos",
+    "Filtrar, transformar y unir datos sin escribir DDL",
+    "Detener un pipeline cuando falla un control de calidad",
+    "Agregar datos de negocio en la capa gold",
+    "Leer archivos de la capa raw directamente desde un pipeline"
+  ],
+  "setup": [
+    { "action": "create_resource", "type": "lakehouse", "name": "lago" },
+    { "action": "load_sample", "sample": "retail/orders.csv", "name": "orders", "ingest_to": "bronze.orders" },
+    { "action": "load_sample", "sample": "retail/order_items.csv", "name": "order_items", "ingest_to": "bronze.order_items" },
+    { "action": "load_sample", "sample": "retail/stores.csv", "name": "stores", "ingest_to": "bronze.stores" },
+    { "action": "load_sample", "sample": "retail/products.csv", "name": "products" }
+  ],
+  "tasks": [
+    {
+      "key": "t1", "title": "Pipeline de pedidos completados (silver)", "points": 35,
+      "hints": [
+        { "text": "Usa la plantilla «Limpiar clientes» como punto de partida y cambia la tabla de origen por bronze.orders.", "penalty": 4 },
+        { "text": "Filtro: {\"column\": \"status\", \"op\": \"eq\", \"value\": \"completed\"}. Control de calidad: reglas not_null y unique sobre order_id.", "penalty": 6 }
+      ],
+      "checks": [
+        { "type": "pipeline_has_nodes", "pipeline": "pedidos-completados", "node_types": ["source", "filter", "quality_check", "output"],
+          "feedback": "El pipeline pedidos-completados debe tener pasos source, filter, quality_check y output." },
+        { "type": "pipeline_run_succeeded", "pipeline": "pedidos-completados", "output": "silver.orders_completed" },
+        { "type": "table_has_columns", "table": "silver.orders_completed", "columns": ["order_id", "store_id", "order_date"] },
+        { "type": "unique", "table": "silver.orders_completed", "columns": ["order_id"] },
+        { "type": "query_result_matches",
+          "actual_sql": "SELECT count(*) FROM silver.orders_completed",
+          "expected_sql": "SELECT count(*) FROM bronze.orders WHERE status = 'completed'",
+          "feedback": "silver.orders_completed debe contener exactamente los pedidos con estado completed." }
+      ]
+    },
+    {
+      "key": "t2", "title": "Pipeline de ingresos por región (gold)", "points": 40,
+      "hints": [
+        { "text": "Une silver.orders_completed con bronze.order_items por order_id y con bronze.stores por store_id.", "penalty": 5 },
+        { "text": "El importe de cada línea se calcula con un paso sql: SELECT *, quantity * unit_price AS line_total FROM input.", "penalty": 5 },
+        { "text": "Paso aggregate: group_by [\"region\"], medidas sum(line_total) AS revenue y count_distinct(order_id) AS orders.", "penalty": 6 }
+      ],
+      "checks": [
+        { "type": "pipeline_has_nodes", "pipeline": "ingresos-region", "node_types": ["source", "join", "aggregate", "output"],
+          "feedback": "El pipeline ingresos-region debe unir tablas (join) y agregarlas (aggregate)." },
+        { "type": "pipeline_run_succeeded", "pipeline": "ingresos-region", "output": "gold.revenue_by_region" },
+        { "type": "table_has_columns", "table": "gold.revenue_by_region", "columns": ["region", "revenue", "orders"] },
+        { "type": "query_result_matches", "decimals": 2,
+          "actual_sql": "SELECT region, round(revenue, 2), orders FROM gold.revenue_by_region",
+          "expected_sql": "SELECT s.region, round(sum(i.quantity * i.unit_price), 2), count(DISTINCT o.order_id) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id JOIN bronze.stores s ON s.store_id = o.store_id WHERE o.status = 'completed' GROUP BY s.region",
+          "feedback": "Los ingresos o el número de pedidos por región no coinciden con los esperados." }
+      ]
+    },
+    {
+      "key": "t3", "title": "Del archivo raw a silver en un solo pipeline", "points": 25,
+      "hints": [
+        { "text": "Un paso source puede leer un archivo raw: {\"type\": \"source\", \"raw\": \"products\"}.", "penalty": 4 },
+        { "text": "En el paso select, usa \"transform\": \"upper\" sobre la columna category.", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "pipeline_run_succeeded", "pipeline": "catalogo", "output": "silver.products" },
+        { "type": "row_count", "table": "silver.products", "op": "eq", "value": 200 },
+        { "type": "table_has_columns", "table": "silver.products", "columns": ["product_id", "product_name", "category", "price"] },
+        { "type": "query_result_matches",
+          "actual_sql": "SELECT count(*) FROM silver.products WHERE category <> upper(category)",
+          "expected_sql": "SELECT 0",
+          "feedback": "Las categorías deben quedar en mayúsculas." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 14 }
+}

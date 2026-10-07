@@ -45,6 +45,17 @@ final class UploadSecurityTest extends TestCase
         yield 'double extension' => ["a\n1\n", 'datos.csv.php', 422, 'extension'];
         yield 'no extension' => ["a\n1\n", 'datos', 422, 'extension'];
         yield 'empty file' => ['', 'vacio.csv', 422, 'empty'];
+        // M7 formats
+        yield 'zip renamed to json' => ["PK\x03\x04" . str_repeat('x', 100), 'datos.json', 422, 'content'];
+        yield 'json that is not a list or object' => ['"solo un texto"', 'datos.json', 422, 'content'];
+        yield 'html disguised as json' => ['<script>alert(1)</script>', 'datos.json', 422, 'content'];
+        yield 'latin-1 json' => ["[{\"n\": \"Jos\xE9\"}]", 'datos.json', 422, 'encoding'];
+        yield 'parquet without trailing magic' => ['PAR1' . str_repeat("\0", 40), 'datos.parquet', 422, 'content'];
+        yield 'csv renamed to parquet' => ["a,b\n1,2\n", 'datos.parquet', 422, 'content'];
+        yield 'parquet renamed to csv' => ['PAR1' . str_repeat('x', 40) . 'PAR1', 'datos.csv', 422, 'content'];
+        yield 'xlsx extension' => ["a
+1
+", 'datos.xlsx', 422, 'extension'];
     }
 
     /** @dataProvider badUploads */

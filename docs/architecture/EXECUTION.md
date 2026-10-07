@@ -1,4 +1,4 @@
-# Execution plane (M4)
+# Execution plane (M4, extended in M7)
 
 Implements ADR-005 (queue + dispatcher + credential-less runner) and ADR-006 (per-workspace DuckDB lakehouse).
 
@@ -17,11 +17,12 @@ flowchart LR
 
 | Type | Created by | Runner op | Result applied |
 |---|---|---|---|
-| `profile` | CSV upload | `profile`: schema, row count, preview (50 rows) | version `ready` with its schema; resource `provisioning → active` (or `failed` with a safe error) |
+| `profile` | Upload (CSV, JSON/JSONL/NDJSON or Parquet since M7) | `profile`: schema, row count, preview (50 rows), detected format | version `ready` with its schema; resource `provisioning → active` (or `failed` with a safe error) |
 | `ingest` | `POST /datasets/{id}/ingest` | `ingest`: `CREATE OR REPLACE TABLE bronze.<table>` with normalised columns | bronze dataset version `ready`; resource `active` |
 | `cleanup` | `DELETE /datasets/{id}` | raw: none (PHP deletes files); table: `drop_table` | files and previews removed; resource `deleting → deleted` |
 | `sql_query` (priority 1) | `POST /workspaces/{id}/queries` | `query`: student SELECT, read-only, no file access | result file `meta/results/{query}.json` (24 h); `query_history` status, duration and rows |
 | `transform` (priority 3) | `POST /workspaces/{id}/transforms` | `transform`: `CREATE OR REPLACE TABLE silver\|gold.<t> AS <SELECT>` | silver/gold dataset `ready`, with the defining SQL kept in its config |
+| `pipeline_run` (M7, priority 3) | `POST /pipelines/{id}/runs` | `pipeline`: compiles the node chain into parameterised DuckDB SQL, one TEMP table per step, writes `silver\|gold.<t>` | run status + per-step report (also on failure), output dataset version `ready`, lineage edges (`docs/architecture/PIPELINES_AND_STORAGE.md`) |
 | `validate` (M6) | `POST /lab-attempts/{id}/submit` | metadata checks in PHP, then `validate`: data checks and saved SQL answers, read-only and sandboxed (none when the lab has only metadata checks) | `lab_task_results`, score, best score and status of the attempt (`docs/architecture/LAB_ENGINE.md`) |
 
 Payloads contain **internal ids only**. Handlers compute storage paths from DB values, never from user input.
@@ -33,9 +34,15 @@ Payloads contain **internal ids only**. Handlers compute storage paths from DB v
 - **Process launch:** `proc_open` with an argument array and `bypass_shell` (no shell). Python runs in isolated mode `-I`.
 - **Environment:** only `PATH`, `SYSTEMROOT`, `TEMP`/`TMP` and `WINDIR` are passed.
 - **I/O:** request and response files live in `STORAGE_PATH/jobs` and are deleted after every job. Windows pipes cannot be `select()`ed, so files are used instead.
-- **Timeouts:** wall-clock per type (`config/execution.php`: profile 60 s, ingest 120 s, cleanup 60 s, sql_query 20 s, transform 90 s, validate 150 s). The whole process tree is killed (`taskkill /T /F`), and the job ends `timed_out`.
+- **Timeouts:** wall-clock per type (`config/execution.php`: profile 60 s, ingest 120 s, cleanup 60 s, sql_query 20 s, transform 90 s, validate 150 s, pipeline_run 300 s). The whole process tree is killed (`taskkill /T /F`), and the job ends `timed_out`.
 - **Response cap:** 2 MB. A heartbeat is written every 5 s.
 - **Stale jobs:** a running job with no heartbeat for `timeout + 60 s` is failed by the scheduler (`INTERRUPTED`).
+- **Cancellation (M7):** `jobs.cancel_requested` is set by the API. A queued job is finished at once; for a running
+  job the heartbeat returns the flag, the runner tree is killed and the job ends `cancelled` (error `CANCELLED`).
+- **Retries (M7):** jobs carry `max_attempts` (pipelines: `retries + 1`, at most 3). Only transient codes
+  (`RUNNER_ERROR`, `ENGINE_UNAVAILABLE`) are requeued; data and validation errors fail immediately.
+- **Partial results (M7):** handlers implementing `PartialResultHandler` receive the runner's `data` on failure
+  (the pipeline step report up to the failing step).
 
 ## Runner (`worker/`)
 
@@ -85,7 +92,8 @@ Payloads contain **internal ids only**. Handlers compute storage paths from DB v
 ## Storage layout (`app/Core/Storage/LocalStorage.php`)
 
 ```
-{STORAGE_PATH}/t/{tenant}/w/{workspace}/raw/{storage_key}.csv
+{STORAGE_PATH}/t/{tenant}/w/{workspace}/raw/{storage_key}.{csv|json|parquet}
+{STORAGE_PATH}/t/{tenant}/w/{workspace}/objects/{storage_key}.bin   (object storage, M7; never read by the runner)
 {STORAGE_PATH}/t/{tenant}/w/{workspace}/meta/{version}.preview.json
 {STORAGE_PATH}/t/{tenant}/w/{workspace}/lakehouse.duckdb      (schemas bronze, silver, gold)
 {STORAGE_PATH}/jobs/  tmp/  locks/  logs/  mail/
@@ -93,15 +101,20 @@ Payloads contain **internal ids only**. Handlers compute storage paths from DB v
 
 Every component is a server-generated ULID, and every path is checked to remain inside the root.
 
-## Uploads (`CsvUploadValidator`)
+## Uploads (`DataUploadValidator`, M7)
 
 **Checks:**
 - genuine upload (`is_uploaded_file` / `move_uploaded_file`);
 - 1 byte to 20 MB;
-- `.csv` extension;
-- `finfo` MIME allowlist;
-- no binary signatures (zip, xlsx, pdf, exe, elf, png, gif, jpeg, ole, rar, gzip, 7z, parquet, sqlite);
-- no NUL bytes and valid UTF-8 in the **whole** file (streamed in 1 MB chunks; a BOM is allowed).
+- extension allowlist: datasets `.csv .json .jsonl .ndjson .parquet`; object storage adds `.txt .md`;
+- text formats: `finfo` MIME allowlist, no binary signatures (zip, xlsx, pdf, exe, elf, png, gif, jpeg, ole, rar,
+  gzip, 7z, parquet, sqlite), no NUL bytes and valid UTF-8 in the **whole** file (streamed in 1 MB chunks; a BOM is
+  allowed); JSON must start with `[` or `{`;
+- Parquet: `PAR1` magic at the head **and** the tail; the structure is read only by the runner (`read_parquet`).
+
+**Runner readers (M7):** JSON uses `read_json(?, format = 'auto', maximum_object_size = 1 MB, sample_size = 20480,
+maximum_depth = 10)` (deeper nesting is kept as JSON text; the upload cap bounds object size), Parquet uses
+`read_parquet(?)`. Errors map to `JSON_PARSE_ERROR` / `PARQUET_ERROR`; the row and column caps apply to every format.
 
 **Quotas:**
 - 50 datasets per workspace;

@@ -32,7 +32,13 @@ final class TenantIsolationTest extends TestCase
         'tenants', 'memberships', 'workspaces', 'resources', 'datasets', 'dataset_versions', 'jobs', 'query_history',
         'sessions', 'refresh_tokens', 'lab_attempts', 'lab_hint_usage', 'lab_task_answers', 'lab_task_results',
         'courses', 'enrollments', 'course_labs',
+        'pipelines', 'pipeline_runs', 'dataset_lineage', 'storage_containers', 'storage_objects',
     ];
+
+    private const PIPELINE = ['nodes' => [
+        ['id' => 'leer', 'type' => 'source', 'table' => 'bronze.clientes'],
+        ['id' => 'guardar', 'type' => 'output', 'layer' => 'silver', 'table' => 'copia'],
+    ]];
 
     /** Valid bodies, so a 404 can only come from authorization (never from validation). */
     private const BODIES = [
@@ -49,6 +55,13 @@ final class TenantIsolationTest extends TestCase
         'POST /api/v1/courses/{course_id}/labs' => ['lab_code' => 'LAB-001'],
         'POST /api/v1/courses/{course_id}/join-code' => [],
         'PATCH /api/v1/admin/users/{user_id}' => ['status' => 'disabled'],
+        'POST /api/v1/workspaces/{workspace_id}/pipelines' => ['name' => 'intruso', 'definition' => self::PIPELINE],
+        'PATCH /api/v1/pipelines/{pipeline_id}' => ['name' => 'hackeado'],
+        'POST /api/v1/pipelines/{pipeline_id}/runs' => [],
+        'POST /api/v1/pipeline-runs/{run_id}/cancel' => [],
+        'POST /api/v1/resources/{resource_id}/containers' => ['name' => 'intruso'],
+        'PATCH /api/v1/containers/{container_id}' => ['lifecycle' => null],
+        'PATCH /api/v1/objects/{object_id}' => ['tier' => 'cool'],
     ];
 
     /** @var array<string, string> route parameter => victim object id */
@@ -100,6 +113,20 @@ final class TenantIsolationTest extends TestCase
         self::assertSame(202, $upload->status, $upload->body);
         $lake = $this->request('POST', "/api/v1/workspaces/$wsId/resources", ['type' => 'lakehouse', 'name' => 'lago'], ['X-CSRF-Token' => $csrf]);
         self::assertSame(201, $lake->status, $lake->body);
+        $storageId = (string) $res->decoded()['data']['id'];
+        $container = $this->request('POST', "/api/v1/resources/$storageId/containers", ['name' => 'privado'], ['X-CSRF-Token' => $csrf]);
+        self::assertSame(201, $container->status, $container->body);
+        $containerId = (string) $container->decoded()['data']['id'];
+        $object = $this->upload("/api/v1/containers/$containerId/objects", ['key' => 'secreto.csv'], ['file' => [$this->fixtureFile("a
+1
+"), 'a.csv']], [
+            'X-CSRF-Token' => $csrf,
+        ]);
+        self::assertSame(201, $object->status, $object->body);
+        $pipelineBody = ['name' => 'etl', 'definition' => self::PIPELINE];
+        $pipeline = $this->request('POST', "/api/v1/workspaces/$wsId/pipelines", $pipelineBody, ['X-CSRF-Token' => $csrf]);
+        self::assertSame(201, $pipeline->status, $pipeline->body);
+        $pipelineId = (string) $pipeline->decoded()['data']['id'];
         $query = $this->request('POST', "/api/v1/workspaces/$wsId/queries", ['sql' => 'SELECT 42'], ['X-CSRF-Token' => $csrf]);
         self::assertSame(202, $query->status, $query->body);
         $lab = $this->request('POST', '/api/v1/lab-attempts', ['lab_code' => 'LAB-004'], ['X-CSRF-Token' => $csrf]);
@@ -108,6 +135,10 @@ final class TenantIsolationTest extends TestCase
         self::assertSame($courseId, $lab->decoded()['data']['course']['id'], 'a course attempt: only the course staff may review it');
         $this->request('POST', "/api/v1/lab-attempts/$attemptId/answers", ['task_key' => 't4', 'sql' => 'SELECT 42'], ['X-CSRF-Token' => $csrf]);
         $this->request('POST', "/api/v1/lab-attempts/$attemptId/hints", ['task_key' => 't1', 'hint_index' => 0], ['X-CSRF-Token' => $csrf]);
+        // The active-jobs quota is per user: let the earlier jobs finish (as the dispatcher would) before the run.
+        $this->app()->db()->execute("UPDATE jobs SET status = 'cancelled', finished_at = UTC_TIMESTAMP(3) WHERE status IN ('queued', 'running')");
+        $run = $this->request('POST', "/api/v1/pipelines/$pipelineId/runs", [], ['X-CSRF-Token' => $csrf]);
+        self::assertSame(202, $run->status, $run->body);
 
         $this->victimIds = [
             'workspace_id' => $wsId,
@@ -115,6 +146,10 @@ final class TenantIsolationTest extends TestCase
             'dataset_id' => (string) $upload->decoded()['data']['dataset']['id'],
             'job_id' => (string) $upload->decoded()['data']['job']['id'],
             'query_id' => (string) $query->decoded()['data']['id'],
+            'container_id' => $containerId,
+            'object_id' => (string) $object->decoded()['data']['id'],
+            'pipeline_id' => $pipelineId,
+            'run_id' => (string) $run->decoded()['data']['id'],
             'attempt_id' => $attemptId,
             'course_id' => $courseId,
             'user_id' => (string) $this->app()->db()->scalar('SELECT public_id FROM users WHERE email = ?', ['alice@test.example']),
@@ -178,7 +213,7 @@ final class TenantIsolationTest extends TestCase
             $checked[] = $key;
         }
 
-        $minimum = $attacker === 'bob-bearer' ? 32 : 38;
+        $minimum = $attacker === 'bob-bearer' ? 53 : 61; // every {id} route of the registry (M7)
         self::assertGreaterThanOrEqual($minimum, count($checked), "[$attacker] matrix covered too few routes: " . implode(', ', $checked));
     }
 
@@ -203,6 +238,17 @@ final class TenantIsolationTest extends TestCase
             "/app/lab-attempts/{$this->victimIds['attempt_id']}",
             "/api/v1/courses/{$this->victimIds['course_id']}",
             "/app/courses/{$this->victimIds['course_id']}",
+            "/api/v1/datasets/{$this->victimIds['dataset_id']}/lineage",
+            "/api/v1/resources/{$this->victimIds['resource_id']}/containers",
+            "/app/resources/{$this->victimIds['resource_id']}/storage",
+            "/api/v1/containers/{$this->victimIds['container_id']}",
+            "/api/v1/objects/{$this->victimIds['object_id']}",
+            "/api/v1/objects/{$this->victimIds['object_id']}/download",
+            "/api/v1/workspaces/$ws/pipelines",
+            "/app/workspaces/$ws/pipelines",
+            "/api/v1/pipelines/{$this->victimIds['pipeline_id']}",
+            "/api/v1/pipelines/{$this->victimIds['pipeline_id']}/runs",
+            "/api/v1/pipeline-runs/{$this->victimIds['run_id']}",
         ];
         foreach ($paths as $path) {
             self::assertSame(200, $this->request('GET', $path)->status, $path);

@@ -1,0 +1,10 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Steps are applied through the public API.",
+  "steps": [
+    { "do": "create_resource", "type": "storage", "name": "almacen" },
+    { "do": "create_container", "storage": "almacen", "name": "ventas-crudas" },
+    { "do": "upload_object", "storage": "almacen", "container": "ventas-crudas", "key": "2025/pedidos.csv", "sample": "retail/orders.csv", "metadata": { "origen": "erp" } },
+    { "do": "upload_object", "storage": "almacen", "container": "ventas-crudas", "key": "2025/productos.csv", "sample": "retail/products.csv", "tier": "cool" },
+    { "do": "set_lifecycle", "storage": "almacen", "container": "ventas-crudas", "lifecycle": { "archive_after_days": 30, "delete_after_days": 365 } }
+  ]
+}

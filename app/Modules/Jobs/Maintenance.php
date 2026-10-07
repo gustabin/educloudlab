@@ -25,7 +25,7 @@ final class Maintenance
     {
     }
 
-    /** @return array<string, int> */
+    /** @return array<string, mixed> */
     public function run(): array
     {
         return [
@@ -38,6 +38,10 @@ final class Maintenance
             'rate_limits_purged' => $this->app->rateLimiter()->purgeExpired(),
             'temp_files_removed' => $this->purgeOldFiles(['tmp', 'jobs'], 24 * 3600),
             'query_results_removed' => $this->purgeOldFiles(['t/*/w/*/meta/results'], 24 * 3600),
+            'storage_lifecycle' => array_combine(
+                ['archived', 'deleted'],
+                (new \EduCloud\Modules\ObjectStorage\ObjectStorageService($this->app))->applyLifecycle()
+            ),
             'storage_gauges_refreshed' => (new UsageService($this->app))->refreshAll(),
         ];
     }

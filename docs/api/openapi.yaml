@@ -557,8 +557,9 @@ paths:
       operationId: uploadDataset
       summary: Upload a CSV as a raw dataset; a profile job discovers schema, row count and preview
       description: |
-        Validation: .csv only, up to quotas.upload_max_bytes (20 MB), text content (finfo + binary signature check),
-        UTF-8, no NUL bytes; structural CSV validation (strict) happens in the runner. The file is stored outside the
+        Validation: .csv, .json, .jsonl, .ndjson or .parquet (M7), up to quotas.upload_max_bytes (20 MB), checked by content
+        (finfo + binary signature check; UTF-8 and no NUL bytes for text formats; PAR1 magic for Parquet); structural
+        validation (strict CSV, JSON parse, Parquet read) happens in the runner. The file is stored outside the
         web root under a generated key; the client file name is display-only.
       tags: [datasets]
       security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
@@ -1447,6 +1448,515 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /datasets/{dataset_id}/lineage:
+    parameters: [{ $ref: '#/components/parameters/DatasetId' }]
+    get:
+      operationId: getDatasetLineage
+      summary: Direct upstream and downstream datasets (edges recorded server-side by ingest, transforms and pipelines)
+      tags: [datasets]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Lineage neighbours
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          dataset: { type: object, properties: { id: { type: string }, name: { type: string }, layer: { type: string } } }
+                          upstream: { type: array, items: { $ref: '#/components/schemas/LineageEdge' } }
+                          downstream: { type: array, items: { $ref: '#/components/schemas/LineageEdge' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /workspaces/{workspace_id}/pipelines:
+    parameters: [{ $ref: '#/components/parameters/WorkspaceId' }]
+    get:
+      operationId: listPipelines
+      summary: Pipelines of a workspace (with the status of their latest run)
+      tags: [pipelines]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Pipelines
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Pipeline' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createPipeline
+      summary: Create a pipeline (resource of type pipeline) from a validated definition
+      tags: [pipelines]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name, definition]
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                definition: { $ref: '#/components/schemas/PipelineDefinition' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Pipeline' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pipeline-definitions/validate:
+    post:
+      operationId: validatePipelineDefinition
+      summary: Validate a definition without saving it (schema + structural rules, precise JSON-pointer-like fields)
+      tags: [pipelines]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [definition]
+              properties:
+                definition: { $ref: '#/components/schemas/PipelineDefinition' }
+      responses:
+        '200':
+          description: Valid
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          valid: { type: boolean, const: true }
+                          nodes: { type: integer }
+                          output: { type: object, properties: { layer: { type: string }, table: { type: string } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pipelines/{pipeline_id}:
+    parameters: [{ $ref: '#/components/parameters/PipelineId' }]
+    get:
+      operationId: getPipeline
+      summary: Pipeline with its current definition
+      tags: [pipelines]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Pipeline
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Pipeline' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updatePipeline
+      summary: Rename and/or replace the definition (version + 1; past runs keep their snapshot)
+      tags: [pipelines]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 2, maxLength: 80 }
+                definition: { $ref: '#/components/schemas/PipelineDefinition' }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Pipeline' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deletePipeline
+      summary: Delete a pipeline (409 while a run is queued or running); its output table and run history are kept
+      tags: [pipelines]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /pipelines/{pipeline_id}/runs:
+    parameters: [{ $ref: '#/components/parameters/PipelineId' }]
+    post:
+      operationId: runPipeline
+      summary: Queue a run of the current definition (empty body). Needs a lakehouse; one active run per pipeline
+      description: >-
+        The output table must not exist or must have been created by this pipeline (409 otherwise). Transient
+        engine errors are retried up to definition.retries times. Usage, lakehouse size and active-jobs quotas apply.
+      tags: [pipelines]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, maxProperties: 0 }
+      responses:
+        '202':
+          description: Run queued
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PipelineRun' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    get:
+      operationId: listPipelineRuns
+      summary: Run history of a pipeline, newest first
+      tags: [pipelines]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Runs
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/PipelineRun' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /pipeline-runs/{run_id}:
+    parameters: [{ $ref: '#/components/parameters/RunId' }]
+    get:
+      operationId: getPipelineRun
+      summary: One run with its per-step report (rows, milliseconds, quality results)
+      tags: [pipelines]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Run
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PipelineRun' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /pipeline-runs/{run_id}/cancel:
+    parameters: [{ $ref: '#/components/parameters/RunId' }]
+    post:
+      operationId: cancelPipelineRun
+      summary: Cancel a queued run immediately, or request cancellation of a running one (the runner is stopped)
+      tags: [pipelines]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Cancelled or cancellation requested
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PipelineRun' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /resources/{resource_id}/containers:
+    parameters: [{ $ref: '#/components/parameters/ResourceId' }]
+    get:
+      operationId: listContainers
+      summary: Containers of an active storage resource (404 for other resource types)
+      tags: [object-storage]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Containers
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Container' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createContainer
+      summary: Create a container (unique name per storage; quotas.containers_per_storage)
+      tags: [object-storage]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [name]
+              properties:
+                name: { type: string, pattern: '^[a-z0-9][a-z0-9-]{2,62}$' }
+                lifecycle: { $ref: '#/components/schemas/Lifecycle' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ContainerWithObjects' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /containers/{container_id}:
+    parameters: [{ $ref: '#/components/parameters/ContainerId' }]
+    get:
+      operationId: getContainer
+      summary: Container with its objects (first 500, ordered by key), optionally filtered by key prefix
+      tags: [object-storage]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      parameters:
+        - { name: prefix, in: query, required: false, schema: { type: string, maxLength: 255 }, description: 'Literal key prefix (LIKE wildcards are escaped)' }
+      responses:
+        '200':
+          description: Container
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ContainerWithObjects' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: setContainerLifecycle
+      summary: Set (or remove with null) the lifecycle policy applied by the scheduler
+      tags: [object-storage]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [lifecycle]
+              properties:
+                lifecycle: { oneOf: [{ $ref: '#/components/schemas/Lifecycle' }, { type: 'null' }] }
+      responses:
+        '200':
+          description: Policy saved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/ContainerWithObjects' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteContainer
+      summary: Delete an empty container (409 CONTAINER_NOT_EMPTY otherwise)
+      tags: [object-storage]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /containers/{container_id}/objects:
+    parameters: [{ $ref: '#/components/parameters/ContainerId' }]
+    post:
+      operationId: putObject
+      summary: Upload an object, or replace the object with the same key
+      description: >-
+        Allowed files: .csv, .json, .jsonl, .ndjson, .parquet, .txt and .md up to quotas.upload_max_bytes, validated by
+        content (finfo, UTF-8 for text, PAR1 magic for Parquet). The Content-Type is assigned by the server. Bytes count
+        towards the user's storage quota; quotas.objects_per_container applies to new keys.
+      tags: [object-storage]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [key, file]
+              properties:
+                key: { type: string, maxLength: 255, description: 'Segments of [A-Za-z0-9._ -] separated by /, each starting with a letter or digit (max 10 segments)' }
+                file: { type: string, format: binary }
+                metadata: { type: string, maxLength: 4000, description: 'JSON object of string values (same rules as resource tags)' }
+                tier: { type: string, enum: [hot, cool, archive], default: hot }
+                csrf_token: { type: string, description: Alternative to the X-CSRF-Token header }
+      responses:
+        '201':
+          description: Stored
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/StorageObject' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '413': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /objects/{object_id}:
+    parameters: [{ $ref: '#/components/parameters/ObjectId' }]
+    get:
+      operationId: getObject
+      summary: Object properties (key, size, content type, SHA-256, metadata, tier)
+      tags: [object-storage]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Object
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/StorageObject' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateObject
+      summary: Change the metadata and/or the access tier (moving out of archive "rehydrates" the object)
+      tags: [object-storage]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                metadata: { type: object, additionalProperties: { type: string } }
+                tier: { type: string, enum: [hot, cool, archive] }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/StorageObject' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteObject
+      summary: Delete an object and its stored bytes
+      tags: [object-storage]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /objects/{object_id}/download:
+    parameters: [{ $ref: '#/components/parameters/ObjectId' }]
+    get:
+      operationId: downloadObject
+      summary: Download the content as an opaque attachment (409 OBJECT_ARCHIVED for the archive tier)
+      tags: [object-storage]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: 'application/octet-stream with Content-Disposition: attachment (never rendered inline)'
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
 components:
   parameters:
     CourseId: { name: course_id, in: path, required: true, schema: { type: string, description: ULID of the course } }
@@ -1455,6 +1965,10 @@ components:
     WorkspaceId: { name: workspace_id, in: path, required: true, schema: { type: string, description: ULID } }
     ResourceId: { name: resource_id, in: path, required: true, schema: { type: string, description: ULID } }
     DatasetId: { name: dataset_id, in: path, required: true, schema: { type: string, description: ULID of the dataset resource } }
+    PipelineId: { name: pipeline_id, in: path, required: true, schema: { type: string, description: ULID of the pipeline resource } }
+    RunId: { name: run_id, in: path, required: true, schema: { type: string, description: ULID of the pipeline run } }
+    ContainerId: { name: container_id, in: path, required: true, schema: { type: string, description: ULID of the container } }
+    ObjectId: { name: object_id, in: path, required: true, schema: { type: string, description: ULID of the object } }
   securitySchemes:
     sessionCookie: { type: apiKey, in: cookie, name: ecsid }
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
@@ -1636,6 +2150,112 @@ components:
               source_name: { type: string, description: tables only - original CSV header }
         error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }
         sql: { type: [string, 'null'], description: defining SELECT of silver/gold tables created by transforms }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    LineageEdge:
+      type: object
+      properties:
+        id: { type: string, description: ULID of the neighbouring dataset }
+        name: { type: string }
+        layer: { type: string, enum: [raw, bronze, silver, gold] }
+        table: { type: [string, 'null'] }
+        status: { type: string }
+        via: { type: string, enum: [ingest, transform, pipeline] }
+        pipeline: { type: [object, 'null'], properties: { id: { type: string }, name: { type: string } } }
+    PipelineDefinition:
+      type: object
+      description: >-
+        Linear chain of allowlisted nodes (full grammar in app/Modules/Pipelines/pipeline.schema.json): source (table or
+        raw file) first, output (silver|gold) last; filter, select, join, aggregate, sql (single SELECT over "input"),
+        quality_check (on_fail stop|warn) in between. Values are bound as parameters; identifiers are validated.
+      required: [nodes]
+      properties:
+        description: { type: string, maxLength: 500 }
+        retries: { type: integer, minimum: 0, maximum: 2 }
+        nodes:
+          type: array
+          minItems: 2
+          maxItems: 20
+          items:
+            type: object
+            required: [id, type]
+            properties:
+              id: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
+              type: { type: string, enum: [source, filter, select, join, aggregate, sql, quality_check, output] }
+    Pipeline:
+      type: object
+      properties:
+        id: { type: string, description: ULID (public id of the pipeline resource) }
+        workspace_id: { type: string }
+        name: { type: string }
+        version: { type: integer }
+        definition: { $ref: '#/components/schemas/PipelineDefinition' }
+        last_run_status: { type: [string, 'null'], enum: [queued, running, succeeded, failed, cancelled, timed_out, null] }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    PipelineRun:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        pipeline: { type: object, properties: { id: { type: string }, name: { type: string } } }
+        workspace_id: { type: string }
+        status: { type: string, enum: [queued, running, succeeded, failed, cancelled, timed_out] }
+        cancel_requested: { type: boolean }
+        definition_version: { type: integer }
+        output: { type: [string, 'null'], example: silver.customers_clean }
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              type: { type: string }
+              status: { type: string, enum: [succeeded, failed, warning, skipped, running] }
+              rows: { type: [integer, 'null'] }
+              duration_ms: { type: [integer, 'null'] }
+              message: { type: [string, 'null'] }
+        error: { type: [object, 'null'], properties: { code: { type: string }, message: { type: string } } }
+        attempts: { type: integer }
+        triggered_by: { type: object, properties: { id: { type: string }, display_name: { type: string } } }
+        created_at: { type: string, format: date-time }
+        started_at: { type: [string, 'null'], format: date-time }
+        finished_at: { type: [string, 'null'], format: date-time }
+    Lifecycle:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      description: Ages are counted from the upload time; delete_after_days must be greater than archive_after_days
+      properties:
+        archive_after_days: { type: integer, minimum: 1, maximum: 3650 }
+        delete_after_days: { type: integer, minimum: 1, maximum: 3650 }
+    Container:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        storage_id: { type: string }
+        storage_name: { type: string }
+        name: { type: string }
+        lifecycle: { oneOf: [{ $ref: '#/components/schemas/Lifecycle' }, { type: 'null' }] }
+        object_count: { type: integer }
+        total_bytes: { type: integer }
+        created_at: { type: string, format: date-time }
+    ContainerWithObjects:
+      allOf:
+        - $ref: '#/components/schemas/Container'
+        - type: object
+          properties:
+            objects: { type: array, items: { $ref: '#/components/schemas/StorageObject' } }
+    StorageObject:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        container_id: { type: string }
+        key: { type: string, example: ventas/2025/enero.csv }
+        bytes: { type: integer }
+        content_type: { type: string, enum: [text/csv, application/json, application/vnd.apache.parquet, text/plain] }
+        sha256: { type: string, description: hex }
+        metadata: { type: object, additionalProperties: { type: string } }
+        tier: { type: string, enum: [hot, cool, archive] }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     Job:

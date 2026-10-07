@@ -1,0 +1,32 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Steps are applied through the public API.",
+  "steps": [
+    { "do": "create_pipeline", "name": "pedidos-completados", "definition": { "nodes": [
+      { "id": "leer", "type": "source", "table": "bronze.orders" },
+      { "id": "completados", "type": "filter", "conditions": [ { "column": "status", "op": "eq", "value": "completed" } ] },
+      { "id": "columnas", "type": "select", "columns": [
+        { "column": "order_id" }, { "column": "customer_id" }, { "column": "store_id" }, { "column": "order_date", "cast": "date" } ] },
+      { "id": "calidad", "type": "quality_check", "on_fail": "stop", "rules": [
+        { "rule": "not_null", "column": "order_id" }, { "rule": "unique", "columns": ["order_id"] } ] },
+      { "id": "guardar", "type": "output", "layer": "silver", "table": "orders_completed" }
+    ] } },
+    { "do": "run_pipeline", "name": "pedidos-completados" },
+    { "do": "create_pipeline", "name": "ingresos-region", "definition": { "nodes": [
+      { "id": "pedidos", "type": "source", "table": "silver.orders_completed" },
+      { "id": "lineas", "type": "join", "table": "bronze.order_items", "on": [ { "left": "order_id", "right": "order_id" } ], "columns": ["quantity", "unit_price"] },
+      { "id": "importe", "type": "sql", "sql": "SELECT *, quantity * unit_price AS line_total FROM input" },
+      { "id": "tiendas", "type": "join", "table": "bronze.stores", "on": [ { "left": "store_id", "right": "store_id" } ], "columns": ["region"] },
+      { "id": "por_region", "type": "aggregate", "group_by": ["region"], "measures": [
+        { "fn": "sum", "column": "line_total", "as": "revenue" }, { "fn": "count_distinct", "column": "order_id", "as": "orders" } ] },
+      { "id": "guardar", "type": "output", "layer": "gold", "table": "revenue_by_region" }
+    ] } },
+    { "do": "run_pipeline", "name": "ingresos-region" },
+    { "do": "create_pipeline", "name": "catalogo", "definition": { "nodes": [
+      { "id": "leer", "type": "source", "raw": "products" },
+      { "id": "columnas", "type": "select", "columns": [
+        { "column": "product_id" }, { "column": "product_name" }, { "column": "category", "transform": "upper" }, { "column": "price" } ] },
+      { "id": "guardar", "type": "output", "layer": "silver", "table": "products" }
+    ] } },
+    { "do": "run_pipeline", "name": "catalogo" }
+  ]
+}

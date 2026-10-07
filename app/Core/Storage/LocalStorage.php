@@ -59,6 +59,12 @@ final class LocalStorage
         return $this->workspaceDir($tenantPublicId, $workspacePublicId) . '/meta/results/' . self::id($queryPublicId) . '.json';
     }
 
+    /** Bytes of an object-storage object (M7); the object key is display-only and never part of the path. */
+    public function objectFile(string $tenantPublicId, string $workspacePublicId, string $storageKey): string
+    {
+        return $this->workspaceDir($tenantPublicId, $workspacePublicId) . '/objects/' . self::id($storageKey) . '.bin';
+    }
+
     public function lakehouseFile(string $tenantPublicId, string $workspacePublicId): string
     {
         return $this->workspaceDir($tenantPublicId, $workspacePublicId) . '/lakehouse.duckdb';

@@ -5,8 +5,10 @@ Student-facing descriptions of the shipped labs. They never contain checks, expe
 | Lab | Title | Difficulty | Minutes | Release |
 |---|---|---|---|---|
 | [LAB-001](LAB-001.md) | Fundamentos de workspaces y recursos en la nube | Inicial | 30 | MVP |
+| [LAB-002](LAB-002.md) | Fundamentos de almacenamiento de objetos | Inicial | 35 | 1.1 |
 | [LAB-003](LAB-003.md) | Fundamentos de SQL analítico | Inicial | 60 | MVP |
 | [LAB-004](LAB-004.md) | Construye un data lake | Inicial | 40 | MVP |
 | [LAB-005](LAB-005.md) | Arquitectura medallion: bronze, silver y gold | Intermedio | 75 | MVP |
+| [LAB-006](LAB-006.md) | Construye un pipeline ETL | Intermedio | 60 | 1.1 |
 
 All sample data is synthetic (fictitious retail company) and dedicated to the public domain (CC0). Generator: `scripts/generate-retail-data.php`.

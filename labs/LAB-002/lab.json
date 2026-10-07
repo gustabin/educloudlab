@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "code": "LAB-002",
+  "version": "1.0.0",
+  "slug": "fundamentos-de-almacenamiento-de-objetos",
+  "status": "published",
+  "title": "Fundamentos de almacenamiento de objetos",
+  "summary": "Organiza archivos en contenedores con claves jerárquicas, descríbelos con metadatos, elige su nivel de acceso y automatiza su ciclo de vida.",
+  "difficulty": "beginner",
+  "estimated_minutes": 35,
+  "prerequisites": ["LAB-001"],
+  "objectives": [
+    "Entender la diferencia entre contenedor, clave y objeto",
+    "Organizar objetos con prefijos que simulan carpetas",
+    "Describir objetos con metadatos",
+    "Elegir el nivel de acceso adecuado (hot, cool, archive)",
+    "Automatizar el archivado y el borrado con políticas de ciclo de vida"
+  ],
+  "downloads": [ { "sample": "retail/orders.csv" }, { "sample": "retail/products.csv" } ],
+  "setup": [],
+  "tasks": [
+    {
+      "key": "t1", "title": "Crea el almacenamiento y un contenedor", "points": 20,
+      "hints": [
+        { "text": "Primero crea un recurso de tipo Almacenamiento llamado almacen; después pulsa «Abrir» en su fila.", "penalty": 3 },
+        { "text": "Los nombres de contenedor solo admiten minúsculas, números y guiones.", "penalty": 2 }
+      ],
+      "checks": [
+        { "type": "resource_exists", "resource": "storage", "name": "almacen",
+          "feedback": "Crea un almacenamiento llamado almacen en el workspace del laboratorio." },
+        { "type": "container_exists", "storage": "almacen", "name": "ventas-crudas",
+          "feedback": "Crea el contenedor ventas-crudas dentro del almacenamiento almacen." }
+      ]
+    },
+    {
+      "key": "t2", "title": "Sube los archivos con claves jerárquicas", "points": 25,
+      "hints": [
+        { "text": "La clave es el nombre completo del objeto. Escribe 2025/pedidos.csv en el campo «Clave» antes de subir orders.csv.", "penalty": 5 }
+      ],
+      "checks": [
+        { "type": "object_exists", "container": "ventas-crudas", "key": "2025/pedidos.csv" },
+        { "type": "object_exists", "container": "ventas-crudas", "key": "2025/productos.csv" },
+        { "type": "object_exists", "container": "ventas-crudas", "prefix": "2025/", "min_count": 2,
+          "feedback": "Los dos archivos deben estar bajo el prefijo 2025/." }
+      ]
+    },
+    {
+      "key": "t3", "title": "Describe el origen con metadatos", "points": 20,
+      "hints": [
+        { "text": "Los metadatos se escriben como objeto JSON: {\"origen\": \"erp\"}. Si el objeto ya existe, súbelo de nuevo con la misma clave para reemplazarlo.", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "object_exists", "container": "ventas-crudas", "key": "2025/pedidos.csv", "metadata": { "origen": "erp" },
+          "feedback": "El objeto 2025/pedidos.csv debe tener el metadato origen = erp." }
+      ]
+    },
+    {
+      "key": "t4", "title": "Elige el nivel de acceso", "points": 15,
+      "hints": [
+        { "text": "Cambia el nivel con el selector de la fila del objeto. cool es para datos que se leen poco.", "penalty": 3 }
+      ],
+      "checks": [
+        { "type": "object_exists", "container": "ventas-crudas", "key": "2025/productos.csv", "tier": "cool",
+          "feedback": "El catálogo de productos se consulta poco: su nivel debe ser cool." }
+      ]
+    },
+    {
+      "key": "t5", "title": "Configura una política de ciclo de vida", "points": 20,
+      "hints": [
+        { "text": "En el contenedor, rellena «Archivar tras» con 30 y «Eliminar tras» con 365 y guarda la política.", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "container_exists", "name": "ventas-crudas", "lifecycle": { "archive_after_days": 30, "delete_after_days": 365 },
+          "feedback": "La política debe archivar a los 30 días y eliminar a los 365." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 14 }
+}

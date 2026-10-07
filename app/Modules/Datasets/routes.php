@@ -16,6 +16,7 @@ return static function (Router $router, App $app): void {
     $router->post('/api/v1/workspaces/{workspace_id}/datasets', $ds('store'), $api('create', 'datasets.store'));
     $router->get('/api/v1/datasets/{dataset_id}', $ds('show'), $api('read', 'datasets.show'));
     $router->get('/api/v1/datasets/{dataset_id}/preview', $ds('preview'), $api('read', 'datasets.preview'));
+    $router->get('/api/v1/datasets/{dataset_id}/lineage', $ds('lineage'), $api('read', 'datasets.lineage'));
     $router->post('/api/v1/datasets/{dataset_id}/ingest', $ds('ingest'), $api('create', 'datasets.ingest'));
     $router->delete('/api/v1/datasets/{dataset_id}', $ds('destroy'), $api('delete', 'datasets.destroy'));
 

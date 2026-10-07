@@ -100,6 +100,56 @@ final class DatasetFlowTest extends TestCase
         ))));
     }
 
+    public function testJsonAndParquetAreProfiledAndIngested(): void
+    {
+        $this->createResource($this->ana, $this->ws, 'lakehouse', 'lago');
+        $ndjson = "{\"Order ID\": 1, \"total\": 10.5}\n{\"Order ID\": 2, \"total\": 4}\n";
+        $json = $this->uploadAs($this->ana, $this->ws, 'pedidos', $ndjson, 'pedidos.jsonl');
+        self::assertSame(202, $json->status, $json->body);
+
+        // A real Parquet file written by DuckDB in the runner's venv (script file: no shell quoting involved).
+        $parquet = str_replace('\\', '/', $this->storagePath) . '/fixture.parquet';
+        $script = $this->storagePath . '/make_parquet.py';
+        file_put_contents($script, "import duckdb\nduckdb.connect().execute(\"COPY (SELECT range AS id, 'p' || range AS name FROM range(7)) "
+            . "TO '$parquet' (FORMAT parquet)\")\n");
+        $process = proc_open([(string) $this->app()->config->get('execution.python'), $script], [], $pipes, null, null, ['bypass_shell' => true]);
+        self::assertIsResource($process);
+        self::assertSame(0, proc_close($process));
+        $pq = $this->uploadAs($this->ana, $this->ws, 'productos', (string) file_get_contents($parquet), 'productos.parquet');
+        self::assertSame(202, $pq->status, $pq->body);
+        $this->runJobs();
+
+        $jsonRaw = $this->dataset($this->ana, $json->decoded()['data']['dataset']['id']);
+        self::assertSame(['active', 'json', 2], [$jsonRaw['status'], $jsonRaw['version']['format'], $jsonRaw['version']['row_count']]);
+        $pqRaw = $this->dataset($this->ana, $pq->decoded()['data']['dataset']['id']);
+        self::assertSame(['active', 'parquet', 7], [$pqRaw['status'], $pqRaw['version']['format'], $pqRaw['version']['row_count']]);
+
+        foreach ([[$jsonRaw['id'], 'pedidos', ['order_id', 'total']], [$pqRaw['id'], 'productos', ['id', 'name']]] as [$id, $table, $columns]) {
+            $r = $this->as($this->ana, 'POST', "/api/v1/datasets/$id/ingest", ['table_name' => $table]);
+            self::assertSame(202, $r->status, $r->body);
+            $this->runJobs();
+            $bronze = $this->dataset($this->ana, $r->decoded()['data']['dataset']['id']);
+            self::assertSame('active', $bronze['status'], json_encode($bronze['error']) ?: '');
+            self::assertSame($columns, array_column($bronze['columns'], 'name'));
+        }
+    }
+
+    public function testADeletedTableNameCanBeReused(): void
+    {
+        // Regression (M7): the deleted dataset kept table_name and the unique key made re-ingestion fail with 500.
+        $this->createResource($this->ana, $this->ws, 'lakehouse', 'lago');
+        $raw = $this->uploadAs($this->ana, $this->ws, 'clientes', self::customersCsv())->decoded()['data']['dataset']['id'];
+        $this->runJobs();
+        $bronze = $this->as($this->ana, 'POST', "/api/v1/datasets/$raw/ingest", ['table_name' => 'clientes'])->decoded()['data']['dataset']['id'];
+        $this->runJobs();
+        self::assertSame(202, $this->as($this->ana, 'DELETE', "/api/v1/datasets/$bronze")->status);
+        $this->runJobs();
+        $again = $this->as($this->ana, 'POST', "/api/v1/datasets/$raw/ingest", ['table_name' => 'clientes']);
+        self::assertSame(202, $again->status, $again->body);
+        $this->runJobs();
+        self::assertSame('active', $this->dataset($this->ana, $again->decoded()['data']['dataset']['id'])['status']);
+    }
+
     public function testMalformedCsvFailsWithSafeMessage(): void
     {
         $up = $this->uploadAs($this->ana, $this->ws, 'broken', "a,b\n1,2\n3,4,5\n");

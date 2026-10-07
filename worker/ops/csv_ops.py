@@ -1,4 +1,8 @@
-"""CSV profiling (raw layer) and ingestion into the workspace lakehouse (bronze layer).
+"""Raw file profiling (raw layer) and ingestion into the workspace lakehouse (bronze layer).
+
+Formats: CSV (strict parsing), JSON (array of objects or NDJSON) and Parquet (M7). Every reader runs inside the
+DuckDB sandbox (configure()) under the same row/column caps and OS memory cap; JSON nesting beyond 10 levels is
+kept as JSON text (maximum_depth) and the upload size cap bounds every object.
 
 Both operations run trusted SQL built here; paths come from the dispatcher and are confined to the storage root.
 Student-supplied SQL is never executed by these operations (that is the SQL Lab sandbox, M5).
@@ -55,37 +59,78 @@ def detect_delimiter(path: Path, max_columns: int = 100) -> str:
     return best if counts[best] > 0 else ","
 
 
-def _read(columns_sql: str = "*") -> str:
-    """SELECT over the CSV with strict parsing; parameters: [path, delimiter]."""
-    return f"SELECT {columns_sql} FROM read_csv(?, {STRICT_OPTIONS})"
+FORMATS = ("csv", "json", "parquet")
+JSON_OPTIONS = "format = 'auto', maximum_object_size = 1048576, sample_size = 20480, maximum_depth = 10"
 
 
-def _describe(con: duckdb.DuckDBPyConnection, csv: Path, delimiter: str) -> list[tuple[str, str]]:
+class Source:
+    """One raw file and how to read it: ``sql(columns)`` is a SELECT over the file, ``params`` its bound values."""
+
+    def __init__(self, path: Path, fmt: str, limits: dict[str, Any]) -> None:
+        if fmt not in FORMATS:
+            raise RunnerError("BAD_REQUEST", "Formato no soportado.")
+        self.path = path
+        self.format = fmt
+        if fmt == "csv":
+            self.delimiter = detect_delimiter(path, int(limits.get("max_columns", 100)))
+            self.reader = f"read_csv(?, {STRICT_OPTIONS})"
+            self.params: list[Any] = [str(path), self.delimiter]
+        elif fmt == "json":
+            self.delimiter = None
+            self.reader = f"read_json(?, {JSON_OPTIONS})"
+            self.params = [str(path)]
+        else:
+            self.delimiter = None
+            self.reader = "read_parquet(?)"
+            self.params = [str(path)]
+
+    def sql(self, columns_sql: str = "*") -> str:
+        return f"SELECT {columns_sql} FROM {self.reader}"
+
+    def parse_error(self, exc: Exception) -> RunnerError:
+        if self.format == "csv":
+            line = re.search(r"[Ll]ine:?\s*(\d+)", str(exc))
+            where = f" (línea {line.group(1)})" if line else ""
+            return RunnerError(
+                "CSV_PARSE_ERROR",
+                f"El archivo no es un CSV válido{where}: revisa que todas las filas tengan el mismo número de columnas "
+                "y que las comillas estén cerradas.",
+            )
+        if self.format == "json":
+            return RunnerError(
+                "JSON_PARSE_ERROR",
+                "El archivo no es un JSON válido: debe ser una lista de objetos o un objeto JSON por línea (NDJSON).",
+            )
+        return RunnerError("PARQUET_ERROR", "El archivo Parquet no se pudo leer (¿está dañado o incompleto?).")
+
+
+def _describe(con: duckdb.DuckDBPyConnection, source: Source) -> list[tuple[str, str]]:
     try:
-        rows = con.execute(f"DESCRIBE {_read()}", [str(csv), delimiter]).fetchall()
+        rows = con.execute(f"DESCRIBE {source.sql()}", source.params).fetchall()
     except duckdb.Error as exc:
-        line = re.search(r"[Ll]ine:?\s*(\d+)", str(exc))
-        where = f" (línea {line.group(1)})" if line else ""
-        raise RunnerError(
-            "CSV_PARSE_ERROR",
-            f"El archivo no es un CSV válido{where}: revisa que todas las filas tengan el mismo número de columnas "
-            "y que las comillas estén cerradas.",
-        ) from exc
+        raise source.parse_error(exc) from exc
     return [(str(r[0]), str(r[1])) for r in rows]
 
 
-def _check_limits(con, csv: Path, delimiter: str, columns: list[tuple[str, str]], limits: dict[str, Any]) -> int:
+def _check_limits(con, source: Source, columns: list[tuple[str, str]], limits: dict[str, Any]) -> int:
     max_columns = int(limits.get("max_columns", 100))
     if len(columns) > max_columns:
         raise RunnerError("TOO_MANY_COLUMNS", f"El archivo tiene {len(columns)} columnas; el máximo es {max_columns}.")
     try:
-        rows = int(con.execute(f"SELECT count(*) FROM read_csv(?, {STRICT_OPTIONS})", [str(csv), delimiter]).fetchone()[0])
+        rows = int(con.execute(f"SELECT count(*) FROM {source.reader}", source.params).fetchone()[0])
     except duckdb.Error as exc:
-        raise RunnerError("CSV_PARSE_ERROR", "El archivo contiene filas no válidas: " + safe_error_message(exc)) from exc
+        if source.format == "csv":
+            raise RunnerError("CSV_PARSE_ERROR", "El archivo contiene filas no válidas: " + safe_error_message(exc)) from exc
+        raise source.parse_error(exc) from exc
     max_rows = int(limits.get("max_rows", 500_000))
     if rows > max_rows:
         raise RunnerError("TOO_MANY_ROWS", f"El archivo tiene {rows} filas; el máximo es {max_rows}.")
     return rows
+
+
+def _source(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> Source:
+    path = confined(args.get("file_path") or args.get("csv_path", ""), allowed_root)
+    return Source(path, str(args.get("format", "csv")), limits)
 
 
 def _write_preview(path: Path, columns: list[str], rows: list[tuple[Any, ...]]) -> None:
@@ -97,21 +142,24 @@ def _write_preview(path: Path, columns: list[str], rows: list[tuple[Any, ...]]) 
 
 
 def profile(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> dict[str, Any]:
-    """Schema discovery + row count + preview of an uploaded (raw) CSV file."""
-    csv = confined(args.get("csv_path", ""), allowed_root)
+    """Schema discovery + row count + preview of an uploaded (raw) file."""
+    source = _source(args, limits, allowed_root)
     preview_path = confined(args.get("preview_path", ""), allowed_root, must_exist=False)
-    delimiter = detect_delimiter(csv, int(limits.get("max_columns", 100)))
     con = duckdb.connect(":memory:")
     try:
         configure(con, limits, allowed_root)
-        columns = _describe(con, csv, delimiter)
-        row_count = _check_limits(con, csv, delimiter, columns, limits)
+        columns = _describe(con, source)
+        row_count = _check_limits(con, source, columns, limits)
         preview_rows = int(limits.get("preview_rows", 50))
-        rows = con.execute(f"{_read()} LIMIT {preview_rows}", [str(csv), delimiter]).fetchall()
+        try:
+            rows = con.execute(f"{source.sql()} LIMIT {preview_rows}", source.params).fetchall()
+        except duckdb.Error as exc:
+            raise source.parse_error(exc) from exc
         _write_preview(preview_path, [c[0] for c in columns], rows)
         suggested = normalise_columns([c[0] for c in columns])
         return {
-            "delimiter": delimiter,
+            "format": source.format,
+            "delimiter": source.delimiter,
             "row_count": row_count,
             "columns": [
                 {"name": name, "type": typ, "suggested_name": sug}
@@ -123,8 +171,8 @@ def profile(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> 
 
 
 def ingest(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> dict[str, Any]:
-    """Creates (or replaces) <layer>.<table> in the workspace lakehouse from a raw CSV with normalised columns."""
-    csv = confined(args.get("csv_path", ""), allowed_root)
+    """Creates (or replaces) <layer>.<table> in the workspace lakehouse from a raw file with normalised columns."""
+    source = _source(args, limits, allowed_root)
     lakehouse = confined(args.get("lakehouse_path", ""), allowed_root, must_exist=False)
     preview_path = confined(args.get("preview_path", ""), allowed_root, must_exist=False)
     layer = args.get("layer", "bronze")
@@ -132,19 +180,21 @@ def ingest(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> d
         raise RunnerError("BAD_REQUEST", "Capa no válida.")
     table = identifier(args.get("table"))
 
-    delimiter = detect_delimiter(csv, int(limits.get("max_columns", 100)))
     lakehouse.parent.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect(str(lakehouse))
     try:
         configure(con, limits, allowed_root)
-        columns = _describe(con, csv, delimiter)
-        row_count = _check_limits(con, csv, delimiter, columns, limits)
+        columns = _describe(con, source)
+        row_count = _check_limits(con, source, columns, limits)
         targets = normalise_columns([c[0] for c in columns])
         projection = ", ".join(f"{quote_ident(src)} AS {quote_ident(dst)}" for (src, _), dst in zip(columns, targets))
         for schema in LAYERS:
             con.execute(f"CREATE SCHEMA IF NOT EXISTS {schema}")
         target = f"{layer}.{quote_ident(table)}"
-        con.execute(f"CREATE OR REPLACE TABLE {target} AS {_read(projection)}", [str(csv), delimiter])
+        try:
+            con.execute(f"CREATE OR REPLACE TABLE {target} AS {source.sql(projection)}", source.params)
+        except duckdb.Error as exc:
+            raise source.parse_error(exc) from exc
         problem = enforce_lakehouse_size(con, lakehouse, limits)
         if problem is not None:
             con.execute(f"DROP TABLE {target}")

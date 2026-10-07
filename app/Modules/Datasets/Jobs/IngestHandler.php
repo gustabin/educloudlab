@@ -26,7 +26,8 @@ final class IngestHandler implements JobHandler
         $ws = (string) $job['workspace_public_id'];
         $storage = $this->app->storage();
         return ['op' => 'ingest', 'args' => [
-            'csv_path' => $storage->rawFile($tenant, $ws, (string) $source['storage_key']),
+            'file_path' => $storage->rawFile($tenant, $ws, (string) $source['storage_key']),
+            'format' => (string) $source['format'],
             'lakehouse_path' => $storage->lakehouseFile($tenant, $ws),
             'layer' => (string) $target['layer'],
             'table' => (string) $target['table_name'],
@@ -36,7 +37,7 @@ final class IngestHandler implements JobHandler
 
     public function succeeded(array $job, array $data): array
     {
-        [, $target, $targetVersion] = $this->load($job);
+        [$source, $target, $targetVersion] = $this->load($job);
         $columns = [];
         foreach ((array) ($data['columns'] ?? []) as $c) {
             $columns[] = ['name' => (string) $c['name'], 'type' => (string) $c['type'], 'source_name' => (string) ($c['source_name'] ?? '')];
@@ -44,6 +45,8 @@ final class IngestHandler implements JobHandler
         $rows = (int) ($data['row_count'] ?? 0);
         $this->repo->markVersionReady((int) $job['tenant_id'], (int) $targetVersion['id'], $rows, $columns);
         $this->repo->setResourceStatus((int) $job['tenant_id'], (int) $target['resource_id'], 'provisioning', 'active');
+        (new \EduCloud\Modules\Datasets\LineageRepository($this->app->db()))
+            ->record((int) $job['tenant_id'], (int) $job['workspace_id'], (int) $target['dataset_id'], [(int) $source['dataset_id']], 'ingest');
         return ['table' => $target['layer'] . '.' . $target['table_name'], 'row_count' => $rows, 'column_count' => count($columns)];
     }
 

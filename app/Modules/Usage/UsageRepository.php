@@ -16,16 +16,24 @@ final class UsageRepository
     {
     }
 
-    /** Bytes of raw files of the user's non-deleted datasets in the tenant. */
+    /** Bytes of files the user stored in the tenant: raw dataset files + object-storage objects (M7). */
     public function rawBytes(int $tenantId, int $userId): int
     {
-        return (int) $this->db->scalar(
+        $datasets = (int) $this->db->scalar(
             "SELECT COALESCE(SUM(v.bytes), 0) FROM dataset_versions v
                JOIN datasets d ON d.tenant_id = v.tenant_id AND d.id = v.dataset_id
                JOIN resources r ON r.tenant_id = d.tenant_id AND r.id = d.resource_id
               WHERE v.tenant_id = ? AND v.created_by_user_id = ? AND r.status <> 'deleted'",
             [$tenantId, $userId]
         );
+        $objects = (int) $this->db->scalar(
+            "SELECT COALESCE(SUM(o.bytes), 0) FROM storage_objects o
+               JOIN storage_containers c ON c.tenant_id = o.tenant_id AND c.id = o.container_id
+               JOIN workspaces w ON w.tenant_id = c.tenant_id AND w.id = c.workspace_id
+              WHERE o.tenant_id = ? AND o.uploaded_by = ? AND w.status <> 'deleted'",
+            [$tenantId, $userId]
+        );
+        return $datasets + $objects;
     }
 
     /** @return list<string> public ids of the user's non-deleted workspaces in the tenant */

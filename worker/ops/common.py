@@ -49,11 +49,18 @@ def quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
-def configure(con: duckdb.DuckDBPyConnection, limits: dict[str, Any], allowed_root: str, file_access: bool = True) -> None:
+def configure(
+    con: duckdb.DuckDBPyConnection,
+    limits: dict[str, Any],
+    allowed_root: str,
+    file_access: bool = True,
+    allowed_files: list[str] | None = None,
+) -> None:
     """Resource limits + filesystem sandbox, then locks the configuration so SQL cannot loosen it.
 
     DuckDB may only touch files below ``allowed_root`` (the job's workspace directory) - or no files at all when
-    ``file_access`` is False (student SQL); extensions can be neither installed nor auto-loaded (no httpfs/network).
+    ``file_access`` is False (student SQL), except the exact ``allowed_files`` (pipelines: the raw inputs, read-only
+    by construction); extensions can be neither installed nor auto-loaded (no httpfs/network).
     """
     threads = int(limits.get("threads", 2))
     memory_mb = int(limits.get("memory_mb", 512))
@@ -67,6 +74,8 @@ def configure(con: duckdb.DuckDBPyConnection, limits: dict[str, Any], allowed_ro
     con.execute("SET extension_directory = 'extensions'")
     con.execute("SET home_directory = ''")
     con.execute("SET allowed_directories = ?", [[str(Path(allowed_root).resolve())] if file_access else []])
+    if allowed_files:
+        con.execute("SET allowed_paths = ?", [[str(Path(f).resolve()) for f in allowed_files]])
     con.execute("SET enable_external_access = false")
     con.execute("SET lock_configuration = true")
 

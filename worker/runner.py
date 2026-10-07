@@ -48,6 +48,8 @@ def main(argv: list[str]) -> int:
         response = {"ok": True, "data": data}
     except RunnerError as exc:
         response = {"ok": False, "error_code": exc.code, "safe_message": exc.safe_message}
+        if isinstance(getattr(exc, "data", None), dict):
+            response["data"] = exc.data  # partial report (e.g. pipeline steps executed before the failure)
     except MemoryError:
         response = {"ok": False, "error_code": "OUT_OF_MEMORY", "safe_message": "La operación necesitó demasiada memoria y se canceló."}
     except Exception as exc:  # noqa: BLE001 - last resort: never leak internals

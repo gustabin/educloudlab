@@ -9,6 +9,7 @@ use EduCloud\Modules\Datasets\Jobs\CleanupHandler;
 use EduCloud\Modules\Datasets\Jobs\IngestHandler;
 use EduCloud\Modules\Datasets\Jobs\ProfileHandler;
 use EduCloud\Modules\Labs\Jobs\ValidateHandler;
+use EduCloud\Modules\Pipelines\Jobs\PipelineRunHandler;
 use EduCloud\Modules\SqlLab\Jobs\QueryHandler;
 use EduCloud\Modules\SqlLab\Jobs\TransformHandler;
 use EduCloud\Modules\Usage\UsageService;
@@ -20,6 +21,9 @@ use Throwable;
  */
 final class Dispatcher
 {
+    /** Error codes worth another attempt (never deterministic failures such as SQL, validation or quality errors). */
+    public const TRANSIENT = ['RUNNER_ERROR', 'ENGINE_UNAVAILABLE'];
+
     private JobRepository $jobs;
 
     public function __construct(private readonly App $app, private readonly string $workerId = 'dispatcher')
@@ -36,6 +40,7 @@ final class Dispatcher
             'sql_query' => new QueryHandler($this->app),
             'transform' => new TransformHandler($this->app),
             'validate' => new ValidateHandler($this->app),
+            'pipeline_run' => new PipelineRunHandler($this->app),
             default => null,
         };
     }
@@ -86,9 +91,21 @@ final class Dispatcher
             } else {
                 $code = (string) ($response['error_code'] ?? 'RUNNER_ERROR');
                 $message = (string) ($response['safe_message'] ?? 'La operación falló.');
+                // Transient failures (runner crashed or unavailable) are retried when the job allows it (pipelines).
+                if (in_array($code, self::TRANSIENT, true) && $this->jobs->requeue($id)) {
+                    $this->app->logger->info('job_requeued', ['job' => $job['public_id'], 'code' => $code]);
+                    return true;
+                }
+                if ($handler instanceof PartialResultHandler && is_array($response['data'] ?? null)) {
+                    $handler->partial($job, $response['data']);
+                }
                 $handler->failed($job, $code, $message);
-                $timedOut = in_array($code, ['TIMEOUT', 'QUERY_TIMEOUT'], true);
-                $this->jobs->finish($id, $timedOut ? 'timed_out' : 'failed', null, $code, $message);
+                $status = match (true) {
+                    in_array($code, ['TIMEOUT', 'QUERY_TIMEOUT'], true) => 'timed_out',
+                    $code === 'CANCELLED' => 'cancelled',
+                    default => 'failed',
+                };
+                $this->jobs->finish($id, $status, null, $code, $message);
             }
         } catch (Throwable $e) {
             $this->app->logger->error('job_failed', [

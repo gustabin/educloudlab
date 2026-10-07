@@ -17,6 +17,9 @@ final class Response
     /** @var list<string> raw Set-Cookie header values */
     public array $cookies = [];
 
+    /** When set, send() streams this file instead of $body (large downloads are never loaded into memory). */
+    public ?string $bodyFile = null;
+
     /** @param array<string, string> $headers */
     public function __construct(
         public int $status = 200,
@@ -52,6 +55,24 @@ final class Response
             $payload['meta'] = $meta;
         }
         return self::encode($payload, $status);
+    }
+
+    /**
+     * Streams a server-side file (path computed by the server, never from input).
+     *
+     * @param array<string, string> $headers
+     */
+    public static function file(string $path, array $headers): self
+    {
+        $response = new self(200, '', $headers + ['Content-Length' => (string) filesize($path)]);
+        $response->bodyFile = $path;
+        return $response;
+    }
+
+    /** The response body, reading the streamed file if any (tests and logging). */
+    public function content(): string
+    {
+        return $this->bodyFile !== null ? (string) file_get_contents($this->bodyFile) : $this->body;
     }
 
     public static function noContent(): self
@@ -134,7 +155,9 @@ final class Response
                 header('Set-Cookie: ' . $cookie, false);
             }
         }
-        if ($this->status !== 204) {
+        if ($this->bodyFile !== null) {
+            readfile($this->bodyFile);
+        } elseif ($this->status !== 204) {
             echo $this->body;
         }
     }

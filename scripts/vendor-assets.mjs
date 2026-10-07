@@ -25,6 +25,7 @@ const files = {
   'codemirror/codemirror.js': 'codemirror/lib/codemirror.js',
   'codemirror/codemirror.css': 'codemirror/lib/codemirror.css',
   'codemirror/mode/sql.js': 'codemirror/mode/sql/sql.js',
+  'codemirror/mode/javascript.js': 'codemirror/mode/javascript/javascript.js',
   'codemirror/addon/matchbrackets.js': 'codemirror/addon/edit/matchbrackets.js',
   'codemirror/addon/show-hint.js': 'codemirror/addon/hint/show-hint.js',
   'codemirror/addon/show-hint.css': 'codemirror/addon/hint/show-hint.css',

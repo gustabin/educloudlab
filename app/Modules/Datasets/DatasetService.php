@@ -23,7 +23,7 @@ use Throwable;
 
 /**
  * Datasets and the medallion flow of M4:
- *   upload CSV → raw dataset (file) → profile job (schema, rows, preview)
+ *   upload CSV/JSON/Parquet → raw dataset (file) → profile job (schema, rows, preview)
  *   ingest     → bronze dataset (table in the workspace lakehouse) via ingest job
  * Heavy work always runs in the execution plane; this service only validates, records and enqueues.
  */
@@ -70,7 +70,7 @@ final class DatasetService
         $ws = $this->workspaces->findOrFail($ctx, $workspacePublicId);
         $this->workspaces->assertCan($request, $ctx, $ws, 'create');
         $name = $validName();
-        (new CsvUploadValidator((int) $this->app->config->get('quotas.upload_max_bytes')))->validate($file);
+        $format = (new DataUploadValidator((int) $this->app->config->get('quotas.upload_max_bytes')))->validate($file);
         /** @var UploadedFile $file */
         $size = (int) filesize($file->tmpPath);
         $this->assertQuotas($ctx, (int) $ws['id'], $size); // early, friendly rejection (re-checked under lock)
@@ -85,7 +85,7 @@ final class DatasetService
 
         try {
             $sha = (string) hash_file('sha256', $target, true);
-            $created = $this->app->db()->transaction(function () use ($ctx, $ws, $name, $storageKey, $file, $size, $sha): array {
+            $created = $this->app->db()->transaction(function () use ($ctx, $ws, $name, $storageKey, $file, $size, $sha, $format): array {
                 $this->lockUser($ctx);
                 $this->lockActiveWorkspace($ctx, (int) $ws['id']);
                 $this->assertQuotas($ctx, (int) $ws['id'], $size);
@@ -93,7 +93,7 @@ final class DatasetService
                     throw new ConflictException('Ya existe un dataset raw con ese nombre en el workspace.');
                 }
                 $dataset = $this->repo->createDataset($ctx, (int) $ws['id'], (int) $ws['owner_user_id'], $name, 'raw', null);
-                $version = $this->repo->createVersion($ctx, $dataset['dataset_id'], 'csv', $storageKey, $file->safeClientName(), $size, $sha);
+                $version = $this->repo->createVersion($ctx, $dataset['dataset_id'], $format, $storageKey, $file->safeClientName(), $size, $sha);
                 $job = $this->jobs->create($ctx, (int) $ws['id'], 'profile', [
                     'dataset_id' => $dataset['dataset_id'],
                     'version_id' => $version['id'],
@@ -200,6 +200,33 @@ final class DatasetService
             throw new NotFoundException('La vista previa no está disponible.');
         }
         return ['columns' => $data['columns'], 'rows' => $data['rows']];
+    }
+
+    /**
+     * Upstream sources and downstream consumers of a dataset (one level each way), for the "Linaje" view.
+     *
+     * @return array{dataset: array<string, mixed>, upstream: list<array<string, mixed>>, downstream: list<array<string, mixed>>}
+     */
+    public function lineage(TenantContext $ctx, string $publicId): array
+    {
+        $row = $this->findOrFail($ctx, $publicId);
+        $edges = (new LineageRepository($this->app->db()))->neighbours($ctx, (int) $row['dataset_id']);
+        $present = static fn (array $e): array => [
+            'id' => (string) $e['public_id'],
+            'name' => (string) $e['name'],
+            'layer' => (string) $e['layer'],
+            'table' => $e['table_name'] === null ? null : $e['layer'] . '.' . $e['table_name'],
+            'status' => (string) $e['status'],
+            'via' => (string) $e['via'],
+            'pipeline' => $e['pipeline_public_id'] === null
+                ? null
+                : ['id' => (string) $e['pipeline_public_id'], 'name' => (string) $e['pipeline_name']],
+        ];
+        return [
+            'dataset' => ['id' => (string) $row['public_id'], 'name' => (string) $row['name'], 'layer' => (string) $row['layer']],
+            'upstream' => array_map($present, $edges['upstream']),
+            'downstream' => array_map($present, $edges['downstream']),
+        ];
     }
 
     /** Early, friendly check; the runner enforces the same cap authoritatively after writing (LAKEHOUSE_FULL). */

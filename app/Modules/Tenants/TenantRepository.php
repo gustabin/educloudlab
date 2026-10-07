@@ -29,6 +29,40 @@ final class TenantRepository
         return $tenantId;
     }
 
+    /** @return array{id: int, public_id: string} organization tenant (created by scripts/org.php) */
+    public function createOrganization(string $name): array
+    {
+        $publicId = Ulid::generate();
+        $id = $this->db->insert(
+            "INSERT INTO tenants (public_id, type, name, slug) VALUES (?, 'organization', ?, ?)",
+            [$publicId, mb_substr($name, 0, 120), 'org-' . strtolower($publicId)]
+        );
+        return ['id' => $id, 'public_id' => $publicId];
+    }
+
+    /** @return array{role: string, status: string}|null */
+    public function membershipOf(int $tenantId, int $userId): ?array
+    {
+        $row = $this->db->selectOne('SELECT role, status FROM memberships WHERE tenant_id = ? AND user_id = ?', [$tenantId, $userId]);
+        return $row === null ? null : ['role' => (string) $row['role'], 'status' => (string) $row['status']];
+    }
+
+    /** Adds a membership when the user has none in the tenant (an existing role is never changed). */
+    public function addMemberIfMissing(int $tenantId, int $userId, string $role): void
+    {
+        $this->db->execute('INSERT IGNORE INTO memberships (tenant_id, user_id, role) VALUES (?, ?, ?)', [$tenantId, $userId, $role]);
+    }
+
+    /** Sets (or creates) a member's role - administrative CLI only. A suspended member stays suspended. */
+    public function setMemberRole(int $tenantId, int $userId, string $role): void
+    {
+        $this->db->execute(
+            "INSERT INTO memberships (tenant_id, user_id, role) VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE role = VALUES(role)",
+            [$tenantId, $userId, $role]
+        );
+    }
+
     /**
      * Active membership of a user in an active tenant, or null.
      *

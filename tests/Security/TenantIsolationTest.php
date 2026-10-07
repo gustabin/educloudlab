@@ -31,6 +31,7 @@ final class TenantIsolationTest extends TestCase
     private const GUARDED_TABLES = [
         'tenants', 'memberships', 'workspaces', 'resources', 'datasets', 'dataset_versions', 'jobs', 'query_history',
         'sessions', 'refresh_tokens', 'lab_attempts', 'lab_hint_usage', 'lab_task_answers', 'lab_task_results',
+        'courses', 'enrollments', 'course_labs',
     ];
 
     /** Valid bodies, so a 404 can only come from authorization (never from validation). */
@@ -44,6 +45,9 @@ final class TenantIsolationTest extends TestCase
         'POST /api/v1/lab-attempts/{attempt_id}/hints' => ['task_key' => 't1', 'hint_index' => 0],
         'POST /api/v1/lab-attempts/{attempt_id}/answers' => ['task_key' => 't4', 'sql' => 'SELECT 1'],
         'POST /api/v1/lab-attempts/{attempt_id}/submit' => [],
+        'PATCH /api/v1/courses/{course_id}' => ['title' => 'hackeado'],
+        'POST /api/v1/courses/{course_id}/labs' => ['lab_code' => 'LAB-001'],
+        'POST /api/v1/courses/{course_id}/join-code' => [],
     ];
 
     /** @var array<string, string> route parameter => victim object id */
@@ -64,8 +68,21 @@ final class TenantIsolationTest extends TestCase
         $this->addMember($this->org['id'], 'alice@test.example', 'student');
         $this->addMember($this->org['id'], 'est2@test.example', 'student');
         $this->addMember($this->org['id'], 'prof@test.example', 'instructor');
+        $this->createVerifiedUser('titular@test.example');
+        $this->addMember($this->org['id'], 'titular@test.example', 'instructor');
+
+        // A course taught by "titular" (not by the attacking instructor "prof"), with alice enrolled.
+        $teacherCsrf = $this->sessionIn('titular@test.example', $this->org['public_id']);
+        $course = $this->request('POST', '/api/v1/courses', ['code' => 'SEC-1', 'title' => 'Seguridad'], ['X-CSRF-Token' => $teacherCsrf]);
+        self::assertSame(201, $course->status, $course->body);
+        $courseId = (string) $course->decoded()['data']['id'];
+        $this->request('POST', "/api/v1/courses/$courseId/labs", ['lab_code' => 'LAB-004'], ['X-CSRF-Token' => $teacherCsrf]);
+        $this->request('PATCH', "/api/v1/courses/$courseId", ['status' => 'published'], ['X-CSRF-Token' => $teacherCsrf]);
+        $code = $this->request('POST', "/api/v1/courses/$courseId/join-code", [], ['X-CSRF-Token' => $teacherCsrf]);
+        $joinCode = (string) $code->decoded()['data']['join_code'];
 
         $csrf = $this->sessionIn('alice@test.example', $this->org['public_id']);
+        self::assertSame(200, $this->request('POST', '/api/v1/courses/join', ['code' => $joinCode], ['X-CSRF-Token' => $csrf])->status);
         $ws = $this->request('POST', '/api/v1/workspaces', ['name' => 'Trabajo final'], ['X-CSRF-Token' => $csrf]);
         self::assertSame(201, $ws->status, $ws->body);
         $wsId = (string) $ws->decoded()['data']['id'];
@@ -87,6 +104,7 @@ final class TenantIsolationTest extends TestCase
         $lab = $this->request('POST', '/api/v1/lab-attempts', ['lab_code' => 'LAB-004'], ['X-CSRF-Token' => $csrf]);
         self::assertSame(201, $lab->status, $lab->body);
         $attemptId = (string) $lab->decoded()['data']['id'];
+        self::assertSame($courseId, $lab->decoded()['data']['course']['id'], 'a course attempt: only the course staff may review it');
         $this->request('POST', "/api/v1/lab-attempts/$attemptId/answers", ['task_key' => 't4', 'sql' => 'SELECT 42'], ['X-CSRF-Token' => $csrf]);
         $this->request('POST', "/api/v1/lab-attempts/$attemptId/hints", ['task_key' => 't1', 'hint_index' => 0], ['X-CSRF-Token' => $csrf]);
 
@@ -97,6 +115,8 @@ final class TenantIsolationTest extends TestCase
             'job_id' => (string) $upload->decoded()['data']['job']['id'],
             'query_id' => (string) $query->decoded()['data']['id'],
             'attempt_id' => $attemptId,
+            'course_id' => $courseId,
+            'lab_code' => 'LAB-004',
             // A tenant none of the attackers belongs to: alice's personal tenant.
             'tenant_id' => (string) $this->app()->db()->scalar(
                 "SELECT t.public_id FROM tenants t JOIN memberships m ON m.tenant_id = t.id WHERE m.user_id = ? AND t.type = 'personal'",
@@ -137,12 +157,26 @@ final class TenantIsolationTest extends TestCase
             $before = $this->snapshot();
             $response = $send($route['method'], $path, self::BODIES[$key] ?? null);
 
-            self::assertSame(404, $response->status, "[$attacker] $key leaked or allowed access: {$response->body}");
+            // A role lacking the route's permission gets 403 for every id (route-level RBAC, nothing leaks);
+            // otherwise invisible objects must look nonexistent.
+            $expected = $this->roleAllows($attacker, $route['options']['permission']) ? 404 : 403;
+            self::assertSame($expected, $response->status, "[$attacker] $key leaked or allowed access: {$response->body}");
+            if ($expected === 403) {
+                $ghost = (string) preg_replace('/\{[a-z_]+_id\}/', Ulid::generate(), $route['pattern']);
+                $ghost = str_replace('{lab_code}', 'LAB-999', $ghost);
+                $ghostResponse = $send($route['method'], $ghost, self::BODIES[$key] ?? null);
+                $code = static fn (Response $r): string => (string) (json_decode($r->body, true)['error']['code'] ?? 'html');
+                self::assertSame(
+                    [403, $code($response)],
+                    [$ghostResponse->status, $code($ghostResponse)],
+                    "[$attacker] $key: the 403 must not depend on whether the object exists"
+                );
+            }
             self::assertSame($before, $this->snapshot(), "[$attacker] $key changed data it must not touch");
             $checked[] = $key;
         }
 
-        $minimum = $attacker === 'bob-bearer' ? 24 : 28;
+        $minimum = $attacker === 'bob-bearer' ? 31 : 37;
         self::assertGreaterThanOrEqual($minimum, count($checked), "[$attacker] matrix covered too few routes: " . implode(', ', $checked));
     }
 
@@ -165,6 +199,8 @@ final class TenantIsolationTest extends TestCase
             "/app/workspaces/$ws/sql",
             "/api/v1/lab-attempts/{$this->victimIds['attempt_id']}",
             "/app/lab-attempts/{$this->victimIds['attempt_id']}",
+            "/api/v1/courses/{$this->victimIds['course_id']}",
+            "/app/courses/{$this->victimIds['course_id']}",
         ];
         foreach ($paths as $path) {
             self::assertSame(200, $this->request('GET', $path)->status, $path);
@@ -224,6 +260,19 @@ final class TenantIsolationTest extends TestCase
         };
         return fn (string $method, string $path, ?array $body): Response =>
             $this->request($method, $path, $body, $method === 'GET' ? [] : ['X-CSRF-Token' => $csrf]);
+    }
+
+    private function roleAllows(string $attacker, ?string $permission): bool
+    {
+        if ($permission === null) {
+            return true;
+        }
+        $role = match ($attacker) {
+            'same-org-student' => 'student',
+            'same-org-instructor' => 'instructor',
+            default => 'org_admin', // bob acts in his personal tenant
+        };
+        return in_array($permission, (array) $this->app()->config->get("permissions.roles.$role", []), true);
     }
 
     /** @return array<string, string> table => checksum */

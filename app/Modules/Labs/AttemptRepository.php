@@ -16,11 +16,13 @@ final class AttemptRepository
 {
     private const SELECT = "SELECT a.*, l.code AS lab_code, l.version AS lab_version, l.title AS lab_title, l.definition,
                w.public_id AS workspace_public_id, w.status AS workspace_status, w.expires_at AS workspace_expires_at,
-               u.public_id AS user_public_id, u.display_name AS user_name
+               u.public_id AS user_public_id, u.display_name AS user_name,
+               co.public_id AS course_public_id, co.title AS course_title
           FROM lab_attempts a
           JOIN labs l ON l.id = a.lab_id
           JOIN users u ON u.id = a.user_id
-          LEFT JOIN workspaces w ON w.tenant_id = a.tenant_id AND w.id = a.workspace_id";
+          LEFT JOIN workspaces w ON w.tenant_id = a.tenant_id AND w.id = a.workspace_id
+          LEFT JOIN courses co ON co.tenant_id = a.tenant_id AND co.id = a.course_id";
 
     /** Attempts that still hold a usable environment (resubmission allowed). */
     private const OPEN = "a.status IN ('in_progress', 'validating', 'completed') AND w.status = 'active'";
@@ -30,11 +32,11 @@ final class AttemptRepository
     }
 
     /** @return array{id: int, public_id: string} */
-    public function create(TenantContext $ctx, string $publicId, int $labId, int $workspaceId, int $maxScore): array
+    public function create(TenantContext $ctx, string $publicId, int $labId, int $workspaceId, int $maxScore, ?int $courseId = null): array
     {
         $id = $this->db->insert(
-            'INSERT INTO lab_attempts (public_id, tenant_id, user_id, lab_id, workspace_id, max_score) VALUES (?, ?, ?, ?, ?, ?)',
-            [$publicId, $ctx->tenantId, $ctx->userId, $labId, $workspaceId, $maxScore]
+            'INSERT INTO lab_attempts (public_id, tenant_id, user_id, lab_id, course_id, workspace_id, max_score) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [$publicId, $ctx->tenantId, $ctx->userId, $labId, $courseId, $workspaceId, $maxScore]
         );
         return ['id' => $id, 'public_id' => $publicId];
     }
@@ -44,14 +46,24 @@ final class AttemptRepository
         return Ulid::generate();
     }
 
-    /** @return array<string, mixed>|null */
-    public function findVisible(TenantContext $ctx, string $publicId, bool $wholeTenant): ?array
+    /**
+     * Owner, tenant-wide roles, or - with $courseReviewer (role has 'review') - staff of the attempt's course
+     * (course owner or active instructor enrollment): instructor visibility is course-scoped (M10a).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function findVisible(TenantContext $ctx, string $publicId, bool $wholeTenant, bool $courseReviewer = false): ?array
     {
         $sql = self::SELECT . ' WHERE a.tenant_id = ? AND a.public_id = ?';
         $params = [$ctx->tenantId, $publicId];
-        if (!$wholeTenant) {
+        if (!$wholeTenant && !$courseReviewer) {
             $sql .= ' AND a.user_id = ?';
             $params[] = $ctx->userId;
+        } elseif (!$wholeTenant) {
+            $sql .= " AND (a.user_id = ? OR (co.id IS NOT NULL AND (co.owner_user_id = ? OR EXISTS (
+                          SELECT 1 FROM enrollments e WHERE e.tenant_id = co.tenant_id AND e.course_id = co.id
+                             AND e.user_id = ? AND e.role = 'instructor' AND e.status = 'active'))))";
+            array_push($params, $ctx->userId, $ctx->userId, $ctx->userId);
         }
         return $this->db->selectOne($sql, $params);
     }

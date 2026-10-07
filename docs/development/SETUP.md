@@ -130,6 +130,17 @@ Two background processes do the heavy work. Without them, uploads stay "Procesan
 
 Details: `docs/architecture/EXECUTION.md`. The SQL Lab also needs the dispatcher, because queries run as interactive high-priority jobs.
 
+### Organizations and courses
+
+Courses live in organization tenants. Until the admin UI exists (M11a), create organizations and instructors from the command line. The users must already be registered and verified.
+
+```
+php scripts/org.php create "Universidad Demo" admin@example.com
+php scripts/org.php add-member <org_id> profesora@example.com instructor
+```
+
+Students join a course with the code the instructor generates in the course page (details: `docs/architecture/COURSES.md`).
+
 ### Labs
 
 Import the lab catalog after every `migrate up`, and whenever `labs/` changes:

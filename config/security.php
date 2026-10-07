@@ -71,5 +71,7 @@ return [
         'email_account' => ['limit' => 3, 'window' => 3600],        // verification / reset emails per address
         'token_refresh_ip' => ['limit' => 60, 'window' => 15 * 60],
         'write_user' => ['limit' => 60, 'window' => 60],            // unsafe API calls per authenticated user
+        'course_join_ip' => ['limit' => 30, 'window' => 15 * 60],   // course join codes, per client IP
+        'course_join_user' => ['limit' => 10, 'window' => 15 * 60], // course join codes, per user (guessing codes)
     ],
 ];

@@ -194,3 +194,13 @@ body {
 .ec-verdict { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; font-size: 0.875rem; }
 .ec-verdict-pass { color: var(--ec-success); }
 .ec-verdict-fail { color: var(--ec-danger); }
+
+/* Courses */
+.ec-course-status { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; border: 1px solid var(--ec-border); background: var(--ec-surface-2); color: var(--ec-text); }
+.ec-course-status-published { background: #dcfce7; color: #14532d; border-color: #86efac; }
+.ec-course-status-archived { color: var(--ec-text-muted); }
+.ec-course-description { max-width: 60rem; }
+.ec-progress-table th, .ec-progress-table td { padding: var(--ec-space-2) var(--ec-space-3); }
+.ec-progress-table thead th { white-space: nowrap; }
+.ec-progress-cell { text-decoration: none; white-space: nowrap; }
+.ec-progress-cell:hover, .ec-progress-cell:focus { text-decoration: underline; }

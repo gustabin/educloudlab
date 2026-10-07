@@ -41,6 +41,8 @@ foreach ([
     'labs.expires', 'labs.passed', 'labs.failed', 'labs.result_title', 'labs.result_text', 'labs.validation_error',
     'labs.answer_saved', 'labs.answer_empty', 'labs.hint_confirm_title', 'labs.hint_confirm_text', 'labs.hint_confirm',
     'labs.abandon', 'labs.abandon_title', 'labs.abandon_text', 'labs.validating', 'labs.load_error',
+    'courses.joined_text', 'courses.go_course', 'courses.code_confirm_title', 'courses.code_confirm_text', 'courses.code_generate',
+    'courses.unassign', 'courses.unassign_title', 'courses.unassign_text',
 ] as $key) {
     $jsStrings[$key] = t($key);
 }
@@ -49,6 +51,7 @@ $nav = [
     ['key' => 'workspaces', 'href' => '/app/workspaces', 'icon' => 'fa-layer-group', 'label' => t('ws.title')],
     ['key' => 'data', 'href' => null, 'icon' => 'fa-database', 'label' => t('nav.data')],
     ['key' => 'sql', 'href' => '/app/sql', 'icon' => 'fa-terminal', 'label' => t('nav.sql')],
+    ['key' => 'courses', 'href' => '/app/courses', 'icon' => 'fa-chalkboard-user', 'label' => t('nav.courses')],
     ['key' => 'labs', 'href' => '/app/labs', 'icon' => 'fa-flask', 'label' => t('nav.labs')],
 ];
 $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor'), 'student' => t('role.student'), 'read_only' => t('role.read_only')];

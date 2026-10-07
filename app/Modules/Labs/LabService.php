@@ -15,6 +15,8 @@ use EduCloud\Core\Exceptions\ValidationException;
 use EduCloud\Core\Format;
 use EduCloud\Core\Request;
 use EduCloud\Core\Ulid;
+use EduCloud\Http\Middleware\Authorize;
+use EduCloud\Modules\Courses\CourseService;
 use EduCloud\Modules\Datasets\DatasetRepository;
 use EduCloud\Modules\Jobs\JobRepository;
 use EduCloud\Modules\Resources\ResourceRepository;
@@ -65,18 +67,21 @@ final class LabService
     }
 
     /**
-     * Starts a lab, or returns the caller's open attempt for it.
+     * Starts a lab, or returns the caller's open attempt for it. In an organization, the attempt is linked to the
+     * course the student is enrolled in that assigns the lab (explicit course_id, or the only such course).
      *
-     * @param callable(): string $validCode
+     * @param callable(): array{lab_code: string, course_id: string|null} $validInput
      * @return array{attempt: array<string, mixed>, created: bool}
      */
-    public function start(Request $request, TenantContext $ctx, callable $validCode): array
+    public function start(Request $request, TenantContext $ctx, callable $validInput): array
     {
-        $code = $validCode();
+        $input = $validInput();
+        $code = $input['lab_code'];
         $lab = $this->labs->findPublishedByCode($code);
         if ($lab === null) {
             throw new NotFoundException('El laboratorio no existe.');
         }
+        $courseId = (new CourseService($this->app))->courseForAttempt($ctx, $code, $input['course_id']);
         $existing = $this->attempts->findOpenForLab($ctx, $code);
         if ($existing !== null) {
             return ['attempt' => $this->present($ctx, $existing), 'created' => false];
@@ -86,7 +91,7 @@ final class LabService
 
         $copied = [];
         try {
-            $created = $this->app->db()->transaction(function () use ($ctx, $lab, $definition, $code, &$copied): ?array {
+            $created = $this->app->db()->transaction(function () use ($ctx, $lab, $definition, $code, $courseId, &$copied): ?array {
                 $this->app->db()->select('SELECT id FROM memberships WHERE tenant_id = ? AND user_id = ? FOR UPDATE', [$ctx->tenantId, $ctx->userId]);
                 if ($this->attempts->findOpenForLab($ctx, $code) !== null) {
                     return null; // a concurrent request won the race
@@ -103,7 +108,7 @@ final class LabService
                 $name = mb_substr($code . ' · ' . (string) $lab['title'], 0, 72) . ' #' . substr($attemptId, -5);
                 $ttl = (int) $definition['cleanup']['workspace_ttl_days'];
                 $ws = (new WorkspaceRepository($this->app->db()))->create($ctx, $name, mb_substr((string) $lab['summary'], 0, 500), 'lab', $ttl);
-                $attempt = $this->attempts->create($ctx, $attemptId, (int) $lab['id'], $ws['id'], LabDefinition::maxScore($definition));
+                $attempt = $this->attempts->create($ctx, $attemptId, (int) $lab['id'], $ws['id'], LabDefinition::maxScore($definition), $courseId);
                 // Hints seen in earlier attempts of this lab stay seen (and penalised): restarting does not reset them.
                 $this->attempts->carryOverHints($ctx, $attempt['id'], $code);
                 $this->runSetup($ctx, $ws, $definition['setup'] ?? [], $copied);
@@ -137,7 +142,8 @@ final class LabService
     /** @return array<string, mixed> */
     public function findOrFail(TenantContext $ctx, string $publicId): array
     {
-        $row = $this->attempts->findVisible($ctx, $publicId, $this->policy->seesWholeTenant($ctx));
+        $reviewer = Authorize::allows($this->app->config, $ctx, 'review');
+        $row = $this->attempts->findVisible($ctx, $publicId, $this->policy->seesWholeTenant($ctx), $reviewer);
         if ($row === null) {
             throw new NotFoundException('El intento no existe.');
         }
@@ -438,6 +444,9 @@ final class LabService
             'submissions' => (int) $row['submissions'],
             'is_owner' => $isOwner,
             'student' => ['id' => (string) $row['user_public_id'], 'display_name' => (string) $row['user_name']],
+            'course' => $row['course_public_id'] === null
+                ? null
+                : ['id' => (string) $row['course_public_id'], 'title' => (string) $row['course_title']],
             'error' => $row['last_error_code'] === null
                 ? null
                 : ['code' => (string) $row['last_error_code'], 'message' => (string) $row['last_error_message']],

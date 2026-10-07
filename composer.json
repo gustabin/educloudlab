@@ -39,6 +39,7 @@
       "php": "8.1.6"
     },
     "sort-packages": true,
+    "process-timeout": 1200,
     "optimize-autoloader": true
   },
   "scripts": {

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: EduCloud Lab API
-  version: 0.6.0
+  version: 0.7.0
   description: |
     Versioned REST API of EduCloud Lab. All responses use the standard envelope.
 
@@ -867,6 +867,251 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /courses:
+    get:
+      operationId: listCourses
+      summary: Courses of the active tenant visible to the caller (taught, enrolled, or all for org_admin)
+      tags: [courses]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Courses
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Course' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createCourse
+      summary: Create a course (draft) in the active organization (permission assign; 409 ORGANIZATION_REQUIRED in personal tenants)
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [code, title]
+              properties:
+                code: { type: string, pattern: '^[A-Z0-9][A-Z0-9-]{1,29}$', description: unique per organization }
+                title: { type: string, minLength: 3, maxLength: 150 }
+                description: { type: [string, 'null'], maxLength: 2000 }
+      responses:
+        '201': { $ref: '#/components/responses/Course' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /courses/join:
+    post:
+      operationId: joinCourse
+      summary: Join a course with its code (from any tenant); creates the student membership and enrollment
+      description: |
+        Returns the course and its organization; browser clients then switch to that tenant. An existing membership
+        role is never changed. Invalid, rotated, disabled or archived codes all return the same 422.
+        Rate-limited per IP (`course_join_ip`) and per user (`course_join_user`, 10 per 15 min) → 429.
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [code]
+              properties:
+                code: { type: string, maxLength: 20, example: ABCDE-23456, description: case and separators are ignored }
+      responses:
+        '200':
+          description: Enrolled
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          course: { type: object, properties: { id: { type: string }, title: { type: string } } }
+                          tenant: { type: object, properties: { id: { type: string }, name: { type: string } } }
+                          already_enrolled: { type: boolean }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /courses/{course_id}:
+    parameters: [{ $ref: '#/components/parameters/CourseId' }]
+    get:
+      operationId: getCourse
+      summary: Course with its assigned labs
+      tags: [courses]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200': { $ref: '#/components/responses/Course' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateCourse
+      summary: Update title, description or status (draft → published → archived ⇄ published); staff only
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                title: { type: string, minLength: 3, maxLength: 150 }
+                description: { type: [string, 'null'], maxLength: 2000 }
+                status: { type: string, enum: [draft, published, archived] }
+      responses:
+        '200': { $ref: '#/components/responses/Course' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /courses/{course_id}/join-code:
+    parameters: [{ $ref: '#/components/parameters/CourseId' }]
+    post:
+      operationId: rotateCourseJoinCode
+      summary: Generate a new join code (published courses). Returned once; only its hash is stored; the previous code stops working.
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '201':
+          description: New code
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: object, properties: { join_code: { type: string, example: ABCDE-23456 } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: disableCourseJoinCode
+      summary: Disable joining
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Disabled }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /courses/{course_id}/labs:
+    parameters: [{ $ref: '#/components/parameters/CourseId' }]
+    post:
+      operationId: assignCourseLab
+      summary: Assign a published lab to the course
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [lab_code]
+              properties:
+                lab_code: { type: string, pattern: '^LAB-[0-9]{3}$' }
+                required: { type: boolean, default: true }
+                due_at: { type: [string, 'null'], format: date, description: 'due at 23:59:59 UTC of that day' }
+      responses:
+        '201': { $ref: '#/components/responses/Course' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /courses/{course_id}/labs/{lab_code}:
+    parameters:
+      - { $ref: '#/components/parameters/CourseId' }
+      - { name: lab_code, in: path, required: true, schema: { type: string, pattern: '^LAB-[0-9]{3}$' } }
+    delete:
+      operationId: unassignCourseLab
+      summary: Remove a lab from the course (attempts are kept)
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Removed }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /courses/{course_id}/progress:
+    parameters: [{ $ref: '#/components/parameters/CourseId' }]
+    get:
+      operationId: courseProgress
+      summary: Instructor grid - active students × assigned labs, best course attempt per cell (staff with review permission)
+      tags: [courses]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Progress
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          course: { $ref: '#/components/schemas/Course' }
+                          labs: { type: array, items: { $ref: '#/components/schemas/CourseLab' } }
+                          students:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id: { type: string }
+                                display_name: { type: string }
+                                labs:
+                                  type: object
+                                  description: lab code → best attempt (null when not started)
+                                  additionalProperties:
+                                    type: [object, 'null']
+                                    properties:
+                                      attempt_id: { type: string, description: 'open with GET /lab-attempts/{attempt_id} (read-only review)' }
+                                      status: { type: string }
+                                      best_score: { type: number }
+                                      max_score: { type: number }
+                                      submissions: { type: integer }
+                                      failed_tasks: { type: [integer, 'null'] }
+                                      completed_at: { type: [string, 'null'], format: date-time }
+                                      last_submitted_at: { type: [string, 'null'], format: date-time }
+                          summary:
+                            type: object
+                            additionalProperties:
+                              type: object
+                              properties:
+                                started: { type: integer }
+                                completed: { type: integer }
+                                average_best_score: { type: [number, 'null'] }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /labs:
     get:
       operationId: listLabs
@@ -907,6 +1152,7 @@ paths:
               required: [lab_code]
               properties:
                 lab_code: { type: string, pattern: '^LAB-[0-9]{3}$' }
+                course_id: { type: [string, 'null'], description: 'course context (must be enrolled and the lab assigned); when omitted, the only course of the active tenant that assigns the lab is used' }
       responses:
         '200': { $ref: '#/components/responses/LabAttempt' }
         '201': { $ref: '#/components/responses/LabAttempt' }
@@ -920,7 +1166,7 @@ paths:
     get:
       operationId: getLabAttempt
       summary: Attempt state, tasks, revealed hints, saved answers and the latest graded results
-      description: Visible to its owner and, read-only, to tenant-wide roles (org_admin). Others get 404.
+      description: Visible to its owner and, read-only, to tenant-wide roles (org_admin) and to the staff of the attempt's course. Others get 404.
       tags: [labs]
       security: [{sessionCookie: []}, {bearerAuth: []}]
       responses:
@@ -1039,6 +1285,7 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
 components:
   parameters:
+    CourseId: { name: course_id, in: path, required: true, schema: { type: string, description: ULID of the course } }
     AttemptId: { name: attempt_id, in: path, required: true, schema: { type: string, description: ULID of the lab attempt } }
     TenantId: { name: tenant_id, in: path, required: true, schema: { type: string, description: ULID } }
     WorkspaceId: { name: workspace_id, in: path, required: true, schema: { type: string, description: ULID } }
@@ -1049,6 +1296,33 @@ components:
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
+    Course:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        code: { type: string }
+        title: { type: string }
+        description: { type: [string, 'null'] }
+        status: { type: string, enum: [draft, published, archived] }
+        owner: { type: object, properties: { id: { type: string }, display_name: { type: string } } }
+        my_role: { type: string, enum: [staff, student] }
+        can_manage: { type: boolean }
+        student_count: { type: [integer, 'null'], description: staff only }
+        lab_count: { type: integer }
+        join_enabled: { type: [boolean, 'null'], description: staff only }
+        labs: { type: array, items: { $ref: '#/components/schemas/CourseLab' }, description: single-course responses only }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    CourseLab:
+      type: object
+      properties:
+        code: { type: string }
+        title: { type: string }
+        difficulty: { type: string }
+        estimated_minutes: { type: integer }
+        max_score: { type: number }
+        required: { type: boolean }
+        due_at: { type: [string, 'null'], format: date-time }
     LabSummary:
       type: object
       properties:
@@ -1083,6 +1357,7 @@ components:
         submissions: { type: integer }
         is_owner: { type: boolean }
         student: { type: object, properties: { id: { type: string }, display_name: { type: string } } }
+        course: { type: [object, 'null'], properties: { id: { type: string }, title: { type: string } } }
         error: { type: [object, 'null'], description: last validation failure (e.g. TIMEOUT), properties: { code: { type: string }, message: { type: string } } }
         lab: { $ref: '#/components/schemas/LabSummary' }
         workspace:
@@ -1330,6 +1605,16 @@ components:
                   message: { type: string }
         meta: { $ref: '#/components/schemas/Meta' }
   responses:
+    Course:
+      description: Course
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/Course' }
     LabAttempt:
       description: Lab attempt
       content:

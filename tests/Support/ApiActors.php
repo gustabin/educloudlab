@@ -20,8 +20,17 @@ trait ApiActors
     protected function actor(string $email): string
     {
         if (!isset($this->tokens[$email])) {
-            $this->createVerifiedUser($email);
-            $this->tokens[$email] = (string) $this->issueTokens($email)['access_token'];
+            // Register like an anonymous visitor, without disturbing a browser session the test may hold.
+            $jar = $this->cookieJar;
+            $this->cookieJar = [];
+            try {
+                if ($this->app()->db()->scalar('SELECT id FROM users WHERE email = ?', [$email]) === null) {
+                    $this->createVerifiedUser($email);
+                }
+                $this->tokens[$email] = (string) $this->issueTokens($email)['access_token'];
+            } finally {
+                $this->cookieJar = $jar;
+            }
         }
         return $this->tokens[$email];
     }

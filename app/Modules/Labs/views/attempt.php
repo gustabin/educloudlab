@@ -31,6 +31,9 @@ $editable = $attempt['is_owner'] && !$closed;
 <?php if (!$attempt['is_owner']): ?>
                 <span class="ms-2"><i class="fa-regular fa-user" aria-hidden="true"></i> <?= e($attempt['student']['display_name']) ?></span>
 <?php endif; ?>
+<?php if ($attempt['course'] !== null): ?>
+                <a class="ms-2" href="<?= e(url('/app/courses/' . $attempt['course']['id'])) ?>"><i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i> <?= e(t('labs.course', ['title' => $attempt['course']['title']])) ?></a>
+<?php endif; ?>
             </p>
         </div>
         <div class="text-end">

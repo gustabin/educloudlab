@@ -76,7 +76,7 @@ Datasets created by setup are marked `lab_setup`. They cannot be deleted (409 `L
 - **Confidentiality:** checks, expected SQL and solutions never leave the server. Responses expose titles, Markdown instructions, hint texts once revealed (penalty recorded once, `lab_hint_usage` primary key) and feedback.
 - **Isolation:**
   - Attempts are tenant-owned (composite FKs).
-  - Visibility is the owner plus tenant-wide roles (org_admin), read-only.
+  - Visibility is the owner plus tenant-wide roles (org_admin) and the staff of the attempt's course (M10a), read-only.
   - Mutations are owner-only (403 for visible non-owners, 404 for everyone else).
   - All `{attempt_id}` routes are covered by `TenantIsolationTest`.
 - **Resources:**
@@ -117,7 +117,6 @@ Accepted residual risks:
 
 ## Deferred
 
-- Courses and assignments, and instructor review scoped to a course (M10a).
 - Expiry warning email at day 11 (M11a).
 - `pipeline_run_succeeded` and `job_succeeded` checks (M7).
 - Instructor UI authoring (release 1.2).

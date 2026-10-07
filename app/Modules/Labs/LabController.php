@@ -31,9 +31,13 @@ final class LabController
     public function start(Request $request): Response
     {
         $body = $request->json();
-        $valid = static fn (): string => (string) Validator::validate($body, [
-            'lab_code' => ['required', 'string', 'regex:/^LAB-[0-9]{3}$/D'],
-        ])['lab_code'];
+        $valid = static function () use ($body): array {
+            $data = Validator::validate($body, [
+                'lab_code' => ['required', 'string', 'regex:/^LAB-[0-9]{3}$/D'],
+                'course_id' => ['nullable', 'ulid'],
+            ]);
+            return ['lab_code' => (string) $data['lab_code'], 'course_id' => isset($data['course_id']) ? (string) $data['course_id'] : null];
+        };
         $result = $this->service->start($request, $this->ctx($request), $valid);
         return $result['created']
             ? Response::json($result['attempt'], 201, 'Laboratorio iniciado. Estamos preparando tu entorno…', ['request_id' => $request->requestId])

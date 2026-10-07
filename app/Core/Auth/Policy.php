@@ -12,7 +12,8 @@ use EduCloud\Http\Middleware\Authorize;
  *
  *  - Owners can see and change their own objects (subject to their role's permissions).
  *  - Tenant-wide visibility/administration: org_admin and platform admins.
- *    Instructors' visibility of students' work is course-scoped and arrives with courses (M10a).
+ *    Instructors' visibility of students' work is course-scoped (M10a): see AttemptRepository::findVisible()
+ *    and CourseService (course staff = owner or active instructor enrollment).
  *
  * Callers must return 404 (not 403) when an object is not visible, so existence is not leaked.
  */

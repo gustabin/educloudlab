@@ -1,13 +1,16 @@
 {
   "name": "educloud-lab-assets",
   "private": true,
-  "description": "Development-only: fetches frontend libraries that are vendored into public/assets/vendor (ADR-011). Not needed at runtime.",
+  "description": "Development-only: vendors frontend libraries into public/assets/vendor (ADR-011) and runs the Playwright E2E/a11y suite. Not needed at runtime.",
   "license": "UNLICENSED",
   "scripts": {
-    "vendor": "node scripts/vendor-assets.mjs"
+    "vendor": "node scripts/vendor-assets.mjs",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@fortawesome/fontawesome-free": "6.7.2",
+    "@playwright/test": "1.63.0",
     "bootstrap": "5.3.8",
     "codemirror": "5.65.21",
     "jquery": "3.7.1",

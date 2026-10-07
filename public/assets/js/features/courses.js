@@ -83,6 +83,11 @@
     api.request({ method: 'PATCH', url: base, data: { status: String($btn.attr('data-course-status')) }, button: $btn }).then(reload);
   });
 
+  $course.on('click', '[data-course-visibility]', function () {
+    var $btn = $(this);
+    api.request({ method: 'PATCH', url: base, data: { visibility: String($btn.attr('data-course-visibility')) }, button: $btn }).then(reload);
+  });
+
   $('#course-join-rotate').on('click', function () {
     var $btn = $(this);
     window.Swal.fire({

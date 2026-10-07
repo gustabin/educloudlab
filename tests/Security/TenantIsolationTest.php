@@ -48,6 +48,7 @@ final class TenantIsolationTest extends TestCase
         'PATCH /api/v1/courses/{course_id}' => ['title' => 'hackeado'],
         'POST /api/v1/courses/{course_id}/labs' => ['lab_code' => 'LAB-001'],
         'POST /api/v1/courses/{course_id}/join-code' => [],
+        'PATCH /api/v1/admin/users/{user_id}' => ['status' => 'disabled'],
     ];
 
     /** @var array<string, string> route parameter => victim object id */
@@ -116,6 +117,7 @@ final class TenantIsolationTest extends TestCase
             'query_id' => (string) $query->decoded()['data']['id'],
             'attempt_id' => $attemptId,
             'course_id' => $courseId,
+            'user_id' => (string) $this->app()->db()->scalar('SELECT public_id FROM users WHERE email = ?', ['alice@test.example']),
             'lab_code' => 'LAB-004',
             // A tenant none of the attackers belongs to: alice's personal tenant.
             'tenant_id' => (string) $this->app()->db()->scalar(
@@ -176,7 +178,7 @@ final class TenantIsolationTest extends TestCase
             $checked[] = $key;
         }
 
-        $minimum = $attacker === 'bob-bearer' ? 31 : 37;
+        $minimum = $attacker === 'bob-bearer' ? 32 : 38;
         self::assertGreaterThanOrEqual($minimum, count($checked), "[$attacker] matrix covered too few routes: " . implode(', ', $checked));
     }
 

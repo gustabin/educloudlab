@@ -130,6 +130,33 @@ Two background processes do the heavy work. Without them, uploads stay "Procesan
 
 Details: `docs/architecture/EXECUTION.md`. The SQL Lab also needs the dispatcher, because queries run as interactive high-priority jobs.
 
+### End-to-end and accessibility tests
+
+```
+npm install            # dev tooling only: Playwright + axe-core (no browser download; uses the installed Chrome)
+npm run e2e            # Apache and MySQL must be running
+```
+
+`e2e/mvp-flow.spec.ts` drives the whole MVP flow in a real browser:
+- register, verify the email (file mail driver) and log in;
+- create a workspace, upload a file, ingest it, query it, and create silver and gold tables;
+- an instructor creates a course with LAB-005; the student joins, works on the lab and is graded;
+- the instructor reviews the progress grid, the student abandons the lab, and the admin monitor is checked.
+
+Every screen is checked with axe-core (WCAG 2.1 A/AA; serious or critical violations fail the test).
+
+The global setup starts the dispatcher, imports the labs and clears the local `rate_limits` windows. It creates throwaway `e2e-*@test.example` accounts in the **development** database.
+
+### Administration, backups and deployment
+
+```
+php scripts/admin.php grant tu@correo     # platform admin: /app/admin (jobs, audit, users)
+php scripts/backup.php                    # database + storage backup
+php scripts/restore.php <dir> --dry-run   # restore drill into the test database
+```
+
+See `docs/deployment/BACKUP_RESTORE.md` and `docs/deployment/DEPLOYMENT.md` (Linux production).
+
 ### Organizations and courses
 
 Courses live in organization tenants. Until the admin UI exists (M11a), create organizations and instructors from the command line. The users must already be registered and verified.

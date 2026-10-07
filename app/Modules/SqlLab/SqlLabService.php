@@ -19,6 +19,7 @@ use EduCloud\Modules\Datasets\DatasetRepository;
 use EduCloud\Modules\Datasets\DatasetService;
 use EduCloud\Modules\Jobs\JobController;
 use EduCloud\Modules\Jobs\JobRepository;
+use EduCloud\Modules\Usage\UsageService;
 use EduCloud\Modules\Workspaces\WorkspaceService;
 
 /**
@@ -140,6 +141,7 @@ final class SqlLabService
         $input = $validInput();
         $this->assertLakehouse($ctx, (int) $ws['id']);
         (new DatasetService($this->app))->assertLakehouseHasRoom($ctx, (string) $ws['public_id']);
+        (new UsageService($this->app))->assertRoom($ctx, 0);
 
         $created = $this->app->db()->transaction(function () use ($ctx, $ws, $input): array {
             $this->lockUserAndCheckJobs($ctx);

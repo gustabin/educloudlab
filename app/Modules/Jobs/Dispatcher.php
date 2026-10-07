@@ -11,6 +11,7 @@ use EduCloud\Modules\Datasets\Jobs\ProfileHandler;
 use EduCloud\Modules\Labs\Jobs\ValidateHandler;
 use EduCloud\Modules\SqlLab\Jobs\QueryHandler;
 use EduCloud\Modules\SqlLab\Jobs\TransformHandler;
+use EduCloud\Modules\Usage\UsageService;
 use Throwable;
 
 /**
@@ -58,6 +59,7 @@ final class Dispatcher
             return true;
         }
 
+        $durationMs = null;
         try {
             $request = $handler->prepare($job);
             $allowedRoot = null;
@@ -77,6 +79,7 @@ final class Dispatcher
                     $allowedRoot,
                 );
 
+            $durationMs = isset($response['stats']['duration_ms']) ? (int) $response['stats']['duration_ms'] : null;
             if ($response['ok'] === true) {
                 $summary = $handler->succeeded($job, is_array($response['data'] ?? null) ? $response['data'] : []);
                 $this->jobs->finish($id, 'succeeded', ($summary ?? []) + ['duration_ms' => $response['stats']['duration_ms'] ?? null]);
@@ -102,6 +105,11 @@ final class Dispatcher
                 // The job is still marked failed below.
             }
             $this->jobs->finish($id, 'failed', null, 'INTERNAL_ERROR', $message);
+        }
+        $usage = new UsageService($this->app);
+        $usage->recordJob($job, $durationMs);
+        if (in_array($job['type'], ['ingest', 'transform', 'cleanup'], true)) {
+            $usage->refreshStorage((int) $job['tenant_id'], (string) $job['tenant_public_id'], (int) $job['user_id']);
         }
         $this->app->logger->info('job_processed', ['job' => $job['public_id'], 'type' => $job['type']]);
         return true;

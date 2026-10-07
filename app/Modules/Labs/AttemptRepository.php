@@ -309,6 +309,33 @@ final class AttemptRepository
         );
     }
 
+    /**
+     * Open attempts whose lab workspace expires within $days and whose owner was not warned yet.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function findExpiringUnwarned(int $days, int $limit = 100): array
+    {
+        return $this->db->select(
+            "SELECT a.public_id, a.user_id, w.id AS workspace_id, w.tenant_id, w.expires_at, l.title AS lab_title,
+                    u.email, u.display_name, u.locale
+               FROM lab_attempts a
+               JOIN workspaces w ON w.tenant_id = a.tenant_id AND w.id = a.workspace_id
+               JOIN labs l ON l.id = a.lab_id
+               JOIN users u ON u.id = a.user_id
+              WHERE w.status = 'active' AND w.purpose = 'lab' AND w.expiry_warned_at IS NULL
+                AND w.expires_at BETWEEN UTC_TIMESTAMP(3) AND UTC_TIMESTAMP(3) + INTERVAL ? DAY
+                AND a.status IN ('in_progress', 'completed') AND u.status = 'active'
+              LIMIT " . max(1, $limit),
+            [$days]
+        );
+    }
+
+    public function markWarned(int $tenantId, int $workspaceId): void
+    {
+        $this->db->execute('UPDATE workspaces SET expiry_warned_at = UTC_TIMESTAMP(3) WHERE tenant_id = ? AND id = ?', [$tenantId, $workspaceId]);
+    }
+
     public function markExpired(int $tenantId, int $attemptId): void
     {
         $this->db->execute(

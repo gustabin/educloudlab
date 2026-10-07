@@ -52,6 +52,14 @@ final class Templates
                     'Si no fuiste tú, alguien podría estar intentando adivinar tu contraseña. Restablecerla desbloquea la cuenta al instante.'],
                 'Restablecer contraseña',
             ],
+            'lab_expiry_warning' => [
+                'Tu laboratorio de EduCloud Lab se eliminará pronto',
+                [$hello, 'El entorno de tu laboratorio «' . (string) ($p['lab'] ?? '') . '» lleva tiempo sin actividad y se eliminará el '
+                    . (string) ($p['date'] ?? '') . ' (UTC).',
+                    'Si quieres conservarlo, ábrelo y guarda una respuesta o valida el laboratorio: cada actividad amplía el plazo. '
+                    . 'Tu mejor puntuación se conserva aunque el entorno se elimine.'],
+                'Abrir el laboratorio',
+            ],
             default => throw new \InvalidArgumentException("Unknown email template '$template'"),
         };
 

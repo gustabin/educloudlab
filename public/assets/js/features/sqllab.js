@@ -59,14 +59,14 @@
           $.each(tables, function (_, table) {
             total++;
             hintTables[table.qualified_name] = $.map(table.columns, function (c) { return c.name; });
+            // No buttons inside <summary> (nested interactive controls): the summary only toggles, inserting is inside.
             var $details = $('<details class="ec-catalog-table"></details>').appendTo($section);
-            var $summary = $('<summary></summary>').appendTo($details);
-            $('<button type="button" class="btn btn-link btn-sm p-0 text-start" data-insert></button>')
-              .attr('data-insert', table.qualified_name).attr('title', t('sql.insert'))
-              .text(table.table).appendTo($summary);
+            var $summary = $('<summary></summary>').text(table.table).appendTo($details);
             if (table.row_count !== null) {
               $('<span class="small text-body-secondary ms-1"></span>').text('(' + Number(table.row_count).toLocaleString('es') + ')').appendTo($summary);
             }
+            $('<button type="button" class="btn btn-link btn-sm p-0 ps-3 text-start d-block"></button>')
+              .attr('data-insert', table.qualified_name).text(t('sql.insert') + ': ' + table.qualified_name).appendTo($details);
             var $cols = $('<ul class="list-unstyled small ps-3 mb-1"></ul>').appendTo($details);
             $.each(table.columns, function (_, col) {
               var $li = $('<li></li>').appendTo($cols);
@@ -117,7 +117,8 @@
       if (result.truncated) { parts.push(t('sql.truncated')); }
       $status.text(parts.join(' · '));
       if (!result.columns.length) { return; }
-      var $wrap = $('<div class="table-responsive ec-result-grid"></div>').appendTo($out);
+      // Scrollable region: focusable and labelled so keyboard users can scroll it.
+      var $wrap = $('<div class="table-responsive ec-result-grid" tabindex="0" role="region"></div>').attr('aria-label', t('sql.results')).appendTo($out);
       var $table = $('<table class="table table-sm table-striped table-hover ec-preview-table mb-0"><thead><tr></tr></thead><tbody></tbody></table>').appendTo($wrap);
       $.each(result.columns, function (_, c) {
         var $th = $('<th scope="col"></th>').text(c.name).appendTo($table.find('thead tr'));

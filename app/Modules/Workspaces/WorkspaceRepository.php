@@ -93,7 +93,8 @@ final class WorkspaceRepository
     public function extendExpiry(TenantContext $ctx, int $id, int $ttlDays): void
     {
         $this->db->execute(
-            "UPDATE workspaces SET expires_at = UTC_TIMESTAMP(3) + INTERVAL ? DAY, last_activity_at = UTC_TIMESTAMP(3)
+            "UPDATE workspaces SET expires_at = UTC_TIMESTAMP(3) + INTERVAL ? DAY, last_activity_at = UTC_TIMESTAMP(3),
+                    expiry_warned_at = NULL
               WHERE tenant_id = ? AND id = ? AND status = 'active' AND expires_at IS NOT NULL",
             [$ttlDays, $ctx->tenantId, $id]
         );

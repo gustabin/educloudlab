@@ -77,13 +77,13 @@ final class CourseRepository
         return ['id' => $id, 'public_id' => $publicId];
     }
 
-    /** @param array{title: string, description: string|null, status: string} $values */
+    /** @param array{title: string, description: string|null, status: string, visibility: string} $values */
     public function update(TenantContext $ctx, int $id, array $values): void
     {
         $this->db->execute(
-            'UPDATE courses SET title = ?, description = ?, status = ?, join_enabled = IF(? = \'published\', join_enabled, 0)
+            'UPDATE courses SET title = ?, description = ?, status = ?, visibility = ?, join_enabled = IF(? = \'published\', join_enabled, 0)
               WHERE tenant_id = ? AND id = ?',
-            [$values['title'], $values['description'], $values['status'], $values['status'], $ctx->tenantId, $id]
+            [$values['title'], $values['description'], $values['status'], $values['visibility'], $values['status'], $ctx->tenantId, $id]
         );
     }
 

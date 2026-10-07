@@ -17,6 +17,7 @@ use EduCloud\Core\Request;
 use EduCloud\Core\Ulid;
 use EduCloud\Http\Middleware\Authorize;
 use EduCloud\Modules\Courses\CourseService;
+use EduCloud\Modules\Usage\UsageService;
 use EduCloud\Modules\Datasets\DatasetRepository;
 use EduCloud\Modules\Jobs\JobRepository;
 use EduCloud\Modules\Resources\ResourceRepository;
@@ -271,9 +272,9 @@ final class LabService
                 $bytes += (int) filesize(LabImporter::samplesDir() . '/' . $action['sample']);
             }
         }
-        $maxBytes = (int) $this->app->config->get('quotas.storage_bytes_per_user');
-        if ($bytes > 0 && (new DatasetRepository($this->app->db()))->storageUsedBy($ctx, $ctx->userId) + $bytes > $maxBytes) {
-            throw new QuotaExceededException('No tienes espacio de almacenamiento suficiente para los datos del laboratorio.');
+        if ($bytes > 0) {
+            $message = 'No tienes espacio de almacenamiento suficiente para los datos del laboratorio.';
+            (new UsageService($this->app))->assertRoom($ctx, $bytes, $message);
         }
     }
 

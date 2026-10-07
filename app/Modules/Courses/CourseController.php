@@ -62,6 +62,7 @@ final class CourseController
                 'title' => ['string', 'min:3', 'max:150'],
                 'description' => ['nullable', 'string', 'max:2000'],
                 'status' => ['in:draft,published,archived'],
+                'visibility' => ['in:private,public'],
             ]);
             if ($data === []) {
                 throw new ValidationException([['field' => 'title', 'code' => 'required', 'message' => 'Indica al menos un cambio.']]);

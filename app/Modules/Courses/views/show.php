@@ -107,6 +107,15 @@ $staff = $course['my_role'] === 'staff';
                 <p class="small text-body-secondary mt-2 mb-0">
                     <?= e(t('courses.students_count', ['n' => $course['student_count']])) ?>
                 </p>
+                <hr>
+                <p class="small mb-2"><?= e($course['visibility'] === 'public' ? t('courses.visibility_public') : t('courses.visibility_private')) ?>
+<?php if ($course['public_url'] !== null): ?>
+                    <a href="<?= e($course['public_url']) ?>"><?= e(t('courses.public_page')) ?></a>
+<?php endif; ?>
+                </p>
+                <button class="btn btn-sm btn-outline-secondary w-100" type="button" data-course-visibility="<?= e($course['visibility'] === 'public' ? 'private' : 'public') ?>">
+                    <?= e($course['visibility'] === 'public' ? t('courses.make_private') : t('courses.make_public')) ?>
+                </button>
             </section>
 
 <?php if ($availableLabs !== []): ?>

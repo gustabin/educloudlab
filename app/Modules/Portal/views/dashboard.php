@@ -5,7 +5,11 @@
  * @var string|null                       $tenantName
  * @var list<array<string, mixed>>        $recentWorkspaces
  * @var int                               $workspaceTotal
+ * @var array<string, mixed>              $usage
  */
+$storage = $usage['storage'];
+$percent = $storage['quota_bytes'] > 0 ? min(100, (int) round(100 * $storage['used_bytes'] / $storage['quota_bytes'])) : 0;
+$mb = static fn (int $bytes): string => fmt_number($bytes / 1048576);
 ?>
 <div class="ec-page-header">
     <div>
@@ -13,6 +17,14 @@
         <p class="text-body-secondary mb-0"><?= e(t('portal.dashboard.tenant')) ?> <strong><?= e($tenantName) ?></strong></p>
     </div>
 </div>
+
+<section class="ec-card mb-4" aria-labelledby="usage-title">
+    <h2 id="usage-title" class="h6"><?= e(t('usage.title')) ?></h2>
+    <div class="small mb-1"><?= e(t('usage.storage', ['used' => $mb($storage['used_bytes']), 'quota' => $mb($storage['quota_bytes'])])) ?></div>
+    <progress class="ec-usage<?= $percent >= 90 ? ' ec-usage-high' : '' ?> mb-1" max="100" value="<?= e($percent) ?>" aria-label="<?= e(t('usage.title')) ?>"><?= e($percent) ?>%</progress>
+    <div class="small text-body-secondary"><?= e(t('usage.storage_detail', ['raw' => $mb($storage['raw_bytes']), 'lake' => $mb($storage['lakehouse_bytes'])])) ?></div>
+    <div class="small text-body-secondary"><?= e(t('usage.month', ['jobs' => $usage['month']['jobs'], 'queries' => $usage['month']['queries']])) ?></div>
+</section>
 
 <section aria-labelledby="recent-title">
     <div class="d-flex justify-content-between align-items-center mb-3">

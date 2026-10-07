@@ -22,6 +22,7 @@ return static function (Router $router, App $app): void {
                 'activeNav' => 'home',
                 'recentWorkspaces' => $recent['items'],
                 'workspaceTotal' => $recent['meta']['total'],
+                'usage' => (new \EduCloud\Modules\Usage\UsageService($app))->summary($ctx),
             ], 200, 'layouts/app');
         },
         ['auth' => 'session', 'permission' => 'read', 'name' => 'portal.dashboard']

@@ -5,13 +5,23 @@ An independent educational platform for practising cloud computing, data enginee
 > EduCloud Lab is **not** affiliated with, endorsed by or certified by Microsoft. Azure and Fabric are mentioned only as conceptual references in educational material.
 
 ## Status
-- **M0** (discovery & architecture): complete.
-- **M1** (foundation): complete.
-- **M2** (authentication & security): complete.
-- **M3** (multi-tenancy, workspaces, resource manager): complete.
-- **M4** (datasets, storage, execution plane): CSV upload to raw, profiling and ingestion to bronze via the Python/DuckDB runner.
-- **M5** (SQL Lab): sandboxed SELECT queries, catalog, history, and transforms to silver/gold.
-- Next: **M6** (Lab Engine). See `docs/IMPLEMENTATION_MASTER_PLAN.md`.
+**MVP (release 1.0) complete:** milestones M0–M6, M10a and M11a. The release gate passed (`docs/security/MVP_RELEASE_GATE.md`).
+- Accounts and security:
+  - Accounts, sessions, CSRF, JWT for API clients.
+  - Organizations with roles, plus tenant isolation tests on every route.
+- Data platform:
+  - Workspaces and resources.
+  - CSV upload → raw → bronze ingestion in a per-workspace DuckDB lakehouse.
+  - Sandboxed SQL Lab with silver/gold transforms.
+- Learning:
+  - Lab Engine with auto-graded labs LAB-001/003/004/005.
+  - Minimal courses: join codes, assignments, instructor progress grid.
+- Operations:
+  - Admin monitor, storage quotas and usage metering.
+  - Public catalog with SEO.
+  - Backup and restore, deployment guide.
+  - End-to-end and accessibility tests (`npm run e2e`).
+- **Next (release 1.1):** pipelines, JSON/Parquet ingestion, object-storage lab (M7). See `docs/IMPLEMENTATION_MASTER_PLAN.md`.
 
 ## Stack
 PHP 8.1 (XAMPP, see ADR-001) · MariaDB/MySQL via MySQLi · REST API + jQuery/AJAX · Bootstrap 5 · SweetAlert2 · PHPMailer · JWT for API clients · Python + DuckDB execution runner.
@@ -29,6 +39,8 @@ Full setup (database users, migrations, vhost, assets): `docs/development/SETUP.
 - `docs/IMPLEMENTATION_MASTER_PLAN.md`: architecture, scope, milestones, risks
 - `docs/adr/`: architecture decision records
 - `CLAUDE.md`: conventions for Claude Code sessions
+- `docs/architecture/`: execution plane, Lab Engine, courses, performance
+- `docs/deployment/`: production deployment, backup and restore
 - `THIRD_PARTY_NOTICES.md`: dependency licenses
 
 ## License

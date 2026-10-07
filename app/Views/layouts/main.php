@@ -10,6 +10,7 @@
  * @var bool        $indexable
  * @var string      $csrfToken
  * @var \EduCloud\Core\Auth\AuthUser|null $currentUser
+ * @var array<string, mixed>|null $jsonLd structured data (schema.org), public pages only
  */
 $title = $pageTitle ?? $appName;
 $jsStrings = [
@@ -42,6 +43,9 @@ $jsStrings = [
 <?php if ($metaDescription !== null): ?>
     <meta property="og:description" content="<?= e($metaDescription) ?>">
 <?php endif; ?>
+<?php if (isset($jsonLd) && is_array($jsonLd)): ?>
+    <script type="application/ld+json"><?= json_encode($jsonLd, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+<?php endif; ?>
     <link rel="stylesheet" href="<?= e(asset('vendor/bootstrap/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/all.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset('vendor/sweetalert2/sweetalert2.min.css')) ?>">
@@ -63,7 +67,8 @@ $jsStrings = [
         <div class="collapse navbar-collapse" id="ec-nav">
             <ul class="navbar-nav ms-auto align-items-md-center gap-md-2">
                 <li class="nav-item"><a class="nav-link" href="<?= e(url('/')) ?>"><?= e(t('nav.home')) ?></a></li>
-                <li class="nav-item"><a class="nav-link" href="<?= e(url('/courses')) ?>"><?= e(t('nav.catalog')) ?></a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= e(url('/labs')) ?>"><?= e(t('nav.catalog')) ?></a></li>
+                <li class="nav-item"><a class="nav-link" href="<?= e(url('/courses')) ?>"><?= e(t('nav.courses')) ?></a></li>
 <?php if ($currentUser !== null): ?>
                 <li class="nav-item"><a class="nav-link" href="<?= e(url('/app')) ?>"><?= e(t('nav.dashboard')) ?></a></li>
                 <li class="nav-item dropdown">

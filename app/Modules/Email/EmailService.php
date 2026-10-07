@@ -12,7 +12,7 @@ use EduCloud\Core\Db;
  */
 final class EmailService
 {
-    public const TEMPLATES = ['verify_email', 'password_reset', 'account_exists', 'password_changed', 'account_locked'];
+    public const TEMPLATES = ['verify_email', 'password_reset', 'account_exists', 'password_changed', 'account_locked', 'lab_expiry_warning'];
 
     public function __construct(private readonly Db $db)
     {

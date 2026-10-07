@@ -17,6 +17,7 @@ use EduCloud\Core\Ulid;
 use EduCloud\Core\UploadedFile;
 use EduCloud\Modules\Jobs\JobController;
 use EduCloud\Modules\Jobs\JobRepository;
+use EduCloud\Modules\Usage\UsageService;
 use EduCloud\Modules\Workspaces\WorkspaceService;
 use Throwable;
 
@@ -217,11 +218,8 @@ final class DatasetService
         if ($this->repo->countForWorkspace($ctx, $workspaceId) >= $maxDatasets) {
             throw new QuotaExceededException("Este workspace ya tiene el máximo de $maxDatasets datasets.");
         }
-        $maxBytes = (int) $this->app->config->get('quotas.storage_bytes_per_user');
-        if ($newBytes > 0 && $this->repo->storageUsedBy($ctx, $ctx->userId) + $newBytes > $maxBytes) {
-            $mb = (int) ($maxBytes / 1048576);
-            throw new QuotaExceededException("Superarías tu espacio de almacenamiento ($mb MB). Elimina datasets que no uses.");
-        }
+        // Raw files + lakehouse tables (M11a); ingests ($newBytes = 0) need the user to still be under the quota.
+        (new UsageService($this->app))->assertRoom($ctx, $newBytes);
         $maxJobs = (int) $this->app->config->get('quotas.active_jobs_per_user', 3);
         if ($this->jobs->countActiveForUser($ctx, $ctx->userId) >= $maxJobs) {
             throw new QuotaExceededException('Tienes demasiados trabajos en curso. Espera a que terminen.');

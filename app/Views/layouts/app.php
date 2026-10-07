@@ -36,13 +36,19 @@ foreach ([
     'sql.result_expired', 'sql.results_empty', 'sql.rows', 'sql.duration', 'sql.truncated', 'sql.status_queued',
     'sql.status_running', 'sql.history_empty', 'sql.state.queued', 'sql.state.running', 'sql.state.succeeded',
     'sql.state.failed', 'sql.state.timed_out', 'sql.state.cancelled', 'sql.saving_title', 'sql.saving_text', 'sql.saved',
-    'sql.save_failed',
+    'sql.save_failed', 'sql.results',
     'labs.state.in_progress', 'labs.state.validating', 'labs.state.completed', 'labs.state.abandoned', 'labs.state.expired',
     'labs.expires', 'labs.passed', 'labs.failed', 'labs.result_title', 'labs.result_text', 'labs.validation_error',
     'labs.answer_saved', 'labs.answer_empty', 'labs.hint_confirm_title', 'labs.hint_confirm_text', 'labs.hint_confirm',
     'labs.abandon', 'labs.abandon_title', 'labs.abandon_text', 'labs.validating', 'labs.load_error',
     'courses.joined_text', 'courses.go_course', 'courses.code_confirm_title', 'courses.code_confirm_text', 'courses.code_generate',
     'courses.unassign', 'courses.unassign_title', 'courses.unassign_text',
+    'admin.empty', 'admin.page', 'admin.prev', 'admin.next', 'admin.enable', 'admin.disable', 'admin.enable_title',
+    'admin.disable_title', 'admin.disable_text', 'admin.card.users', 'admin.card.users_detail', 'admin.card.queue',
+    'admin.card.queue_detail', 'admin.card.storage', 'admin.card.storage_detail', 'admin.card.labs', 'admin.card.labs_detail',
+    'admin.col.type', 'admin.col.status', 'admin.col.tenant', 'admin.col.user', 'admin.col.error', 'admin.col.queued',
+    'admin.col.duration', 'admin.col.when', 'admin.col.action', 'admin.col.outcome', 'admin.col.actor', 'admin.col.resource',
+    'admin.col.name', 'admin.col.email', 'admin.col.last_login', 'admin.col.storage', 'admin.col.actions',
 ] as $key) {
     $jsStrings[$key] = t($key);
 }
@@ -54,6 +60,9 @@ $nav = [
     ['key' => 'courses', 'href' => '/app/courses', 'icon' => 'fa-chalkboard-user', 'label' => t('nav.courses')],
     ['key' => 'labs', 'href' => '/app/labs', 'icon' => 'fa-flask', 'label' => t('nav.labs')],
 ];
+if ($currentUser->isPlatformAdmin) {
+    $nav[] = ['key' => 'admin', 'href' => '/app/admin', 'icon' => 'fa-gauge-high', 'label' => t('nav.admin')];
+}
 $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor'), 'student' => t('role.student'), 'read_only' => t('role.read_only')];
 ?><!doctype html>
 <html lang="<?= e($locale) ?>" data-bs-theme="light">

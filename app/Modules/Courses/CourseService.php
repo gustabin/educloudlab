@@ -80,7 +80,7 @@ final class CourseService
     }
 
     /**
-     * @param callable(array<string, mixed>): array{title?: string, description?: string|null, status?: string} $validInput
+     * @param callable(array<string, mixed>): array{title?: string, description?: string|null, status?: string, visibility?: string} $validInput
      * @return array<string, mixed>
      */
     public function update(Request $request, TenantContext $ctx, string $publicId, callable $validInput): array
@@ -91,6 +91,7 @@ final class CourseService
             'title' => $changes['title'] ?? (string) $row['title'],
             'description' => array_key_exists('description', $changes) ? $changes['description'] : $row['description'],
             'status' => $changes['status'] ?? (string) $row['status'],
+            'visibility' => $changes['visibility'] ?? (string) $row['visibility'],
         ];
         $allowed = ['draft' => ['draft', 'published'], 'published' => ['published', 'archived'], 'archived' => ['archived', 'published']];
         if (!in_array($values['status'], $allowed[(string) $row['status']] ?? [], true)) {
@@ -332,6 +333,8 @@ final class CourseService
             'title' => (string) $row['title'],
             'description' => $row['description'] === null ? null : (string) $row['description'],
             'status' => (string) $row['status'],
+            'visibility' => (string) $row['visibility'],
+            'public_url' => $row['visibility'] === 'public' && $row['status'] === 'published' ? url('/courses/' . $row['slug']) : null,
             'owner' => ['id' => (string) $row['owner_public_id'], 'display_name' => (string) $row['owner_name']],
             'my_role' => $staff ? 'staff' : 'student',
             'can_manage' => $staff && Authorize::allows($this->app->config, $ctx, 'assign'),

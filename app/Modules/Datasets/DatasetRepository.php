@@ -100,18 +100,6 @@ final class DatasetRepository
         );
     }
 
-    /** Bytes of raw files of the user's non-deleted datasets in the tenant (storage quota). */
-    public function storageUsedBy(TenantContext $ctx, int $userId): int
-    {
-        return (int) $this->db->scalar(
-            "SELECT COALESCE(SUM(v.bytes), 0) FROM dataset_versions v
-               JOIN datasets d ON d.tenant_id = v.tenant_id AND d.id = v.dataset_id
-               JOIN resources r ON r.tenant_id = d.tenant_id AND r.id = d.resource_id
-              WHERE v.tenant_id = ? AND v.created_by_user_id = ? AND r.status <> 'deleted'",
-            [$ctx->tenantId, $userId]
-        );
-    }
-
     /**
      * @param array<string, mixed> $extraConfig e.g. ['sql' => ...] for transforms
      * @return array{dataset_id: int, resource_id: int, public_id: string}

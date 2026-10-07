@@ -73,6 +73,13 @@ if ($env !== []) {
         if (strtolower((string) ($env['DB_USER'] ?? '')) === 'root') {
             $add('FAIL', 'Database user', 'the application must not run as root');
         }
+        $labs = @$db->query("SELECT COUNT(*) FROM labs WHERE status = 'published' AND is_current = 1");
+        $count = $labs instanceof mysqli_result ? (int) $labs->fetch_row()[0] : -1;
+        if ($count > 0) {
+            $add('OK', 'Lab catalog', "$count published labs");
+        } else {
+            $add('WARN', 'Lab catalog', 'no labs imported - run php scripts/labs-import.php');
+        }
         $db->close();
     }
 } else {

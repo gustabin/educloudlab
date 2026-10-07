@@ -1,0 +1,10 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Steps are applied through the public API.",
+  "steps": [
+    { "do": "create_resource", "type": "storage", "name": "datos-crudos", "tags": { "proyecto": "retail" } },
+    { "do": "create_resource", "type": "storage", "name": "archivo-historico", "config": { "access_tier": "archive", "redundancy": "zrs" } },
+    { "do": "create_resource", "type": "lakehouse", "name": "lago-retail", "tags": { "entorno": "dev" } },
+    { "do": "create_resource", "type": "storage", "name": "temporal" },
+    { "do": "delete_resource", "name": "temporal" }
+  ]
+}

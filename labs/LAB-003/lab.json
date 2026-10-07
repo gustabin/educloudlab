@@ -1,0 +1,110 @@
+{
+  "schema_version": 1,
+  "code": "LAB-003",
+  "version": "1.0.0",
+  "slug": "fundamentos-de-sql",
+  "status": "published",
+  "title": "Fundamentos de SQL analítico",
+  "summary": "Ocho ejercicios progresivos sobre datos de ventas: filtros, ordenación, JOIN, GROUP BY/HAVING, CTE, subconsultas, funciones de ventana y fechas.",
+  "difficulty": "beginner",
+  "estimated_minutes": 60,
+  "prerequisites": [],
+  "objectives": [
+    "Filtrar y ordenar filas con WHERE, ORDER BY y LIMIT",
+    "Combinar tablas con JOIN",
+    "Agregar datos con GROUP BY y filtrar grupos con HAVING",
+    "Estructurar consultas con CTE y subconsultas",
+    "Usar funciones de ventana y funciones de fecha"
+  ],
+  "setup": [
+    { "action": "create_resource", "type": "lakehouse", "name": "lago" },
+    { "action": "load_sample", "sample": "retail/products.csv", "name": "products", "ingest_to": "bronze.products" },
+    { "action": "load_sample", "sample": "retail/stores.csv", "name": "stores", "ingest_to": "bronze.stores" },
+    { "action": "load_sample", "sample": "retail/orders.csv", "name": "orders", "ingest_to": "bronze.orders" },
+    { "action": "load_sample", "sample": "retail/order_items.csv", "name": "order_items", "ingest_to": "bronze.order_items" }
+  ],
+  "tasks": [
+    {
+      "key": "t1", "title": "SELECT y WHERE", "points": 10, "answer": true,
+      "hints": [ { "text": "Necesitas dos condiciones unidas con AND: una sobre category y otra sobre price.", "penalty": 2 } ],
+      "checks": [
+        { "type": "query_result_matches",
+          "expected_sql": "SELECT product_id, product_name, price FROM bronze.products WHERE category = 'Libros' AND price < 20",
+          "feedback": "El resultado no coincide: revisa las columnas pedidas y las dos condiciones del filtro." }
+      ]
+    },
+    {
+      "key": "t2", "title": "ORDER BY y LIMIT", "points": 10, "answer": true,
+      "hints": [ { "text": "ORDER BY price DESC ordena de mayor a menor; añade product_id como desempate y LIMIT 5.", "penalty": 2 } ],
+      "checks": [
+        { "type": "query_result_matches", "ordered": true,
+          "expected_sql": "SELECT product_id, product_name, price FROM bronze.products ORDER BY price DESC, product_id LIMIT 5",
+          "feedback": "El resultado no coincide: deben ser los 5 productos más caros, ordenados de mayor a menor precio." }
+      ]
+    },
+    {
+      "key": "t3", "title": "JOIN", "points": 15, "answer": true,
+      "hints": [
+        { "text": "Une bronze.orders con bronze.stores usando store_id.", "penalty": 3 },
+        { "text": "Después agrupa por s.region y cuenta las filas con count(*).", "penalty": 3 }
+      ],
+      "checks": [
+        { "type": "query_result_matches",
+          "expected_sql": "SELECT s.region, count(*) AS pedidos FROM bronze.orders o JOIN bronze.stores s ON s.store_id = o.store_id GROUP BY s.region",
+          "feedback": "El resultado no coincide: debe haber una fila por región con su número total de pedidos." }
+      ]
+    },
+    {
+      "key": "t4", "title": "GROUP BY y HAVING", "points": 15, "answer": true,
+      "hints": [ { "text": "WHERE filtra filas antes de agrupar (status); HAVING filtra los grupos después (count(*) > 490).", "penalty": 3 } ],
+      "checks": [
+        { "type": "query_result_matches",
+          "expected_sql": "SELECT store_id, count(*) AS pedidos FROM bronze.orders WHERE status = 'completed' GROUP BY store_id HAVING count(*) > 490",
+          "feedback": "El resultado no coincide: cuenta solo los pedidos completados y conserva las tiendas con más de 490." }
+      ]
+    },
+    {
+      "key": "t5", "title": "CTE (WITH)", "points": 15, "answer": true,
+      "hints": [
+        { "text": "En la CTE calcula el total de cada pedido: sum(quantity * unit_price) agrupando por order_id.", "penalty": 3 },
+        { "text": "En la consulta final, avg() sobre esos totales y round(…, 2).", "penalty": 3 }
+      ],
+      "checks": [
+        { "type": "query_result_matches", "decimals": 2,
+          "expected_sql": "WITH totals AS (SELECT o.order_id, sum(i.quantity * i.unit_price) AS total FROM bronze.orders o JOIN bronze.order_items i ON i.order_id = o.order_id WHERE o.status = 'completed' GROUP BY o.order_id) SELECT round(avg(total), 2) AS ticket_medio FROM totals",
+          "feedback": "El ticket medio no coincide: usa solo pedidos completados y redondea a 2 decimales." }
+      ]
+    },
+    {
+      "key": "t6", "title": "Subconsultas", "points": 10, "answer": true,
+      "hints": [ { "text": "WHERE product_id NOT IN (SELECT product_id FROM bronze.order_items)", "penalty": 4 } ],
+      "checks": [
+        { "type": "query_result_matches",
+          "expected_sql": "SELECT product_id, product_name FROM bronze.products WHERE product_id NOT IN (SELECT product_id FROM bronze.order_items)",
+          "feedback": "El resultado no coincide: deben aparecer solo los productos sin ninguna línea de pedido." }
+      ]
+    },
+    {
+      "key": "t7", "title": "Funciones de ventana", "points": 15, "answer": true,
+      "hints": [
+        { "text": "Calcula primero los ingresos por producto (JOIN con order_items) y luego row_number() OVER (PARTITION BY category ORDER BY ingresos DESC, product_id).", "penalty": 3 },
+        { "text": "Filtra la fila número 1 de cada categoría en una consulta exterior (o con QUALIFY).", "penalty": 3 }
+      ],
+      "checks": [
+        { "type": "query_result_matches", "decimals": 2,
+          "expected_sql": "WITH r AS (SELECT p.category, p.product_id, sum(i.quantity * i.unit_price) AS ingresos, row_number() OVER (PARTITION BY p.category ORDER BY sum(i.quantity * i.unit_price) DESC, p.product_id) AS rn FROM bronze.products p JOIN bronze.order_items i ON i.product_id = p.product_id GROUP BY p.category, p.product_id) SELECT category, product_id, round(ingresos, 2) AS ingresos FROM r WHERE rn = 1",
+          "feedback": "El resultado no coincide: una fila por categoría con su producto de más ingresos (category, product_id, ingresos)." }
+      ]
+    },
+    {
+      "key": "t8", "title": "Fechas", "points": 10, "answer": true,
+      "hints": [ { "text": "month(order_date) devuelve el número de mes. Agrupa por él y ordena con ORDER BY.", "penalty": 2 } ],
+      "checks": [
+        { "type": "query_result_matches", "ordered": true,
+          "expected_sql": "SELECT month(order_date) AS mes, count(*) AS pedidos FROM bronze.orders WHERE status = 'completed' GROUP BY 1 ORDER BY 1",
+          "feedback": "El resultado no coincide: una fila por mes (1-12) con los pedidos completados, ordenada por mes." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 14 }
+}

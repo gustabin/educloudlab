@@ -82,6 +82,12 @@ final class LoginSessionTest extends TestCase
 
     public function testIpRateLimitStopsBruteForce(): void
     {
+        // Fixed windows are aligned to the clock: don't let the 31 requests straddle a window boundary (flaky test).
+        $window = (int) $this->app()->config->get('security.rate_limits.auth_ip.window', 900);
+        $left = $window - (time() % $window);
+        if ($left < 20) {
+            sleep($left + 1);
+        }
         $csrf = $this->csrfFromPage('/login');
         $last = null;
         for ($i = 0; $i < 31; $i++) {

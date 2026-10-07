@@ -18,7 +18,7 @@ final class WorkspaceRepository
     /** Allowlisted sort keys → SQL columns (never interpolate user input). */
     public const SORTS = ['name' => 'w.name', 'created_at' => 'w.created_at', 'updated_at' => 'w.updated_at'];
 
-    private const SELECT = "SELECT w.id, w.public_id, w.tenant_id, w.owner_user_id, w.name, w.description, w.purpose, w.status,
+    private const SELECT = "SELECT w.id, w.public_id, w.tenant_id, w.owner_user_id, w.name, w.description, w.purpose, w.status, w.expires_at,
                w.created_at, w.updated_at, u.public_id AS owner_public_id, u.display_name AS owner_name,
                (SELECT COUNT(*) FROM resources r
                  WHERE r.tenant_id = w.tenant_id AND r.workspace_id = w.id AND r.status <> 'deleted') AS resource_count
@@ -56,10 +56,11 @@ final class WorkspaceRepository
         return $this->db->selectOne($sql, $params);
     }
 
+    /** General-purpose workspaces only: lab workspaces have their own cap (active lab attempts, M6). */
     public function countActiveOwned(TenantContext $ctx, int $ownerUserId): int
     {
         return (int) $this->db->scalar(
-            "SELECT COUNT(*) FROM workspaces WHERE tenant_id = ? AND owner_user_id = ? AND status <> 'deleted'",
+            "SELECT COUNT(*) FROM workspaces WHERE tenant_id = ? AND owner_user_id = ? AND status <> 'deleted' AND purpose = 'general'",
             [$ctx->tenantId, $ownerUserId]
         );
     }
@@ -73,15 +74,29 @@ final class WorkspaceRepository
         ) > 0;
     }
 
-    /** @return array{id: int, public_id: string} */
-    public function create(TenantContext $ctx, string $name, ?string $description): array
+    /**
+     * @param string $purpose general | lab (lab workspaces are created by the Lab Engine and expire after inactivity)
+     * @return array{id: int, public_id: string}
+     */
+    public function create(TenantContext $ctx, string $name, ?string $description, string $purpose = 'general', ?int $ttlDays = null): array
     {
         $publicId = Ulid::generate();
         $id = $this->db->insert(
-            'INSERT INTO workspaces (public_id, tenant_id, owner_user_id, name, description) VALUES (?, ?, ?, ?, ?)',
-            [$publicId, $ctx->tenantId, $ctx->userId, $name, $description]
+            'INSERT INTO workspaces (public_id, tenant_id, owner_user_id, name, description, purpose, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, IF(? IS NULL, NULL, UTC_TIMESTAMP(3) + INTERVAL ? DAY))',
+            [$publicId, $ctx->tenantId, $ctx->userId, $name, $description, $purpose, $ttlDays, $ttlDays ?? 0]
         );
         return ['id' => $id, 'public_id' => $publicId];
+    }
+
+    /** Pushes the expiry of an expiring (lab) workspace to now + $ttlDays (activity keeps it alive). */
+    public function extendExpiry(TenantContext $ctx, int $id, int $ttlDays): void
+    {
+        $this->db->execute(
+            "UPDATE workspaces SET expires_at = UTC_TIMESTAMP(3) + INTERVAL ? DAY, last_activity_at = UTC_TIMESTAMP(3)
+              WHERE tenant_id = ? AND id = ? AND status = 'active' AND expires_at IS NOT NULL",
+            [$ttlDays, $ctx->tenantId, $id]
+        );
     }
 
     public function update(TenantContext $ctx, int $id, string $name, ?string $description): void
@@ -100,16 +115,19 @@ final class WorkspaceRepository
      */
     public function markDeleted(TenantContext $ctx, int $id): int
     {
-        $this->db->select('SELECT id FROM workspaces WHERE tenant_id = ? AND id = ? FOR UPDATE', [$ctx->tenantId, $id]);
-        $released = $this->db->execute(
+        return self::softDelete($this->db, $ctx->tenantId, $id);
+    }
+
+    /** Shared by markDeleted() and the scheduler (expired lab workspaces), which has no TenantContext. */
+    public static function softDelete(Db $db, int $tenantId, int $id): int
+    {
+        $db->select('SELECT id FROM workspaces WHERE tenant_id = ? AND id = ? FOR UPDATE', [$tenantId, $id]);
+        $released = $db->execute(
             "UPDATE resources SET status = 'deleting'
               WHERE tenant_id = ? AND workspace_id = ? AND status IN ('provisioning', 'active', 'failed')",
-            [$ctx->tenantId, $id]
+            [$tenantId, $id]
         );
-        $this->db->execute(
-            "UPDATE workspaces SET status = 'deleted' WHERE tenant_id = ? AND id = ?",
-            [$ctx->tenantId, $id]
-        );
+        $db->execute("UPDATE workspaces SET status = 'deleted' WHERE tenant_id = ? AND id = ?", [$tenantId, $id]);
         return $released;
     }
 

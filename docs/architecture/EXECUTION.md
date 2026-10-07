@@ -22,6 +22,7 @@ flowchart LR
 | `cleanup` | `DELETE /datasets/{id}` | raw: none (PHP deletes files); table: `drop_table` | files and previews removed; resource `deleting → deleted` |
 | `sql_query` (priority 1) | `POST /workspaces/{id}/queries` | `query`: student SELECT, read-only, no file access | result file `meta/results/{query}.json` (24 h); `query_history` status, duration and rows |
 | `transform` (priority 3) | `POST /workspaces/{id}/transforms` | `transform`: `CREATE OR REPLACE TABLE silver\|gold.<t> AS <SELECT>` | silver/gold dataset `ready`, with the defining SQL kept in its config |
+| `validate` (M6) | `POST /lab-attempts/{id}/submit` | metadata checks in PHP, then `validate`: data checks and saved SQL answers, read-only and sandboxed (none when the lab has only metadata checks) | `lab_task_results`, score, best score and status of the attempt (`docs/architecture/LAB_ENGINE.md`) |
 
 Payloads contain **internal ids only**. Handlers compute storage paths from DB values, never from user input.
 
@@ -32,7 +33,7 @@ Payloads contain **internal ids only**. Handlers compute storage paths from DB v
 - **Process launch:** `proc_open` with an argument array and `bypass_shell` (no shell). Python runs in isolated mode `-I`.
 - **Environment:** only `PATH`, `SYSTEMROOT`, `TEMP`/`TMP` and `WINDIR` are passed.
 - **I/O:** request and response files live in `STORAGE_PATH/jobs` and are deleted after every job. Windows pipes cannot be `select()`ed, so files are used instead.
-- **Timeouts:** wall-clock per type (`config/execution.php`: profile 60 s, ingest 120 s, cleanup 60 s). The whole process tree is killed (`taskkill /T /F`), and the job ends `timed_out`.
+- **Timeouts:** wall-clock per type (`config/execution.php`: profile 60 s, ingest 120 s, cleanup 60 s, sql_query 20 s, transform 90 s, validate 150 s). The whole process tree is killed (`taskkill /T /F`), and the job ends `timed_out`.
 - **Response cap:** 2 MB. A heartbeat is written every 5 s.
 - **Stale jobs:** a running job with no heartbeat for `timeout + 60 s` is failed by the scheduler (`INTERRUPTED`).
 
@@ -73,6 +74,9 @@ Payloads contain **internal ids only**. Handlers compute storage paths from DB v
     - Path-bearing settings (`temp_directory`, `secret_directory`, `home_directory`, `extension_directory`) are set to neutral values before the configuration is locked.
     - Masking is now explicitly best-effort.
   - **Medium:** transforms could fill the disk. Ingest and transforms now enforce `lakehouse_max_mb = 200` per workspace (CHECKPOINT, file size check, DROP on excess → `LAKEHOUSE_FULL`) and `max_columns` on the result. PHP also refuses to enqueue when the lakehouse is already full.
+- **Lab grading** (M6, `ops/lab_ops.py`, op `validate`):
+  - It reuses the student-SQL sandbox: `validate_select`, read-only connection, `allowed_directories = []`, locked configuration, a 10 s interrupt per statement, and `fetch_bounded` (values cut inside DuckDB, at most 1,000 rows compared).
+  - A broken or malicious check fails on its own without aborting the others. 20 pytest cases (`worker/tests/test_lab_validate.py`) cover verdicts, sandboxed answers and malformed checks.
 - **Spike findings (DuckDB 1.5.6):**
   - `duckdb_databases()`, `duckdb_settings()` and `current_setting()` reveal server paths even in sandbox mode. They are denylisted.
   - `query('…')` would bypass the statement check. It is denylisted.

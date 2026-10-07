@@ -45,6 +45,7 @@ Credentials live only in `.env`. The MariaDB `root` account is never used by the
 | `lab_attempts` | A student's attempt: workspace, status, score, best score, counters | tenant | M6 |
 | `lab_task_results` | Per-task result for each submission (passed, points, feedback, evidence) | tenant | M6 |
 | `lab_hint_usage` | Hints revealed. The PK guarantees each penalty is applied once. | tenant | M6 |
+| `lab_task_answers` | Saved SQL answer per exercise task, re-executed in the sandbox at validation (0011) | tenant | M6 |
 | `email_outbox` | Queued emails. The payload is cleared after sending. | system | M2 |
 | `audit_logs` | Append-only audit trail. No FKs, so it survives deletion of its subjects. IPs stored as HMAC. | tenant | M3 |
 | `usage_counters` | Quota metering per tenant/user/metric/period | tenant | M11a |
@@ -89,6 +90,7 @@ erDiagram
   workspaces ||--o| lab_attempts : "lab env"
   lab_attempts ||--o{ lab_task_results : records
   lab_attempts ||--o{ lab_hint_usage : records
+  lab_attempts ||--o{ lab_task_answers : stores
   users ||--o{ email_outbox : receives
   tenants ||--o{ usage_counters : meters
 ```

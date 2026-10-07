@@ -130,6 +130,17 @@ Two background processes do the heavy work. Without them, uploads stay "Procesan
 
 Details: `docs/architecture/EXECUTION.md`. The SQL Lab also needs the dispatcher, because queries run as interactive high-priority jobs.
 
+### Labs
+
+Import the lab catalog after every `migrate up`, and whenever `labs/` changes:
+
+```
+php scripts/labs-import.php --dry-run   # validate lab.json + instructions only
+php scripts/labs-import.php             # import/publish (a changed lab needs a new "version")
+```
+
+Lab setup and grading run as jobs, so the dispatcher must be running. The scheduler expires inactive lab workspaces. The synthetic retail sample data in `public/assets/datasets/retail/` is committed. Regenerate it only when lab content changes: `php scripts/generate-retail-data.php`.
+
 ## 5b. Email in development
 
 Auth emails (verification, password reset) are queued in `email_outbox`. Deliver them with:

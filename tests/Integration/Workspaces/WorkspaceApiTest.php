@@ -36,7 +36,7 @@ final class WorkspaceApiTest extends TestCase
         self::assertSame($this->userId('ana@test.example'), (int) $row['owner_user_id']);
 
         self::assertSame(
-            ['id', 'name', 'description', 'purpose', 'status', 'owner', 'resource_count', 'created_at', 'updated_at'],
+            ['id', 'name', 'description', 'purpose', 'status', 'expires_at', 'owner', 'resource_count', 'created_at', 'updated_at'],
             array_keys($data),
             'The response contains a consistent JSON representation'
         );

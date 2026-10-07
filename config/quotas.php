@@ -14,5 +14,6 @@ return [
     'upload_max_bytes' => 20 * 1024 * 1024,   // one CSV upload
     'storage_bytes_per_user' => 200 * 1024 * 1024, // raw files of non-deleted datasets, per user per tenant
     'datasets_per_workspace' => 50,
-    'active_jobs_per_user' => 3,               // queued + running
+    'active_jobs_per_user' => 3,               // queued + running (lab setup jobs count too; they finish in seconds)
+    'active_lab_attempts_per_user' => 3,       // in-progress lab attempts (each has its own lab workspace)
 ];

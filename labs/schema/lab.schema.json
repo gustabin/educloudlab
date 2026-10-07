@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://educloud.local/schemas/lab.schema.json",
+  "title": "EduCloud Lab definition (lab.json)",
+  "description": "Declarative lab: setup actions and a closed set of check types. No code is ever embedded (ADR-008).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "code", "version", "slug", "title", "summary", "difficulty", "estimated_minutes", "objectives", "tasks", "cleanup"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "code": { "type": "string", "pattern": "^LAB-[0-9]{3}$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$", "maxLength": 100 },
+    "status": { "enum": ["draft", "published", "retired"] },
+    "title": { "type": "string", "minLength": 3, "maxLength": 150 },
+    "summary": { "type": "string", "minLength": 10, "maxLength": 500 },
+    "difficulty": { "enum": ["beginner", "intermediate", "advanced"] },
+    "estimated_minutes": { "type": "integer", "minimum": 5, "maximum": 600 },
+    "prerequisites": { "type": "array", "items": { "type": "string", "pattern": "^LAB-[0-9]{3}$" }, "uniqueItems": true },
+    "objectives": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "type": "string", "minLength": 3, "maxLength": 200 } },
+    "downloads": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sample"],
+        "properties": { "sample": { "$ref": "#/$defs/sample" } }
+      }
+    },
+    "setup": { "type": "array", "maxItems": 20, "items": { "$ref": "#/$defs/setupAction" } },
+    "tasks": { "type": "array", "minItems": 1, "maxItems": 20, "items": { "$ref": "#/$defs/task" } },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workspace_ttl_days"],
+      "properties": { "workspace_ttl_days": { "type": "integer", "minimum": 1, "maximum": 90 } }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,62}$" },
+    "resourceName": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
+    "table": { "type": "string", "pattern": "^(bronze|silver|gold)\\.[a-z][a-z0-9_]{0,62}$" },
+    "sample": { "type": "string", "pattern": "^retail/[a-z_]+\\.csv$" },
+    "sql": { "type": "string", "minLength": 6, "maxLength": 5000 },
+    "comparison": { "enum": ["eq", "gte", "lte", "between"] },
+    "feedback": { "type": "string", "minLength": 3, "maxLength": 300 },
+    "setupAction": {
+      "type": "object",
+      "required": ["action"],
+      "properties": { "action": { "enum": ["create_resource", "load_sample"] } },
+      "allOf": [
+        {
+          "if": { "properties": { "action": { "const": "create_resource" } } },
+          "then": {
+            "additionalProperties": false,
+            "required": ["action", "type", "name"],
+            "properties": {
+              "action": true,
+              "type": { "enum": ["storage", "lakehouse"] },
+              "name": { "$ref": "#/$defs/resourceName" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "action": { "const": "load_sample" } } },
+          "then": {
+            "additionalProperties": false,
+            "required": ["action", "sample", "name"],
+            "properties": {
+              "action": true,
+              "sample": { "$ref": "#/$defs/sample" },
+              "name": { "$ref": "#/$defs/identifier" },
+              "ingest_to": { "type": "string", "pattern": "^bronze\\.[a-z][a-z0-9_]{0,62}$" }
+            }
+          }
+        }
+      ]
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "title", "points", "checks"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,39}$" },
+        "title": { "type": "string", "minLength": 3, "maxLength": 150 },
+        "points": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "answer": { "type": "boolean" },
+        "hints": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text"],
+            "properties": {
+              "text": { "type": "string", "minLength": 3, "maxLength": 500 },
+              "penalty": { "type": "integer", "minimum": 0, "maximum": 50 }
+            }
+          }
+        },
+        "checks": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "$ref": "#/$defs/check" } }
+      }
+    },
+    "check": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": ["resource_exists", "resource_deleted", "dataset_exists", "table_has_columns", "column_type",
+                   "row_count", "null_count", "unique", "value_range", "query_result_matches"]
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "type": { "const": "resource_exists" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "resource"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" },
+            "resource": { "enum": ["storage", "lakehouse"] },
+            "name": { "$ref": "#/$defs/resourceName" },
+            "config": { "type": "object", "maxProperties": 5, "additionalProperties": { "type": ["string", "boolean"] } },
+            "tags": { "type": "object", "maxProperties": 5, "additionalProperties": { "type": "string", "maxLength": 64 } }
+          } } },
+        { "if": { "properties": { "type": { "const": "resource_deleted" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "resource", "name"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" },
+            "resource": { "enum": ["storage", "lakehouse"] }, "name": { "$ref": "#/$defs/resourceName" }
+          } } },
+        { "if": { "properties": { "type": { "const": "dataset_exists" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "layer", "name"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" },
+            "layer": { "enum": ["raw", "bronze", "silver", "gold"] }, "name": { "$ref": "#/$defs/identifier" }
+          } } },
+        { "if": { "properties": { "type": { "const": "table_has_columns" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "table", "columns"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "table": { "$ref": "#/$defs/table" },
+            "columns": { "type": "array", "minItems": 1, "maxItems": 50, "items": { "$ref": "#/$defs/identifier" } }
+          } } },
+        { "if": { "properties": { "type": { "const": "column_type" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "table", "column", "types"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "table": { "$ref": "#/$defs/table" },
+            "column": { "$ref": "#/$defs/identifier" },
+            "types": { "type": "array", "minItems": 1, "maxItems": 10, "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_ ]{1,30}$" } }
+          } } },
+        { "if": { "properties": { "type": { "const": "row_count" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "table", "op", "value"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "table": { "$ref": "#/$defs/table" },
+            "op": { "$ref": "#/$defs/comparison" },
+            "value": { "oneOf": [ { "type": "integer", "minimum": 0 },
+                                  { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0 } } ] }
+          } } },
+        { "if": { "properties": { "type": { "const": "null_count" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "table", "column", "op", "value"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "table": { "$ref": "#/$defs/table" },
+            "column": { "$ref": "#/$defs/identifier" }, "op": { "$ref": "#/$defs/comparison" },
+            "value": { "oneOf": [ { "type": "integer", "minimum": 0 },
+                                  { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "integer", "minimum": 0 } } ] }
+          } } },
+        { "if": { "properties": { "type": { "const": "unique" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "table", "columns"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "table": { "$ref": "#/$defs/table" },
+            "columns": { "type": "array", "minItems": 1, "maxItems": 5, "items": { "$ref": "#/$defs/identifier" } }
+          } } },
+        { "if": { "properties": { "type": { "const": "value_range" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "table", "column"], "minProperties": 4,
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" }, "table": { "$ref": "#/$defs/table" },
+            "column": { "$ref": "#/$defs/identifier" }, "min": { "type": "number" }, "max": { "type": "number" }
+          } } },
+        { "if": { "properties": { "type": { "const": "query_result_matches" } } }, "then": {
+          "additionalProperties": false, "required": ["type", "expected_sql"],
+          "properties": {
+            "type": true, "feedback": { "$ref": "#/$defs/feedback" },
+            "expected_sql": { "$ref": "#/$defs/sql" }, "actual_sql": { "$ref": "#/$defs/sql" },
+            "ordered": { "type": "boolean" }, "decimals": { "type": "integer", "minimum": 0, "maximum": 6 }
+          } } }
+      ]
+    }
+  }
+}

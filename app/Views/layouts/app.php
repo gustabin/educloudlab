@@ -37,6 +37,10 @@ foreach ([
     'sql.status_running', 'sql.history_empty', 'sql.state.queued', 'sql.state.running', 'sql.state.succeeded',
     'sql.state.failed', 'sql.state.timed_out', 'sql.state.cancelled', 'sql.saving_title', 'sql.saving_text', 'sql.saved',
     'sql.save_failed',
+    'labs.state.in_progress', 'labs.state.validating', 'labs.state.completed', 'labs.state.abandoned', 'labs.state.expired',
+    'labs.expires', 'labs.passed', 'labs.failed', 'labs.result_title', 'labs.result_text', 'labs.validation_error',
+    'labs.answer_saved', 'labs.answer_empty', 'labs.hint_confirm_title', 'labs.hint_confirm_text', 'labs.hint_confirm',
+    'labs.abandon', 'labs.abandon_title', 'labs.abandon_text', 'labs.validating', 'labs.load_error',
 ] as $key) {
     $jsStrings[$key] = t($key);
 }
@@ -45,7 +49,7 @@ $nav = [
     ['key' => 'workspaces', 'href' => '/app/workspaces', 'icon' => 'fa-layer-group', 'label' => t('ws.title')],
     ['key' => 'data', 'href' => null, 'icon' => 'fa-database', 'label' => t('nav.data')],
     ['key' => 'sql', 'href' => '/app/sql', 'icon' => 'fa-terminal', 'label' => t('nav.sql')],
-    ['key' => 'labs', 'href' => null, 'icon' => 'fa-flask', 'label' => t('nav.labs')],
+    ['key' => 'labs', 'href' => '/app/labs', 'icon' => 'fa-flask', 'label' => t('nav.labs')],
 ];
 $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor'), 'student' => t('role.student'), 'read_only' => t('role.read_only')];
 ?><!doctype html>

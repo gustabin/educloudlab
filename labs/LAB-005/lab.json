@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "code": "LAB-005",
+  "version": "1.0.0",
+  "slug": "bronze-silver-gold",
+  "status": "published",
+  "title": "Arquitectura medallion: bronze, silver y gold",
+  "summary": "Limpia y deduplica datos de bronze en silver y construye tablas gold con indicadores de negocio listas para analizar.",
+  "difficulty": "intermediate",
+  "estimated_minutes": 75,
+  "prerequisites": ["LAB-003", "LAB-004"],
+  "objectives": [
+    "Limpiar y deduplicar datos (capa silver)",
+    "Unir tablas y calcular columnas derivadas",
+    "Construir agregados de negocio (capa gold)",
+    "Comprobar la calidad del resultado"
+  ],
+  "setup": [
+    { "action": "create_resource", "type": "lakehouse", "name": "lago" },
+    { "action": "load_sample", "sample": "retail/customers.csv", "name": "customers", "ingest_to": "bronze.customers" },
+    { "action": "load_sample", "sample": "retail/stores.csv", "name": "stores", "ingest_to": "bronze.stores" },
+    { "action": "load_sample", "sample": "retail/orders.csv", "name": "orders", "ingest_to": "bronze.orders" },
+    { "action": "load_sample", "sample": "retail/order_items.csv", "name": "order_items", "ingest_to": "bronze.order_items" }
+  ],
+  "tasks": [
+    {
+      "key": "t1", "title": "silver.customers: limpieza y deduplicación", "points": 30,
+      "hints": [
+        { "text": "lower(trim(email)) normaliza el email; WHERE email IS NOT NULL descarta los clientes sin email.", "penalty": 4 },
+        { "text": "Para quedarte con una fila por cliente: SELECT DISTINCT sobre las columnas ya normalizadas, o row_number() OVER (PARTITION BY customer_id …) = 1.", "penalty": 6 }
+      ],
+      "checks": [
+        { "type": "dataset_exists", "layer": "silver", "name": "customers",
+          "feedback": "Crea la tabla silver.customers con «Guardar como tabla» en el SQL Lab." },
+        { "type": "table_has_columns", "table": "silver.customers", "columns": ["customer_id", "email"] },
+        { "type": "null_count", "table": "silver.customers", "column": "email", "op": "eq", "value": 0,
+          "feedback": "silver.customers no debe contener clientes sin email." },
+        { "type": "unique", "table": "silver.customers", "columns": ["customer_id"],
+          "feedback": "silver.customers tiene clientes repetidos: debe haber una sola fila por customer_id." },
+        { "type": "query_result_matches",
+          "actual_sql": "SELECT count(*) FROM silver.customers WHERE email <> lower(trim(email))",
+          "expected_sql": "SELECT 0",
+          "feedback": "Hay emails sin normalizar: deben estar en minúsculas y sin espacios al principio o al final." },
+        { "type": "query_result_matches",
+          "actual_sql": "SELECT count(*) FROM silver.customers",
+          "expected_sql": "SELECT count(DISTINCT customer_id) FROM bronze.customers WHERE email IS NOT NULL",
+          "feedback": "El número de clientes no es el esperado: ¿descartaste alguno con email o te quedaste con duplicados?" }
+      ]
+    },
+    {
+      "key": "t2", "title": "silver.order_lines: líneas de pedidos válidos", "points": 25,
+      "hints": [
+        { "text": "JOIN de bronze.order_items con bronze.orders por order_id, filtrando status = 'completed'.", "penalty": 4 },
+        { "text": "line_total = quantity * unit_price.", "penalty": 3 }
+      ],
+      "checks": [
+        { "type": "dataset_exists", "layer": "silver", "name": "order_lines" },
+        { "type": "table_has_columns", "table": "silver.order_lines",
+          "columns": ["order_id", "order_date", "store_id", "product_id", "quantity", "unit_price", "line_total"] },
+        { "type": "value_range", "table": "silver.order_lines", "column": "line_total", "min": 0,
+          "feedback": "line_total no puede ser negativo." },
+        { "type": "query_result_matches", "decimals": 2,
+          "actual_sql": "SELECT count(*), round(sum(line_total), 2) FROM silver.order_lines",
+          "expected_sql": "SELECT count(*), round(sum(i.quantity * i.unit_price), 2) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id WHERE o.status = 'completed'",
+          "feedback": "El número de líneas o el importe total no coinciden: incluye solo las líneas de pedidos completados." }
+      ]
+    },
+    {
+      "key": "t3", "title": "gold.revenue_by_region", "points": 25,
+      "hints": [
+        { "text": "Parte de silver.order_lines y une con bronze.stores para obtener la región.", "penalty": 4 },
+        { "text": "orders es el número de pedidos distintos: count(DISTINCT order_id).", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "dataset_exists", "layer": "gold", "name": "revenue_by_region" },
+        { "type": "table_has_columns", "table": "gold.revenue_by_region", "columns": ["region", "revenue", "orders"] },
+        { "type": "query_result_matches", "decimals": 2,
+          "actual_sql": "SELECT region, round(revenue, 2), orders FROM gold.revenue_by_region",
+          "expected_sql": "SELECT s.region, round(sum(i.quantity * i.unit_price), 2), count(DISTINCT o.order_id) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id JOIN bronze.stores s ON s.store_id = o.store_id WHERE o.status = 'completed' GROUP BY s.region",
+          "feedback": "Los ingresos o pedidos por región no coinciden con los esperados." }
+      ]
+    },
+    {
+      "key": "t4", "title": "gold.monthly_revenue", "points": 20,
+      "hints": [ { "text": "date_trunc('month', order_date) devuelve el primer día del mes como DATE.", "penalty": 4 } ],
+      "checks": [
+        { "type": "dataset_exists", "layer": "gold", "name": "monthly_revenue" },
+        { "type": "table_has_columns", "table": "gold.monthly_revenue", "columns": ["order_month", "revenue"] },
+        { "type": "row_count", "table": "gold.monthly_revenue", "op": "eq", "value": 12,
+          "feedback": "Debe haber exactamente una fila por mes de 2025." },
+        { "type": "query_result_matches", "decimals": 2,
+          "actual_sql": "SELECT order_month, round(revenue, 2) FROM gold.monthly_revenue",
+          "expected_sql": "SELECT date_trunc('month', o.order_date), round(sum(i.quantity * i.unit_price), 2) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id WHERE o.status = 'completed' GROUP BY 1",
+          "feedback": "Los ingresos mensuales no coinciden: usa el primer día de cada mes y solo pedidos completados." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 14 }
+}

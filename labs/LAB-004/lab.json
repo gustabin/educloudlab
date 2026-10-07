@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "code": "LAB-004",
+  "version": "1.0.0",
+  "slug": "construye-un-data-lake",
+  "status": "published",
+  "title": "Construye un data lake",
+  "summary": "Sube un archivo CSV a la capa raw, descubre su esquema e ingiérelo como tabla bronze en un lakehouse. Después explóralo con SQL.",
+  "difficulty": "beginner",
+  "estimated_minutes": 40,
+  "prerequisites": ["LAB-001"],
+  "objectives": [
+    "Diferenciar la capa raw (archivos) de la capa bronze (tablas)",
+    "Subir datos y revisar el esquema detectado",
+    "Ingerir un archivo en un lakehouse",
+    "Explorar la calidad de los datos con SQL"
+  ],
+  "downloads": [ { "sample": "retail/customers.csv" } ],
+  "setup": [],
+  "tasks": [
+    {
+      "key": "t1", "title": "Sube el archivo a la capa raw", "points": 20,
+      "hints": [ { "text": "En el workspace del laboratorio, sección Datasets, usa «Subir CSV» y llama al dataset customers.", "penalty": 4 } ],
+      "checks": [
+        { "type": "dataset_exists", "layer": "raw", "name": "customers",
+          "feedback": "No encontramos un dataset raw llamado customers que esté listo." }
+      ]
+    },
+    {
+      "key": "t2", "title": "Crea un lakehouse", "points": 20,
+      "hints": [ { "text": "Nuevo recurso → tipo Lakehouse. El nombre es libre.", "penalty": 4 } ],
+      "checks": [
+        { "type": "resource_exists", "resource": "lakehouse",
+          "feedback": "El workspace necesita un recurso lakehouse activo." }
+      ]
+    },
+    {
+      "key": "t3", "title": "Ingiere los datos en bronze", "points": 40,
+      "hints": [
+        { "text": "En la fila del dataset raw customers, pulsa «Ingerir» y usa el nombre de tabla customers.", "penalty": 5 },
+        { "text": "Si la ingesta falla, comprueba que subiste el archivo customers.csv descargado de esta página, sin modificarlo.", "penalty": 5 }
+      ],
+      "checks": [
+        { "type": "dataset_exists", "layer": "bronze", "name": "customers",
+          "feedback": "No existe la tabla bronze.customers (o todavía no está lista)." },
+        { "type": "table_has_columns", "table": "bronze.customers",
+          "columns": ["customer_id", "first_name", "last_name", "email", "city", "signup_date"] },
+        { "type": "column_type", "table": "bronze.customers", "column": "signup_date", "types": ["DATE"] },
+        { "type": "row_count", "table": "bronze.customers", "op": "eq", "value": 1030,
+          "feedback": "La tabla bronze.customers debe contener todas las filas del archivo original." }
+      ]
+    },
+    {
+      "key": "t4", "title": "Explora la calidad de los datos", "points": 20, "answer": true,
+      "hints": [ { "text": "Los valores ausentes se buscan con IS NULL, no con = NULL.", "penalty": 4 } ],
+      "checks": [
+        { "type": "query_result_matches",
+          "expected_sql": "SELECT count(*) FROM bronze.customers WHERE email IS NULL",
+          "feedback": "El resultado no coincide: debe ser una sola fila con el número de clientes sin email." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 14 }
+}

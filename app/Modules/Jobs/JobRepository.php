@@ -79,7 +79,7 @@ final class JobRepository
                 [$workerId, (int) $row['id']]
             );
             return $this->db->selectOne(
-                'SELECT j.*, t.public_id AS tenant_public_id, w.public_id AS workspace_public_id
+                'SELECT j.*, t.public_id AS tenant_public_id, w.public_id AS workspace_public_id, w.status AS workspace_status
                    FROM jobs j
                    JOIN tenants t ON t.id = j.tenant_id
                    LEFT JOIN workspaces w ON w.tenant_id = j.tenant_id AND w.id = j.workspace_id
@@ -87,6 +87,16 @@ final class JobRepository
                 [(int) $row['id']]
             );
         });
+    }
+
+    /** Cancels the queued jobs of a workspace that is being released (abandoned/expired lab, M6 gate). */
+    public function cancelQueuedForWorkspace(int $tenantId, int $workspaceId): int
+    {
+        return $this->db->execute(
+            "UPDATE jobs SET status = 'cancelled', error_code = 'WORKSPACE_DELETED', finished_at = UTC_TIMESTAMP(3)
+              WHERE tenant_id = ? AND workspace_id = ? AND status = 'queued'",
+            [$tenantId, $workspaceId]
+        );
     }
 
     public function heartbeat(int $id): void

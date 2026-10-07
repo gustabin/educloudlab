@@ -22,6 +22,7 @@ return [
         'cleanup' => 60,
         'sql_query' => 20,   // hard kill; the runner interrupts the query itself after limits.sql_timeout_s
         'transform' => 90,
+        'validate' => 150,   // lab grading: every check is interrupted after limits.sql_timeout_s
     ],
     'limits' => [
         'threads' => 2,
@@ -37,6 +38,7 @@ return [
         'transform_timeout_s' => 60,
         'sql_max_cell_chars' => 1000,
         'sql_max_columns' => 200,
+        'lab_compare_max_rows' => 1000,   // query_result_matches: larger results are not compared
         'lakehouse_max_mb' => 200,        // per workspace (ingest + transforms)
         'process_memory_mb' => 1280,      // OS cap on the whole runner process (Job Object / RLIMIT_AS)
     ],

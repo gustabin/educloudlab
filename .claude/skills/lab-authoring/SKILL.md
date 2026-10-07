@@ -10,24 +10,28 @@ description: Author, validate and test EduCloud Lab laboratories (labs/LAB-xxx/l
 labs/LAB-xxx/
   lab.json               # validated by labs/schema/lab.schema.json
   instructions.es.md     # one "## <task key>" section per task (CommonMark, HTML escaped)
-  solution/solution.json # reference actions/SQL used by automated tests (never shown to students)
-  data/                  # optional extra synthetic CSV (CC0)
+  solution/solution.json # reference steps applied through the public API by tests/Labs (never served)
 ```
+Sample data: `public/assets/datasets/retail/*.csv` (synthetic, CC0, deterministic: `php scripts/generate-retail-data.php`).
 
 ## Workflow
 1. Define objectives, prerequisites, minutes and difficulty (master plan §28).
 2. Write the tasks. Each task has a key, points, hints (with an optional penalty) and `checks[]`.
-3. Use **only** registered check types: `workspace_exists`, `resource_exists`, `resource_config_equals`, `dataset_exists`, `table_has_columns`, `column_type`, `row_count`, `null_count`, `unique`, `value_range`, `query_result_matches`, `job_succeeded`. Need a new type? Add it to the check registry with tests first (`backend-feature` / `data-execution`). Never embed code.
-4. Validate: `php scripts/labs-import.php --dry-run labs/LAB-xxx`.
-5. Tests in `tests/Labs/LabXxxTest.php`:
-   - The reference solution yields the max score.
-   - An empty attempt yields 0.
-   - A fabricated client payload has no effect.
-   - Each hint penalty applies once.
+3. Use **only** the registered setup actions and check types (`labs/schema/lab.schema.json`, `docs/architecture/LAB_ENGINE.md`):
+   - Setup: `create_resource`, `load_sample` (optionally `ingest_to: bronze.<t>`).
+   - Metadata checks (PHP): `resource_exists` (name/config/tags subset), `resource_deleted`, `dataset_exists`.
+   - Data checks (runner): `table_has_columns`, `column_type`, `row_count`, `null_count`, `unique`, `value_range`, `query_result_matches`.
+     - `query_result_matches` without `actual_sql` grades the task's saved SQL answer and requires `"answer": true` on the task.
+   - Need a new type? Add it to the schema, `LabDefinition`, `MetadataChecks` or `worker/ops/lab_ops.py` with tests first (`backend-feature` / `data-execution`). Never embed code.
+4. Validate: `php scripts/labs-import.php --dry-run labs/LAB-xxx`. Import with `php scripts/labs-import.php`. A published `code@version` is immutable: bump `version` to change it.
+5. Tests: `tests/Labs/LabSolutionsTest.php` picks up every lab automatically. For each lab, an empty attempt must score 0 and `solution/solution.json` must score the maximum.
+   - Solution steps: `create_resource`, `delete_resource`, `upload_sample`, `ingest`, `transform` and `answer`.
+   - Engine-wide rules have their own tests in `tests/Integration/Labs/LabEngineTest.php`: fabricated client payloads are rejected, each hint penalty applies once, and ownership is enforced.
 6. Write the public description in `docs/labs/LAB-xxx.md`, without solutions or check details.
 
 ## Rules
 - Checks verify actual server state, never client flags.
+- Compute expectations with SQL over the setup's bronze tables. Setup datasets cannot be deleted by students, so they are a stable reference. Constants are fine only for data the student loads from a fixed file.
 - Expected values must be deterministic. Seed the synthetic data generator.
 - Text is in Spanish (i18n keys for UI chrome).
 - Cleanup: set `workspace_ttl_days`. Labs must not create resources outside their attempt workspace.

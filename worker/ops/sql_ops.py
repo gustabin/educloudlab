@@ -157,16 +157,51 @@ def _open(lakehouse: Path, read_only: bool) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(str(lakehouse), read_only=read_only)
 
 
+def fetch_bounded(con: duckdb.DuckDBPyConnection, sql: str, limits: dict[str, Any], max_rows: int) -> tuple[list[dict[str, str]], list[tuple[Any, ...]], bool]:
+    """Runs a validated SELECT with every value bounded INSIDE DuckDB, before anything reaches Python.
+
+    Positional aliases avoid duplicate-name problems; non-fixed-width types are cast to text and cut to
+    ``sql_max_cell_chars``. Rows are fetched in batches against ``sql_max_bytes``. Returns raw Python values.
+    """
+    max_bytes = int(limits.get("sql_max_bytes", 1_500_000))
+    max_cell = int(limits.get("sql_max_cell_chars", 1000))
+    max_columns = int(limits.get("sql_max_columns", 200))
+    described = con.execute(f"DESCRIBE SELECT * FROM ({sql})").fetchall()
+    if len(described) > max_columns:
+        raise RunnerError("TOO_MANY_COLUMNS", f"La consulta devuelve {len(described)} columnas; el máximo es {max_columns}.")
+    columns = [{"name": str(d[0]), "type": str(d[1])} for d in described]
+    aliases = [f"c{i}" for i in range(len(described))]
+    projection = ", ".join(
+        alias if _is_fixed_width(str(d[1])) else f"left(CAST({alias} AS VARCHAR), {max_cell})"
+        for alias, d in zip(aliases, described)
+    )
+    cursor = con.execute(f"SELECT {projection} FROM ({sql}) AS _q({', '.join(aliases)}) LIMIT {max_rows + 1}")
+    rows: list[tuple[Any, ...]] = []
+    size = 0
+    truncated = False
+    while not truncated:
+        batch = cursor.fetchmany(100)
+        if not batch:
+            break
+        for raw in batch:
+            if len(rows) >= max_rows:
+                truncated = True
+                break
+            size += len(json.dumps(raw, ensure_ascii=False, default=str))
+            if size > max_bytes:
+                truncated = True
+                break
+            rows.append(raw)
+    return columns, rows, truncated
+
+
 def query(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> dict[str, Any]:
     lakehouse = confined(args.get("lakehouse_path", ""), allowed_root, must_exist=False)
     sql = validate_select(args.get("sql"), int(limits.get("sql_max_length", 20000)))
     max_rows = int(limits.get("sql_max_rows", 1000))
-    max_bytes = int(limits.get("sql_max_bytes", 1_500_000))
     timeout_s = float(limits.get("sql_timeout_s", 10))
-    secrets = [allowed_root.lower(), allowed_root.replace("\\", "/").lower(), allowed_root.replace("/", "\\").lower()]
-
     max_cell = int(limits.get("sql_max_cell_chars", 1000))
-    max_columns = int(limits.get("sql_max_columns", 200))
+    secrets = [allowed_root.lower(), allowed_root.replace("\\", "/").lower(), allowed_root.replace("/", "\\").lower()]
 
     con = _open(lakehouse, read_only=True)
     try:
@@ -174,38 +209,10 @@ def query(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> di
         started = time.perf_counter()
         with _Interrupter(con, timeout_s) as guard:
             try:
-                described = con.execute(f"DESCRIBE SELECT * FROM ({sql})").fetchall()
-                if len(described) > max_columns:
-                    raise RunnerError("TOO_MANY_COLUMNS", f"La consulta devuelve {len(described)} columnas; el máximo es {max_columns}.")
-                columns = [{"name": str(d[0]), "type": str(d[1])} for d in described]
-                # Bound every value INSIDE DuckDB (before anything reaches Python): positional aliases avoid
-                # duplicate-name problems; non-scalar types are cast to text and cut to max_cell characters.
-                aliases = [f"c{i}" for i in range(len(described))]
-                projection = ", ".join(
-                    alias if _is_fixed_width(str(d[1])) else f"left(CAST({alias} AS VARCHAR), {max_cell})"
-                    for alias, d in zip(aliases, described)
-                )
-                bounded = f"SELECT {projection} FROM ({sql}) AS _q({', '.join(aliases)}) LIMIT {max_rows + 1}"
-                cursor = con.execute(bounded)
-                rows: list[list[Any]] = []
-                size = 0
-                truncated = False
-                while not truncated:
-                    batch = cursor.fetchmany(100)
-                    if not batch:
-                        break
-                    for raw in batch:
-                        if len(rows) >= max_rows:
-                            truncated = True
-                            break
-                        row = [_mask(json_value(v, max_text=max_cell), secrets) for v in raw]
-                        size += len(json.dumps(row, ensure_ascii=False, default=str))
-                        if size > max_bytes:
-                            truncated = True
-                            break
-                        rows.append(row)
+                columns, raw_rows, truncated = fetch_bounded(con, sql, limits, max_rows)
             except duckdb.Error as exc:
                 raise _sql_error(exc, timeout_s, guard.fired) from exc
+        rows = [[_mask(json_value(v, max_text=max_cell), secrets) for v in raw] for raw in raw_rows]
         elapsed = int((time.perf_counter() - started) * 1000)
         return {"columns": columns, "rows": rows, "row_count": len(rows), "truncated": truncated, "elapsed_ms": elapsed}
     finally:

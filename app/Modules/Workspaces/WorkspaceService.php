@@ -101,6 +101,9 @@ final class WorkspaceService
     {
         $row = $this->findOrFail($ctx, $publicId);
         $this->assertCan($request, $ctx, $row, 'delete');
+        if ($row['purpose'] === 'lab') {
+            throw new ApiException(409, 'LAB_WORKSPACE', 'Este workspace pertenece a un laboratorio. Abandona el laboratorio para eliminarlo.');
+        }
         $released = $this->app->db()->transaction(fn (): int => $this->repo->markDeleted($ctx, (int) $row['id']));
         $this->app->audit()->record($request, 'workspace.delete', 'success', $ctx->tenantId, $ctx->userId, 'workspace', $publicId, [
             'resources_released' => $released,
@@ -146,6 +149,7 @@ final class WorkspaceService
             'description' => $row['description'] === null ? null : (string) $row['description'],
             'purpose' => (string) $row['purpose'],
             'status' => (string) $row['status'],
+            'expires_at' => Format::isoUtc($row['expires_at'] === null ? null : (string) $row['expires_at']),
             'owner' => ['id' => (string) $row['owner_public_id'], 'display_name' => (string) $row['owner_name']],
             'resource_count' => (int) $row['resource_count'],
             'created_at' => Format::isoUtc((string) $row['created_at']),

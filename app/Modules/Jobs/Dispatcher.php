@@ -8,6 +8,7 @@ use EduCloud\Core\App;
 use EduCloud\Modules\Datasets\Jobs\CleanupHandler;
 use EduCloud\Modules\Datasets\Jobs\IngestHandler;
 use EduCloud\Modules\Datasets\Jobs\ProfileHandler;
+use EduCloud\Modules\Labs\Jobs\ValidateHandler;
 use EduCloud\Modules\SqlLab\Jobs\QueryHandler;
 use EduCloud\Modules\SqlLab\Jobs\TransformHandler;
 use Throwable;
@@ -33,6 +34,7 @@ final class Dispatcher
             'cleanup' => new CleanupHandler($this->app),
             'sql_query' => new QueryHandler($this->app),
             'transform' => new TransformHandler($this->app),
+            'validate' => new ValidateHandler($this->app),
             default => null,
         };
     }
@@ -45,6 +47,11 @@ final class Dispatcher
             return false;
         }
         $id = (int) $job['id'];
+        if (($job['workspace_status'] ?? null) === 'deleted') {
+            // Nothing to do for a released workspace (e.g. setup jobs of an abandoned lab); its storage is purged.
+            $this->jobs->finish($id, 'cancelled', null, 'WORKSPACE_DELETED', 'El workspace ya no existe.');
+            return true;
+        }
         $handler = $this->handlerFor((string) $job['type']);
         if ($handler === null) {
             $this->jobs->finish($id, 'failed', null, 'UNSUPPORTED_JOB', 'Tipo de trabajo no soportado.');

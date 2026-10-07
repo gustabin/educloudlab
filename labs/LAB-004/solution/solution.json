@@ -1,0 +1,9 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Steps are applied through the public API.",
+  "steps": [
+    { "do": "upload_sample", "sample": "retail/customers.csv", "name": "customers" },
+    { "do": "create_resource", "type": "lakehouse", "name": "lago" },
+    { "do": "ingest", "name": "customers", "table": "customers" },
+    { "do": "answer", "task": "t4", "sql": "SELECT count(*) FILTER (WHERE email IS NULL) AS sin_email FROM bronze.customers" }
+  ]
+}

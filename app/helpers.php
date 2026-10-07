@@ -55,3 +55,12 @@ if (!function_exists('asset')) {
         return Url::to('/assets/' . $path) . '?v=' . $version;
     }
 }
+
+if (!function_exists('fmt_number')) {
+    /** Spanish number formatting without needless decimals: 87.5 → "87,5", 100.0 → "100". Escape with e(). */
+    function fmt_number(float|int $value, int $decimals = 1): string
+    {
+        $text = number_format((float) $value, $decimals, ',', '.');
+        return $decimals > 0 ? rtrim(rtrim($text, '0'), ',') : $text;
+    }
+}

@@ -1,0 +1,9 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Steps are applied through the public API.",
+  "steps": [
+    { "do": "transform", "layer": "silver", "table": "customers", "sql": "SELECT DISTINCT customer_id, first_name, last_name, lower(trim(email)) AS email, city, signup_date FROM bronze.customers WHERE email IS NOT NULL" },
+    { "do": "transform", "layer": "silver", "table": "order_lines", "sql": "SELECT o.order_id, o.order_date, o.store_id, i.product_id, i.quantity, i.unit_price, i.quantity * i.unit_price AS line_total FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id WHERE o.status = 'completed'" },
+    { "do": "transform", "layer": "gold", "table": "revenue_by_region", "sql": "SELECT s.region, sum(l.line_total) AS revenue, count(DISTINCT l.order_id) AS orders FROM silver.order_lines l JOIN bronze.stores s ON s.store_id = l.store_id GROUP BY s.region" },
+    { "do": "transform", "layer": "gold", "table": "monthly_revenue", "sql": "SELECT date_trunc('month', order_date) AS order_month, sum(line_total) AS revenue FROM silver.order_lines GROUP BY 1" }
+  ]
+}

@@ -165,6 +165,9 @@ final class DatasetService
         $row = $this->findOrFail($ctx, $publicId);
         $ws = $this->workspaces->findOrFail($ctx, (string) $row['workspace_public_id']);
         $this->workspaces->assertCan($request, $ctx, $ws, 'delete');
+        if ((Format::jsonColumn($row['resource_config'])['lab_setup'] ?? false) === true) {
+            throw new ApiException(409, 'LAB_MANAGED', 'Este dataset forma parte del laboratorio y no se puede eliminar.');
+        }
         if (!in_array($row['status'], ['active', 'failed'], true)) {
             throw new ApiException(409, 'INVALID_STATE', 'El dataset se está procesando; espera a que termine.');
         }

@@ -1,0 +1,201 @@
+product_id,product_name,category,price
+1,"Auriculares Básico",Electrónica,500.72
+2,"Auriculares Pro",Electrónica,239.88
+3,"Auriculares Plus",Electrónica,136.62
+4,"Auriculares Eco",Electrónica,327.69
+5,"Auriculares Mini",Electrónica,294.97
+6,"Monitor Básico",Electrónica,871.62
+7,"Monitor Pro",Electrónica,487.47
+8,"Monitor Plus",Electrónica,743.01
+9,"Monitor Eco",Electrónica,746.78
+10,"Monitor Mini",Electrónica,273.35
+11,"Teclado Básico",Electrónica,691.54
+12,"Teclado Pro",Electrónica,788.04
+13,"Teclado Plus",Electrónica,522.46
+14,"Teclado Eco",Electrónica,750.61
+15,"Teclado Mini",Electrónica,875.17
+16,"Ratón Básico",Electrónica,537.37
+17,"Ratón Pro",Electrónica,446.15
+18,"Ratón Plus",Electrónica,293.07
+19,"Ratón Eco",Electrónica,816.54
+20,"Ratón Mini",Electrónica,150.57
+21,"Altavoz Básico",Electrónica,540.25
+22,"Altavoz Pro",Electrónica,129.18
+23,"Altavoz Plus",Electrónica,311.08
+24,"Altavoz Eco",Electrónica,811.59
+25,"Altavoz Mini",Electrónica,250.49
+26,"Tableta Básico",Electrónica,43.63
+27,"Tableta Pro",Electrónica,225.51
+28,"Tableta Plus",Electrónica,549.50
+29,"Tableta Eco",Electrónica,665.28
+30,"Tableta Mini",Electrónica,281.92
+31,"Cámara Básico",Electrónica,609.25
+32,"Cámara Pro",Electrónica,574.26
+33,"Cámara Plus",Electrónica,168.33
+34,"Cámara Eco",Electrónica,426.41
+35,"Cámara Mini",Electrónica,291.27
+36,"Cargador Básico",Electrónica,558.56
+37,"Cargador Pro",Electrónica,429.72
+38,"Cargador Plus",Electrónica,117.99
+39,"Cargador Eco",Electrónica,380.34
+40,"Cargador Mini",Electrónica,633.55
+41,"Lámpara Básico",Hogar,224.09
+42,"Lámpara Pro",Hogar,81.37
+43,"Lámpara Plus",Hogar,30.78
+44,"Lámpara Eco",Hogar,168.63
+45,"Lámpara Mini",Hogar,150.59
+46,"Silla Básico",Hogar,30.13
+47,"Silla Pro",Hogar,66.78
+48,"Silla Plus",Hogar,206.81
+49,"Silla Eco",Hogar,182.19
+50,"Silla Mini",Hogar,237.25
+51,"Mesa auxiliar Básico",Hogar,23.32
+52,"Mesa auxiliar Pro",Hogar,47.09
+53,"Mesa auxiliar Plus",Hogar,108.74
+54,"Mesa auxiliar Eco",Hogar,52.55
+55,"Mesa auxiliar Mini",Hogar,247.20
+56,"Cojín Básico",Hogar,174.98
+57,"Cojín Pro",Hogar,51.30
+58,"Cojín Plus",Hogar,199.52
+59,"Cojín Eco",Hogar,264.27
+60,"Cojín Mini",Hogar,179.81
+61,"Sartén Básico",Hogar,181.38
+62,"Sartén Pro",Hogar,205.44
+63,"Sartén Plus",Hogar,293.35
+64,"Sartén Eco",Hogar,50.42
+65,"Sartén Mini",Hogar,153.24
+66,"Toalla Básico",Hogar,60.34
+67,"Toalla Pro",Hogar,39.92
+68,"Toalla Plus",Hogar,104.26
+69,"Toalla Eco",Hogar,258.65
+70,"Toalla Mini",Hogar,47.08
+71,"Reloj de pared Básico",Hogar,271.85
+72,"Reloj de pared Pro",Hogar,207.50
+73,"Reloj de pared Plus",Hogar,25.03
+74,"Reloj de pared Eco",Hogar,54.80
+75,"Reloj de pared Mini",Hogar,108.00
+76,"Estantería Básico",Hogar,248.97
+77,"Estantería Pro",Hogar,28.30
+78,"Estantería Plus",Hogar,92.26
+79,"Estantería Eco",Hogar,233.68
+80,"Estantería Mini",Hogar,253.61
+81,"Balón Básico",Deportes,310.43
+82,"Balón Pro",Deportes,164.45
+83,"Balón Plus",Deportes,88.66
+84,"Balón Eco",Deportes,198.78
+85,"Balón Mini",Deportes,126.48
+86,"Raqueta Básico",Deportes,333.64
+87,"Raqueta Pro",Deportes,282.19
+88,"Raqueta Plus",Deportes,207.08
+89,"Raqueta Eco",Deportes,183.76
+90,"Raqueta Mini",Deportes,370.03
+91,"Esterilla Básico",Deportes,265.75
+92,"Esterilla Pro",Deportes,391.62
+93,"Esterilla Plus",Deportes,318.36
+94,"Esterilla Eco",Deportes,281.05
+95,"Esterilla Mini",Deportes,418.23
+96,"Mancuerna Básico",Deportes,48.32
+97,"Mancuerna Pro",Deportes,388.13
+98,"Mancuerna Plus",Deportes,324.18
+99,"Mancuerna Eco",Deportes,151.45
+100,"Mancuerna Mini",Deportes,86.91
+101,"Bicicleta estática Básico",Deportes,329.79
+102,"Bicicleta estática Pro",Deportes,17.15
+103,"Bicicleta estática Plus",Deportes,258.65
+104,"Bicicleta estática Eco",Deportes,42.38
+105,"Bicicleta estática Mini",Deportes,27.39
+106,"Mochila Básico",Deportes,377.39
+107,"Mochila Pro",Deportes,368.95
+108,"Mochila Plus",Deportes,231.27
+109,"Mochila Eco",Deportes,191.43
+110,"Mochila Mini",Deportes,431.78
+111,"Botella Básico",Deportes,295.40
+112,"Botella Pro",Deportes,307.14
+113,"Botella Plus",Deportes,78.35
+114,"Botella Eco",Deportes,386.72
+115,"Botella Mini",Deportes,308.68
+116,"Casco Básico",Deportes,163.33
+117,"Casco Pro",Deportes,298.11
+118,"Casco Plus",Deportes,259.42
+119,"Casco Eco",Deportes,390.51
+120,"Casco Mini",Deportes,29.93
+121,"Novela Básico",Libros,40.24
+122,"Novela Pro",Libros,11.28
+123,"Novela Plus",Libros,37.05
+124,"Novela Eco",Libros,44.55
+125,"Novela Mini",Libros,32.57
+126,"Ensayo Básico",Libros,25.37
+127,"Ensayo Pro",Libros,45.09
+128,"Ensayo Plus",Libros,46.60
+129,"Ensayo Eco",Libros,31.16
+130,"Ensayo Mini",Libros,40.37
+131,"Guía de viaje Básico",Libros,51.37
+132,"Guía de viaje Pro",Libros,33.38
+133,"Guía de viaje Plus",Libros,46.80
+134,"Guía de viaje Eco",Libros,19.36
+135,"Guía de viaje Mini",Libros,53.76
+136,"Cómic Básico",Libros,16.82
+137,"Cómic Pro",Libros,16.72
+138,"Cómic Plus",Libros,54.31
+139,"Cómic Eco",Libros,26.08
+140,"Cómic Mini",Libros,13.39
+141,"Recetario Básico",Libros,44.68
+142,"Recetario Pro",Libros,36.11
+143,"Recetario Plus",Libros,59.98
+144,"Recetario Eco",Libros,46.06
+145,"Recetario Mini",Libros,16.73
+146,"Atlas Básico",Libros,27.35
+147,"Atlas Pro",Libros,25.32
+148,"Atlas Plus",Libros,42.76
+149,"Atlas Eco",Libros,28.06
+150,"Atlas Mini",Libros,45.00
+151,"Diccionario Básico",Libros,53.45
+152,"Diccionario Pro",Libros,48.13
+153,"Diccionario Plus",Libros,53.97
+154,"Diccionario Eco",Libros,6.98
+155,"Diccionario Mini",Libros,24.51
+156,"Poemario Básico",Libros,47.44
+157,"Poemario Pro",Libros,19.33
+158,"Poemario Plus",Libros,59.27
+159,"Poemario Eco",Libros,26.55
+160,"Poemario Mini",Libros,45.74
+161,"Puzzle Básico",Juguetes,9.08
+162,"Puzzle Pro",Juguetes,21.49
+163,"Puzzle Plus",Juguetes,81.90
+164,"Puzzle Eco",Juguetes,69.89
+165,"Puzzle Mini",Juguetes,65.60
+166,"Peluche Básico",Juguetes,61.71
+167,"Peluche Pro",Juguetes,106.22
+168,"Peluche Plus",Juguetes,4.90
+169,"Peluche Eco",Juguetes,96.92
+170,"Peluche Mini",Juguetes,16.89
+171,"Juego de mesa Básico",Juguetes,12.08
+172,"Juego de mesa Pro",Juguetes,66.83
+173,"Juego de mesa Plus",Juguetes,93.51
+174,"Juego de mesa Eco",Juguetes,114.93
+175,"Juego de mesa Mini",Juguetes,53.39
+176,"Bloques Básico",Juguetes,24.47
+177,"Bloques Pro",Juguetes,103.55
+178,"Bloques Plus",Juguetes,39.29
+179,"Bloques Eco",Juguetes,29.88
+180,"Bloques Mini",Juguetes,109.81
+181,"Coche teledirigido Básico",Juguetes,13.99
+182,"Coche teledirigido Pro",Juguetes,100.88
+183,"Coche teledirigido Plus",Juguetes,92.22
+184,"Coche teledirigido Eco",Juguetes,93.38
+185,"Coche teledirigido Mini",Juguetes,4.70
+186,"Muñeca Básico",Juguetes,118.92
+187,"Muñeca Pro",Juguetes,12.37
+188,"Muñeca Plus",Juguetes,16.87
+189,"Muñeca Eco",Juguetes,57.74
+190,"Muñeca Mini",Juguetes,109.95
+191,"Cometa Básico",Juguetes,103.44
+192,"Cometa Pro",Juguetes,14.31
+193,"Cometa Plus",Juguetes,94.03
+194,"Cometa Eco",Juguetes,74.31
+195,"Cometa Mini",Juguetes,97.24
+196,"Pizarra Básico",Juguetes,66.42
+197,"Pizarra Pro",Juguetes,63.01
+198,"Pizarra Plus",Juguetes,49.14
+199,"Pizarra Eco",Juguetes,45.36
+200,"Pizarra Mini",Juguetes,21.95

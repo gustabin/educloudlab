@@ -8,6 +8,7 @@ use EduCloud\Core\Response;
 use EduCloud\Core\Ulid;
 use EduCloud\Tests\Support\ApiActors;
 use EduCloud\Tests\Support\AuthHelpers;
+use EduCloud\Tests\Support\LabHelpers;
 use EduCloud\Tests\TestCase;
 
 /**
@@ -24,11 +25,12 @@ final class TenantIsolationTest extends TestCase
 {
     use AuthHelpers;
     use ApiActors;
+    use LabHelpers;
 
     /** Tables whose content must be byte-identical after every forbidden attempt. */
     private const GUARDED_TABLES = [
         'tenants', 'memberships', 'workspaces', 'resources', 'datasets', 'dataset_versions', 'jobs', 'query_history',
-        'sessions', 'refresh_tokens',
+        'sessions', 'refresh_tokens', 'lab_attempts', 'lab_hint_usage', 'lab_task_answers', 'lab_task_results',
     ];
 
     /** Valid bodies, so a 404 can only come from authorization (never from validation). */
@@ -39,6 +41,9 @@ final class TenantIsolationTest extends TestCase
         'POST /api/v1/datasets/{dataset_id}/ingest' => ['table_name' => 'robado'],
         'POST /api/v1/workspaces/{workspace_id}/queries' => ['sql' => 'SELECT 1'],
         'POST /api/v1/workspaces/{workspace_id}/transforms' => ['sql' => 'SELECT 1', 'layer' => 'silver', 'table' => 'robado'],
+        'POST /api/v1/lab-attempts/{attempt_id}/hints' => ['task_key' => 't1', 'hint_index' => 0],
+        'POST /api/v1/lab-attempts/{attempt_id}/answers' => ['task_key' => 't4', 'sql' => 'SELECT 1'],
+        'POST /api/v1/lab-attempts/{attempt_id}/submit' => [],
     ];
 
     /** @var array<string, string> route parameter => victim object id */
@@ -50,6 +55,7 @@ final class TenantIsolationTest extends TestCase
     {
         parent::setUp();
         $this->resetDatabase();
+        $this->importLabs();
 
         $this->createVerifiedUser('alice@test.example');
         $this->createVerifiedUser('est2@test.example');
@@ -78,6 +84,11 @@ final class TenantIsolationTest extends TestCase
         self::assertSame(201, $lake->status, $lake->body);
         $query = $this->request('POST', "/api/v1/workspaces/$wsId/queries", ['sql' => 'SELECT 42'], ['X-CSRF-Token' => $csrf]);
         self::assertSame(202, $query->status, $query->body);
+        $lab = $this->request('POST', '/api/v1/lab-attempts', ['lab_code' => 'LAB-004'], ['X-CSRF-Token' => $csrf]);
+        self::assertSame(201, $lab->status, $lab->body);
+        $attemptId = (string) $lab->decoded()['data']['id'];
+        $this->request('POST', "/api/v1/lab-attempts/$attemptId/answers", ['task_key' => 't4', 'sql' => 'SELECT 42'], ['X-CSRF-Token' => $csrf]);
+        $this->request('POST', "/api/v1/lab-attempts/$attemptId/hints", ['task_key' => 't1', 'hint_index' => 0], ['X-CSRF-Token' => $csrf]);
 
         $this->victimIds = [
             'workspace_id' => $wsId,
@@ -85,6 +96,7 @@ final class TenantIsolationTest extends TestCase
             'dataset_id' => (string) $upload->decoded()['data']['dataset']['id'],
             'job_id' => (string) $upload->decoded()['data']['job']['id'],
             'query_id' => (string) $query->decoded()['data']['id'],
+            'attempt_id' => $attemptId,
             // A tenant none of the attackers belongs to: alice's personal tenant.
             'tenant_id' => (string) $this->app()->db()->scalar(
                 "SELECT t.public_id FROM tenants t JOIN memberships m ON m.tenant_id = t.id WHERE m.user_id = ? AND t.type = 'personal'",
@@ -130,7 +142,7 @@ final class TenantIsolationTest extends TestCase
             $checked[] = $key;
         }
 
-        $minimum = $attacker === 'bob-bearer' ? 19 : 22;
+        $minimum = $attacker === 'bob-bearer' ? 24 : 28;
         self::assertGreaterThanOrEqual($minimum, count($checked), "[$attacker] matrix covered too few routes: " . implode(', ', $checked));
     }
 
@@ -151,6 +163,8 @@ final class TenantIsolationTest extends TestCase
             "/api/v1/workspaces/$ws/catalog",
             "/api/v1/workspaces/$ws/queries",
             "/app/workspaces/$ws/sql",
+            "/api/v1/lab-attempts/{$this->victimIds['attempt_id']}",
+            "/app/lab-attempts/{$this->victimIds['attempt_id']}",
         ];
         foreach ($paths as $path) {
             self::assertSame(200, $this->request('GET', $path)->status, $path);
@@ -162,7 +176,7 @@ final class TenantIsolationTest extends TestCase
         $this->createVerifiedUser('admin@test.example');
         $this->addMember($this->org['id'], 'admin@test.example', 'org_admin');
         $this->sessionIn('admin@test.example', $this->org['public_id']);
-        self::assertSame(1, $this->request('GET', '/api/v1/workspaces')->decoded()['meta']['total']);
+        self::assertSame(2, $this->request('GET', '/api/v1/workspaces')->decoded()['meta']['total'], 'the general and the lab workspace');
 
         $this->sessionIn('est2@test.example', $this->org['public_id']);
         self::assertSame(0, $this->request('GET', '/api/v1/workspaces')->decoded()['meta']['total']);
@@ -176,7 +190,7 @@ final class TenantIsolationTest extends TestCase
         $r = $this->as($bob, 'POST', '/api/v1/workspaces', ['name' => 'colado', 'tenant_id' => $this->org['public_id']]);
         self::assertSame(422, $r->status, 'unknown field tenant_id is rejected');
         self::assertSame('unknown_field', array_column($r->decoded()['error']['details'], 'code', 'field')['tenant_id']);
-        self::assertSame(1, (int) $this->app()->db()->scalar('SELECT COUNT(*) FROM workspaces'));
+        self::assertSame(2, (int) $this->app()->db()->scalar('SELECT COUNT(*) FROM workspaces'), 'only the general and lab workspaces of alice');
     }
 
     public function testDatabaseRejectsCrossTenantReferencesEvenIfCodeWereWrong(): void

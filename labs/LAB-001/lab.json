@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "code": "LAB-001",
+  "version": "1.0.0",
+  "slug": "fundamentos-de-workspaces",
+  "status": "published",
+  "title": "Fundamentos de workspaces y recursos en la nube",
+  "summary": "Organiza recursos dentro de un workspace: crea almacenamiento y un lakehouse, configúralos, etiquétalos y elimina lo que ya no necesitas.",
+  "difficulty": "beginner",
+  "estimated_minutes": 30,
+  "prerequisites": [],
+  "objectives": [
+    "Entender qué es un workspace y por qué agrupa recursos",
+    "Crear recursos de almacenamiento y lakehouse",
+    "Configurar el nivel de acceso y la redundancia de un almacenamiento",
+    "Usar etiquetas para organizar recursos",
+    "Eliminar recursos que ya no se necesitan"
+  ],
+  "setup": [],
+  "tasks": [
+    {
+      "key": "t1",
+      "title": "Crea un almacenamiento etiquetado",
+      "points": 25,
+      "hints": [
+        { "text": "Abre el workspace del laboratorio y usa el botón «Nuevo recurso». El tipo es «Almacenamiento».", "penalty": 3 },
+        { "text": "Las etiquetas se escriben como clave = valor. Aquí la clave es proyecto y el valor retail.", "penalty": 5 }
+      ],
+      "checks": [
+        { "type": "resource_exists", "resource": "storage", "name": "datos-crudos", "tags": { "proyecto": "retail" },
+          "feedback": "No encontramos un almacenamiento activo llamado datos-crudos con la etiqueta proyecto=retail." }
+      ]
+    },
+    {
+      "key": "t2",
+      "title": "Configura un almacenamiento de archivo",
+      "points": 25,
+      "hints": [
+        { "text": "El nivel de acceso «archive» es el más barato para datos que casi nunca se leen.", "penalty": 5 }
+      ],
+      "checks": [
+        { "type": "resource_exists", "resource": "storage", "name": "archivo-historico",
+          "config": { "access_tier": "archive", "redundancy": "zrs" },
+          "feedback": "Necesitamos un almacenamiento archivo-historico con nivel de acceso archive y redundancia zrs." }
+      ]
+    },
+    {
+      "key": "t3",
+      "title": "Crea el lakehouse del proyecto",
+      "points": 25,
+      "hints": [
+        { "text": "El tipo de recurso es «Lakehouse». Recuerda añadir la etiqueta entorno = dev.", "penalty": 5 }
+      ],
+      "checks": [
+        { "type": "resource_exists", "resource": "lakehouse", "name": "lago-retail", "tags": { "entorno": "dev" },
+          "feedback": "No encontramos un lakehouse activo llamado lago-retail con la etiqueta entorno=dev." }
+      ]
+    },
+    {
+      "key": "t4",
+      "title": "Elimina un recurso temporal",
+      "points": 25,
+      "hints": [
+        { "text": "Primero crea el almacenamiento temporal y después elimínalo desde la lista de recursos.", "penalty": 5 }
+      ],
+      "checks": [
+        { "type": "resource_deleted", "resource": "storage", "name": "temporal",
+          "feedback": "El almacenamiento temporal debe haberse creado y después eliminado." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 14 }
+}

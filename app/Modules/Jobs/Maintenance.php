@@ -6,11 +6,14 @@ namespace EduCloud\Modules\Jobs;
 
 use EduCloud\Core\App;
 use EduCloud\Modules\Auth\SessionRepository;
+use EduCloud\Modules\Labs\AttemptRepository;
+use EduCloud\Modules\Workspaces\WorkspaceRepository;
 use Throwable;
 
 /**
  * Periodic housekeeping (scripts/scheduler.php, every few minutes):
  *  - fail jobs whose dispatcher died;
+ *  - expire lab attempts whose lab workspace reached its inactivity TTL (the workspace is soft-deleted);
  *  - release storage of deleted workspaces and finish their resources' lifecycle (deleting → deleted);
  *  - purge expired sessions, old rate-limit windows and stale temp/job files.
  */
@@ -25,6 +28,7 @@ final class Maintenance
     {
         return [
             'stale_jobs_failed' => (new Dispatcher($this->app, 'scheduler'))->failStaleJobs(),
+            'lab_attempts_expired' => $this->expireLabAttempts(),
             'workspaces_released' => $this->releaseDeletedWorkspaces(),
             'sessions_purged' => (new SessionRepository($this->app->db()))
                 ->purgeExpired((int) $this->app->config->get('security.session.idle_timeout')),
@@ -32,6 +36,23 @@ final class Maintenance
             'temp_files_removed' => $this->purgeOldFiles(['tmp', 'jobs'], 24 * 3600),
             'query_results_removed' => $this->purgeOldFiles(['t/*/w/*/meta/results'], 24 * 3600),
         ];
+    }
+
+    /** Soft-deletes expired lab workspaces (storage is released below) and marks unfinished attempts as expired. */
+    public function expireLabAttempts(): int
+    {
+        $db = $this->app->db();
+        $attempts = new AttemptRepository($db);
+        $expired = 0;
+        foreach ($attempts->findExpired() as $row) {
+            $db->transaction(static function () use ($db, $attempts, $row): void {
+                WorkspaceRepository::softDelete($db, (int) $row['tenant_id'], (int) $row['workspace_id']);
+                (new JobRepository($db))->cancelQueuedForWorkspace((int) $row['tenant_id'], (int) $row['workspace_id']);
+                $attempts->markExpired((int) $row['tenant_id'], (int) $row['id']);
+            });
+            $expired++;
+        }
+        return $expired;
     }
 
     /** Deletes the storage tree of deleted workspaces that still have resources in 'deleting', then marks them deleted. */

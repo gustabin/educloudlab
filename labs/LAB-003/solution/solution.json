@@ -1,0 +1,13 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Deliberately different from the expected SQL in lab.json: results are compared, not texts.",
+  "steps": [
+    { "do": "answer", "task": "t1", "sql": "SELECT product_id, product_name, price FROM bronze.products WHERE price < 20 AND category = 'Libros' ORDER BY price" },
+    { "do": "answer", "task": "t2", "sql": "SELECT product_id, product_name, price FROM bronze.products ORDER BY price DESC, product_id LIMIT 5" },
+    { "do": "answer", "task": "t3", "sql": "SELECT region, count(o.order_id) AS pedidos FROM bronze.stores s JOIN bronze.orders o USING (store_id) GROUP BY region ORDER BY region" },
+    { "do": "answer", "task": "t4", "sql": "SELECT store_id, count(*) AS completados FROM bronze.orders WHERE status = 'completed' GROUP BY store_id HAVING count(*) > 490 ORDER BY 2 DESC" },
+    { "do": "answer", "task": "t5", "sql": "WITH totals AS (SELECT i.order_id, sum(i.quantity * i.unit_price) AS total FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id WHERE o.status = 'completed' GROUP BY i.order_id)\nSELECT round(avg(total), 2) FROM totals" },
+    { "do": "answer", "task": "t6", "sql": "SELECT p.product_id, p.product_name FROM bronze.products p WHERE NOT EXISTS (SELECT 1 FROM bronze.order_items i WHERE i.product_id = p.product_id)" },
+    { "do": "answer", "task": "t7", "sql": "SELECT category, product_id, round(ingresos, 2) AS ingresos FROM (SELECT p.category, p.product_id, sum(i.quantity * i.unit_price) AS ingresos FROM bronze.products p JOIN bronze.order_items i ON i.product_id = p.product_id GROUP BY ALL) QUALIFY row_number() OVER (PARTITION BY category ORDER BY ingresos DESC, product_id) = 1" },
+    { "do": "answer", "task": "t8", "sql": "SELECT extract(month FROM order_date) AS mes, count(*) AS pedidos FROM bronze.orders WHERE status = 'completed' GROUP BY mes ORDER BY mes" }
+  ]
+}

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: EduCloud Lab API
-  version: 0.1.0
+  version: 0.6.0
   description: |
     Versioned REST API of EduCloud Lab. All responses use the standard envelope.
 
@@ -867,8 +867,179 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /labs:
+    get:
+      operationId: listLabs
+      summary: Published labs with the caller's attempt summary (no checks, expected SQL or solutions)
+      tags: [labs]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Lab catalog
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/LabSummary' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /lab-attempts:
+    post:
+      operationId: startLab
+      summary: Start a lab (creates a dedicated lab workspace and runs its setup) or return the open attempt
+      description: |
+        201 with a new attempt, or 200 with the caller's attempt that is still open for that lab.
+        Setup jobs (sample loading) run asynchronously: `environment.ready` turns true when they finish.
+        Lab workspaces do not count towards the workspace quota; at most `quotas.active_lab_attempts_per_user`
+        attempts can be in progress (409 QUOTA_EXCEEDED).
+      tags: [labs]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [lab_code]
+              properties:
+                lab_code: { type: string, pattern: '^LAB-[0-9]{3}$' }
+      responses:
+        '200': { $ref: '#/components/responses/LabAttempt' }
+        '201': { $ref: '#/components/responses/LabAttempt' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /lab-attempts/{attempt_id}:
+    parameters: [{ $ref: '#/components/parameters/AttemptId' }]
+    get:
+      operationId: getLabAttempt
+      summary: Attempt state, tasks, revealed hints, saved answers and the latest graded results
+      description: Visible to its owner and, read-only, to tenant-wide roles (org_admin). Others get 404.
+      tags: [labs]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200': { $ref: '#/components/responses/LabAttempt' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: abandonLabAttempt
+      summary: Abandon the attempt and release its lab workspace (a completed attempt keeps its best score)
+      tags: [labs]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Abandoned }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /lab-attempts/{attempt_id}/hints:
+    parameters: [{ $ref: '#/components/parameters/AttemptId' }]
+    post:
+      operationId: revealLabHint
+      summary: Reveal a hint (in order). Its penalty is recorded once and applied when the task passes.
+      tags: [labs]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [task_key, hint_index]
+              properties:
+                task_key: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
+                hint_index: { type: integer, minimum: 0 }
+      responses:
+        '200':
+          description: The hint
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          task_key: { type: string }
+                          index: { type: integer }
+                          text: { type: string }
+                          penalty: { type: integer }
+                          newly_revealed: { type: boolean }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /lab-attempts/{attempt_id}/answers:
+    parameters: [{ $ref: '#/components/parameters/AttemptId' }]
+    post:
+      operationId: saveLabAnswer
+      summary: Save the SQL answer of an exercise task (re-executed in the sandbox when the attempt is validated)
+      tags: [labs]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [task_key, sql]
+              properties:
+                task_key: { type: string, pattern: '^[a-z][a-z0-9_]{0,39}$' }
+                sql: { type: string, maxLength: 20000 }
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: object, properties: { task_key: { type: string }, sql: { type: string } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /lab-attempts/{attempt_id}/submit:
+    parameters: [{ $ref: '#/components/parameters/AttemptId' }]
+    post:
+      operationId: submitLabAttempt
+      summary: Grade the attempt from the actual state of its workspace (async; poll GET /lab-attempts/{attempt_id})
+      description: |
+        The body must be empty (`{}`): results, scores or flags sent by a client are rejected (422) - grading is
+        done only by the server. 409 ATTEMPT_VALIDATING while a validation is running; 409 ATTEMPT_CLOSED when
+        the attempt was abandoned or expired.
+      tags: [labs]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: false, maxProperties: 0 }
+      responses:
+        '202': { $ref: '#/components/responses/LabAttempt' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
 components:
   parameters:
+    AttemptId: { name: attempt_id, in: path, required: true, schema: { type: string, description: ULID of the lab attempt } }
     TenantId: { name: tenant_id, in: path, required: true, schema: { type: string, description: ULID } }
     WorkspaceId: { name: workspace_id, in: path, required: true, schema: { type: string, description: ULID } }
     ResourceId: { name: resource_id, in: path, required: true, schema: { type: string, description: ULID } }
@@ -878,6 +1049,81 @@ components:
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
+    LabSummary:
+      type: object
+      properties:
+        code: { type: string, example: LAB-004 }
+        version: { type: string }
+        slug: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        difficulty: { type: string, enum: [beginner, intermediate, advanced] }
+        estimated_minutes: { type: integer }
+        max_score: { type: integer }
+        objectives: { type: array, items: { type: string } }
+        prerequisites: { type: array, items: { type: string } }
+        downloads: { type: array, items: { type: object, properties: { name: { type: string }, url: { type: string } } } }
+        task_count: { type: integer }
+        my_attempt:
+          type: [object, 'null']
+          properties:
+            id: { type: string }
+            status: { type: string, enum: [in_progress, validating, completed, abandoned, expired] }
+            open: { type: boolean, description: the attempt still has a usable lab workspace }
+            best_score: { type: number }
+    LabAttempt:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        status: { type: string, enum: [in_progress, validating, completed, abandoned, expired] }
+        score: { type: number, description: score of the latest graded submission }
+        best_score: { type: number }
+        max_score: { type: number }
+        hints_used: { type: integer }
+        submissions: { type: integer }
+        is_owner: { type: boolean }
+        student: { type: object, properties: { id: { type: string }, display_name: { type: string } } }
+        error: { type: [object, 'null'], description: last validation failure (e.g. TIMEOUT), properties: { code: { type: string }, message: { type: string } } }
+        lab: { $ref: '#/components/schemas/LabSummary' }
+        workspace:
+          type: [object, 'null']
+          properties:
+            id: { type: string }
+            status: { type: string, enum: [active, deleting, deleted] }
+            expires_at: { type: [string, 'null'], format: date-time, description: extended on every answer/submission }
+        environment:
+          type: object
+          properties:
+            ready: { type: boolean, description: setup jobs finished }
+            pending_jobs: { type: integer }
+        tasks:
+          type: array
+          items:
+            type: object
+            properties:
+              key: { type: string }
+              title: { type: string }
+              points: { type: integer }
+              instructions_md: { type: string, description: CommonMark (render with raw HTML escaped) }
+              answer: { type: boolean, description: the task is graded from a saved SQL answer }
+              answer_sql: { type: [string, 'null'] }
+              hints:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    index: { type: integer }
+                    penalty: { type: integer }
+                    text: { type: [string, 'null'], description: null until revealed }
+              result:
+                type: [object, 'null']
+                properties:
+                  passed: { type: boolean }
+                  points: { type: number }
+                  feedback: { type: [string, 'null'] }
+        started_at: { type: string, format: date-time }
+        last_submitted_at: { type: [string, 'null'], format: date-time }
+        completed_at: { type: [string, 'null'], format: date-time }
     Query:
       type: object
       properties:
@@ -971,8 +1217,9 @@ components:
         id: { type: string, description: ULID }
         name: { type: string }
         description: { type: [string, 'null'] }
-        purpose: { type: string, enum: [general, lab] }
+        purpose: { type: string, enum: [general, lab], description: lab workspaces belong to a lab attempt and cannot be deleted directly (409 LAB_WORKSPACE) }
         status: { type: string, enum: [active, deleting, deleted] }
+        expires_at: { type: [string, 'null'], format: date-time, description: lab workspaces only (inactivity TTL) }
         owner: { type: object, properties: { id: { type: string }, display_name: { type: string } } }
         resource_count: { type: integer }
         created_at: { type: string, format: date-time }
@@ -1083,6 +1330,16 @@ components:
                   message: { type: string }
         meta: { $ref: '#/components/schemas/Meta' }
   responses:
+    LabAttempt:
+      description: Lab attempt
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/SuccessEnvelope'
+              - type: object
+                properties:
+                  data: { $ref: '#/components/schemas/LabAttempt' }
     Ok:
       description: Success envelope with a message
       content:

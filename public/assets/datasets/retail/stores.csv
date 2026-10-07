@@ -1,0 +1,21 @@
+store_id,store_name,city,region
+1,"Tienda Villa Alta","Villa Alta",Norte
+2,"Tienda Puerto Claro","Puerto Claro",Norte
+3,"Tienda Monteverde",Monteverde,Norte
+4,"Tienda Río Frío","Río Frío",Norte
+5,"Tienda Bahía Serena","Bahía Serena",Sur
+6,"Tienda Campo Dorado","Campo Dorado",Sur
+7,"Tienda San Telmo","San Telmo",Sur
+8,"Tienda Las Dunas","Las Dunas",Sur
+9,"Tienda Costa Azul","Costa Azul",Este
+10,"Tienda Valle Nuevo","Valle Nuevo",Este
+11,"Tienda Mirador",Mirador,Este
+12,"Tienda Aguaclara",Aguaclara,Este
+13,"Tienda Sierra Roja","Sierra Roja",Oeste
+14,"Tienda Llano Verde","Llano Verde",Oeste
+15,"Tienda Piedra Blanca","Piedra Blanca",Oeste
+16,"Tienda El Cruce","El Cruce",Oeste
+17,"Tienda Ciudad Central","Ciudad Central",Centro
+18,"Tienda Plaza Mayor","Plaza Mayor",Centro
+19,"Tienda Los Olivos","Los Olivos",Centro
+20,"Tienda Parque Real","Parque Real",Centro

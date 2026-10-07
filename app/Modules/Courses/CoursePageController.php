@@ -50,10 +50,37 @@ final class CoursePageController
             'activeNav' => 'courses',
             'course' => $course,
             'myAttempts' => $mine,
+            'modules' => (new ContentService($this->app))->tree($ctx, $course['id']),
             'availableLabs' => $available,
             'canReview' => $course['my_role'] === 'staff' && Authorize::allows($this->app->config, $ctx, 'review'),
             'canStart' => Authorize::allows($this->app->config, $ctx, 'create'),
-            'extraScripts' => ['js/features/courses.js'],
+            'extraScripts' => ['js/features/courses.js', 'js/features/course-content.js'],
+        ], 200, 'layouts/app');
+    }
+
+    /** /app/lessons/{lesson_id}: lesson content, completion, linked lab, editor for staff (M10b). */
+    public function lesson(Request $request): Response
+    {
+        $ctx = $this->ctx($request);
+        $lesson = (new ContentService($this->app))->lesson($ctx, \EduCloud\Modules\Workspaces\WorkspaceController::id($request, 'lesson_id'));
+        $course = (new CourseService($this->app))->get($ctx, $lesson['course']['id']);
+        $myAttempt = null;
+        if ($lesson['lab'] !== null) {
+            foreach ((new LabService($this->app))->catalog($ctx) as $lab) {
+                if ($lab['code'] === $lesson['lab']['code']) {
+                    $myAttempt = $lab['my_attempt'];
+                }
+            }
+        }
+        return $this->app->renderPage($request, 'Courses::lesson', [
+            'pageTitle' => $lesson['title'] . ' · ' . $course['title'] . ' · EduCloud Lab',
+            'activeNav' => 'courses',
+            'lesson' => $lesson,
+            'courseLabs' => $course['labs'],
+            'myAttempt' => $myAttempt,
+            'isStudent' => $course['my_role'] === 'student',
+            'canStart' => $course['status'] === 'published' && Authorize::allows($this->app->config, $ctx, 'create'),
+            'extraScripts' => ['js/features/courses.js', 'js/features/course-content.js'],
         ], 200, 'layouts/app');
     }
 

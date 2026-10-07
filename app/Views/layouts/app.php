@@ -60,6 +60,8 @@ foreach ([
     'analytics.loading', 'analytics.updated', 'analytics.failed', 'analytics.expired', 'analytics.no_result', 'analytics.no_rows',
     'analytics.no_value', 'analytics.truncated', 'analytics.show_data', 'analytics.chart_summary', 'analytics.widget.bar',
     'analytics.widget.line',
+    'content.module_title', 'content.module_summary', 'content.new_module', 'content.edit_module', 'content.save', 'content.delete_title', 'content.new_lesson',
+    'content.lesson_title', 'content.create', 'content.body_placeholder', 'notif.label', 'notif.label_unread', 'notif.empty', 'notif.unread',
 ] as $key) {
     $jsStrings[$key] = t($key);
 }
@@ -104,6 +106,20 @@ $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor
     <a class="ec-brand" href="<?= e(url('/app')) ?>"><i class="fa-solid fa-cloud ec-brand-mark" aria-hidden="true"></i> <?= e($appName) ?></a>
 
     <div class="ms-auto d-flex align-items-center gap-2">
+        <div class="dropdown" id="ec-notifications">
+            <button class="btn btn-sm btn-outline-secondary position-relative" type="button" id="ec-notif-toggle" data-bs-toggle="dropdown"
+                    data-bs-auto-close="outside" aria-expanded="false" aria-label="<?= e(t('notif.label')) ?>">
+                <i class="fa-solid fa-bell" aria-hidden="true"></i>
+                <span class="ec-notif-count d-none" id="ec-notif-count" aria-hidden="true"></span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-end ec-notif-menu p-0">
+                <div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+                    <h2 class="h6 mb-0"><?= e(t('notif.title')) ?></h2>
+                    <button class="btn btn-link btn-sm p-0" type="button" id="ec-notif-read-all"><?= e(t('notif.read_all')) ?></button>
+                </div>
+                <div id="ec-notif-list" aria-live="polite"></div>
+            </div>
+        </div>
         <div class="dropdown">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle ec-tenant-switcher" type="button" data-bs-toggle="dropdown"
                     aria-expanded="false" aria-label="<?= e(t('tenant.switch')) ?>">
@@ -178,6 +194,7 @@ $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor
 <script src="<?= e(asset('vendor/bootstrap/bootstrap.bundle.min.js')) ?>"></script>
 <script src="<?= e(asset('vendor/sweetalert2/sweetalert2.min.js')) ?>"></script>
 <script src="<?= e(asset('js/core/api.js')) ?>"></script>
+<script src="<?= e(asset('js/core/notifications.js')) ?>"></script>
 <script src="<?= e(asset('js/features/auth.js')) ?>"></script>
 <script src="<?= e(asset('js/features/portal.js')) ?>"></script>
 <script src="<?= e(asset('js/features/workspaces.js')) ?>"></script>

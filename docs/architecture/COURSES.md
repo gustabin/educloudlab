@@ -64,8 +64,56 @@ No Critical, High or Medium findings. The four Low findings are fixed:
 | `scripts/org.php add-member` lifted a suspension when changing the role | A role change keeps the membership status |
 | The isolation matrix accepted any 403 for roles lacking the route permission | The same attacker must also get the same 403 for a nonexistent id |
 
+## Modules, lessons and notifications (M10b, release 1.2)
+
+**Content model.**
+- `course_modules` holds ordered modules (`draft|published`).
+- `course_lessons` holds ordered lessons inside a module. Each lesson has:
+  - a CommonMark body of up to 50,000 characters;
+  - estimated minutes;
+  - an optional due date (23:59:59 UTC of the chosen day);
+  - an optional link to a lab **assigned to the course**;
+  - a status, `draft|published`.
+- `lesson_progress` stores one completion row per student and lesson.
+- Limits: 30 modules per course and 50 lessons per module.
+
+**Visibility.**
+- Content builds on the course visibility (`CourseService::findOrFail`).
+- Staff see every module and lesson, including the Markdown source.
+- An enrolled student sees a lesson only when the course is not a draft and both its module and the lesson are published. The student gets the rendered HTML only.
+- Anything else answers **404**, exactly like a missing id. Editing needs course staff with `assign`.
+
+**Rendering.** Lessons use the same converter as the lab instructions (`Core\Markdown`: GFM tables, `html_input: escape`, `allow_unsafe_links: false`), so lesson HTML is printed without `e()`.
+
+**Ordering.** `position` in `PATCH` is a 1-based target. The repository renumbers the siblings inside the course row lock.
+
+**Progress.** Students mark lessons as completed (idempotent) and can undo it. The progress grid adds `lessons_completed` per student and `lessons_total` (published lessons in published modules).
+
+**Notifications (in-app).**
+- Stored in `notifications`, unique on `(user_id, kind, ref_key)`, so each event reaches a user once:
+  - `lesson_published` is created when a lesson becomes visible: the lesson is published, its module is published, or the course leaves draft;
+  - `lesson_due` and `lab_due` are created by `Maintenance` for items due within 24 h that the student has not completed (a completed course attempt, for labs).
+- Read notifications are purged after 90 days.
+- The API only returns the caller's notifications in the active tenant; marking another user's notification answers 404. Links are app paths built server-side from public ids.
+- The top-bar bell (`js/core/notifications.js`) shows the unread count, lists notifications on open, and marks one (on click) or all as read.
+
 ## Deferred
 
-- Co-instructor management UI, dropping students and CSV export: M10b.
-- Modules and lessons, notifications for due dates: release 1.2.
-- Organization and member administration UI: M11a.
+- Co-instructor management UI, dropping students and CSV export.
+- E-mail notifications and per-user notification preferences.
+- Quizzes, attachments in lessons and schedule-based unlocking.
+
+## M10b security gate (2026-10-07): PASS WITH FINDINGS
+
+The gate found 0 Critical or High issues. All findings were fixed before release:
+
+| ID | Severity | Fix |
+|---|---|---|
+| F1 | Medium | Publish notifications are inserted in multi-row batches (200 per statement) and are best effort. A failure is logged and never turns a committed publish into a 500. The `course.update` audit record is written before the fan-out. |
+| F2 | Medium | Optional fields (`due_at`, `estimated_minutes`, `lab_code`, module `summary`) can be cleared with `null` or `""`. Unassigning a lab from the course unlinks it from the course lessons. |
+| F3 | Low | Recording lesson progress needs the `create` permission (like starting a lab), so read_only members get 403. |
+| F4 | Low | Only published courses notify (no notifications from archived courses); reopening a course notifies. |
+| F5 | Low | `ContentRepository::move()` checks its table/column pair against a fixed allowlist. |
+| F6 | Low | Unread notifications are also purged after 180 days. |
+| F7 | Low | Lesson creation re-checks that the module still exists under the course lock (404 instead of a foreign-key 500). |
+| F8 | Low (tests) | The CSRF registry sweep resets rate-limit windows and requires exactly 403 `CSRF_INVALID` for every unsafe route. |

@@ -245,3 +245,19 @@ body {
 .ec-catalog-list { max-height: 360px; overflow-y: auto; }
 #analytics .CodeMirror { height: 380px; border: 1px solid var(--ec-border); border-radius: var(--ec-radius-md); font-family: var(--ec-font-mono); font-size: 0.8125rem; }
 #analytics .CodeMirror-focused { outline: 3px solid var(--ec-focus); outline-offset: 1px; }
+
+/* Course content and notifications (M10b). */
+.ec-module { border-top: 1px solid var(--ec-border); padding: var(--ec-space-3) 0; }
+.ec-module:first-of-type { border-top: 0; }
+.ec-lessons { list-style: decimal; padding-left: 1.5rem; margin: var(--ec-space-2) 0 0; }
+.ec-lessons > li { padding: 0.25rem 0; }
+.ec-badge-draft { display: inline-block; font-size: 0.75rem; font-weight: 600; padding: 0 6px; border-radius: 999px; background: #fef3c7; color: #713f12; border: 1px solid #fcd34d; }
+.ec-markdown { line-height: 1.6; }
+.ec-markdown pre { background: var(--bs-tertiary-bg); padding: var(--ec-space-2); border-radius: var(--ec-radius-md); overflow-x: auto; }
+.ec-markdown table { width: 100%; margin-bottom: 1rem; border-collapse: collapse; }
+.ec-markdown th, .ec-markdown td { border: 1px solid var(--ec-border); padding: 0.25rem 0.5rem; }
+.ec-notif-count { position: absolute; top: -6px; right: -6px; min-width: 1.15rem; padding: 0 4px; border-radius: 999px; font-size: 0.6875rem;
+    font-weight: 700; line-height: 1.15rem; background: #b91c1c; color: #fff; }
+.ec-notif-menu { width: min(360px, 92vw); max-height: 420px; overflow-y: auto; }
+.ec-notif-item { white-space: normal; border-bottom: 1px solid var(--ec-border); }
+.ec-notif-unread { background: var(--bs-primary-bg-subtle); }

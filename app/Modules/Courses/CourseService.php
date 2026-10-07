@@ -101,6 +101,10 @@ final class CourseService
         $this->app->audit()->record($request, 'course.update', 'success', $ctx->tenantId, $ctx->userId, 'course', $publicId, [
             'fields' => array_keys($changes),
         ]);
+        if ($row['status'] !== 'published' && $values['status'] === 'published') {
+            // Lessons that were already published become visible with the course (M10b).
+            (new ContentService($this->app))->notifyVisible(['status' => 'published', 'title' => $values['title']] + $row);
+        }
         return $this->get($ctx, $publicId);
     }
 
@@ -229,6 +233,8 @@ final class CourseService
                 $byStudent[$key] = $a;
             }
         }
+        $content = new ContentService($this->app);
+        $completedLessons = $content->completedByStudent($ctx, $courseId);
         $students = [];
         foreach ($this->courses->students($ctx, $courseId) as $s) {
             $cells = [];
@@ -245,7 +251,12 @@ final class CourseService
                     'last_submitted_at' => Format::isoUtc($a['last_submitted_at'] === null ? null : (string) $a['last_submitted_at']),
                 ];
             }
-            $students[] = ['id' => (string) $s['public_id'], 'display_name' => (string) $s['display_name'], 'labs' => $cells];
+            $students[] = [
+                'id' => (string) $s['public_id'],
+                'display_name' => (string) $s['display_name'],
+                'labs' => $cells,
+                'lessons_completed' => $completedLessons[(int) $s['id']] ?? 0,
+            ];
         }
         $summary = [];
         foreach ($labs as $lab) {
@@ -264,6 +275,7 @@ final class CourseService
             'labs' => $this->presentLabs($ctx, $courseId),
             'students' => $students,
             'summary' => $summary,
+            'lessons_total' => $content->visibleLessonCount($ctx, $courseId),
         ];
     }
 
@@ -296,7 +308,7 @@ final class CourseService
     }
 
     /** @return array<string, mixed> visible course the caller may manage (403 for visible non-staff) */
-    private function findManaged(Request $request, TenantContext $ctx, string $publicId, string $action): array
+    public function findManaged(Request $request, TenantContext $ctx, string $publicId, string $action): array
     {
         $row = $this->findOrFail($ctx, $publicId);
         if (!$this->isStaff($ctx, $row) || !Authorize::allows($this->app->config, $ctx, 'assign')) {

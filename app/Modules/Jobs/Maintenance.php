@@ -42,6 +42,7 @@ final class Maintenance
                 ['archived', 'deleted'],
                 (new \EduCloud\Modules\ObjectStorage\ObjectStorageService($this->app))->applyLifecycle()
             ),
+            'notifications' => (new \EduCloud\Modules\Notifications\NotificationService($this->app))->maintenance(),
             'storage_gauges_refreshed' => (new UsageService($this->app))->refreshAll(),
         ];
     }

@@ -1252,6 +1252,7 @@ paths:
                               properties:
                                 id: { type: string }
                                 display_name: { type: string }
+                                lessons_completed: { type: integer, description: completed published lessons (M10b) }
                                 labs:
                                   type: object
                                   description: lab code → best attempt (null when not started)
@@ -1274,6 +1275,7 @@ paths:
                                 started: { type: integer }
                                 completed: { type: integer }
                                 average_best_score: { type: [number, 'null'] }
+                          lessons_total: { type: integer, description: published lessons in published modules (M10b) }
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
@@ -2326,9 +2328,323 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /courses/{course_id}/modules:
+    parameters: [{ $ref: '#/components/parameters/CourseId' }]
+    get:
+      operationId: listCourseModules
+      summary: "Modules with their lessons as the caller may see them (students - published only, with completion)"
+      tags: [courses]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Content tree
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/CourseModule' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createCourseModule
+      summary: "Create a module (course staff with assign; max 30 per course)"
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title]
+              properties:
+                title: { type: string, minLength: 3, maxLength: 150 }
+                summary: { type: [string, 'null'], maxLength: 500 }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CourseModule' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /course-modules/{module_id}:
+    parameters: [{ $ref: '#/components/parameters/ModuleId' }]
+    patch:
+      operationId: updateCourseModule
+      summary: "Edit, publish/unpublish or move a module (publishing notifies students of its visible lessons)"
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                title: { type: string, minLength: 3, maxLength: 150 }
+                summary: { type: [string, 'null'], maxLength: 500 }
+                status: { type: string, enum: [draft, published] }
+                position: { type: integer, minimum: 1, maximum: 1000, description: 1-based target position among the course modules }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/CourseModule' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteCourseModule
+      summary: "Delete an empty module (409 MODULE_NOT_EMPTY otherwise)"
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /course-modules/{module_id}/lessons:
+    parameters: [{ $ref: '#/components/parameters/ModuleId' }]
+    post:
+      operationId: createLesson
+      summary: "Create a lesson (draft) in a module (max 50 per module)"
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [title, body_md]
+              properties:
+                title: { type: string, minLength: 3, maxLength: 150 }
+                body_md: { type: string, maxLength: 50000, description: 'CommonMark (GFM tables); raw HTML is escaped and unsafe links dropped when rendered' }
+                estimated_minutes: { type: [integer, 'null'], minimum: 1, maximum: 600 }
+                due_at: { type: [string, 'null'], format: date, description: due at 23:59:59 UTC of that day }
+                lab_code: { type: [string, 'null'], pattern: '^LAB-[0-9]{3}$', description: must be assigned to the course }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Lesson' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /lessons/{lesson_id}:
+    parameters: [{ $ref: '#/components/parameters/LessonId' }]
+    get:
+      operationId: getLesson
+      summary: "Lesson with rendered HTML, navigation and linked lab (404 for drafts to non-staff)"
+      tags: [courses]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Lesson
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Lesson' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateLesson
+      summary: "Edit, publish/unpublish or move a lesson"
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              minProperties: 1
+              properties:
+                title: { type: string, minLength: 3, maxLength: 150 }
+                body_md: { type: string, maxLength: 50000, description: 'CommonMark (GFM tables); raw HTML is escaped and unsafe links dropped when rendered' }
+                estimated_minutes: { type: [integer, 'null'], minimum: 1, maximum: 600 }
+                due_at: { type: [string, 'null'], format: date, description: due at 23:59:59 UTC of that day }
+                lab_code: { type: [string, 'null'], pattern: '^LAB-[0-9]{3}$', description: must be assigned to the course }
+                status: { type: string, enum: [draft, published] }
+                position: { type: integer, minimum: 1, maximum: 1000 }
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Lesson' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteLesson
+      summary: "Delete a lesson (and its completion records)"
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /lessons/{lesson_id}/complete:
+    parameters: [{ $ref: '#/components/parameters/LessonId' }]
+    post:
+      operationId: completeLesson
+      summary: "Mark a visible lesson as completed (enrolled students; idempotent)"
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+      responses:
+        '200':
+          description: Lesson
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Lesson' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: uncompleteLesson
+      summary: "Undo the completion of a lesson"
+      tags: [courses]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Lesson
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/Lesson' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+  /notifications:
+    get:
+      operationId: listNotifications
+      summary: "My notifications in the active tenant (newest first, max 50); meta.unread holds the unread count"
+      tags: [notifications]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      parameters:
+        - { name: unread, in: query, required: false, schema: { type: string, enum: ['0', '1'] } }
+      responses:
+        '200':
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /notifications/read-all:
+    post:
+      operationId: readAllNotifications
+      summary: "Mark all my notifications as read"
+      tags: [notifications]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+      responses:
+        '200':
+          description: Marked
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: object, properties: { marked: { type: integer } } }
+        '401': { $ref: '#/components/responses/Error' }
+  /notifications/{notification_id}/read:
+    parameters: [{ $ref: '#/components/parameters/NotificationId' }]
+    post:
+      operationId: readNotification
+      summary: "Mark one of my notifications as read (404 if it is not mine)"
+      tags: [notifications]
+      security: [{sessionCookie: [], csrfToken: []}, {bearerAuth: []}]
+      responses:
+        '204': { description: Marked }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
 components:
   parameters:
     CourseId: { name: course_id, in: path, required: true, schema: { type: string, description: ULID of the course } }
+    ModuleId: { name: module_id, in: path, required: true, schema: { type: string, description: ULID of the course module } }
+    LessonId: { name: lesson_id, in: path, required: true, schema: { type: string, description: ULID of the lesson } }
+    NotificationId: { name: notification_id, in: path, required: true, schema: { type: string, description: ULID of the notification } }
     AttemptId: { name: attempt_id, in: path, required: true, schema: { type: string, description: ULID of the lab attempt } }
     TenantId: { name: tenant_id, in: path, required: true, schema: { type: string, description: ULID } }
     WorkspaceId: { name: workspace_id, in: path, required: true, schema: { type: string, description: ULID } }
@@ -2712,6 +3028,56 @@ components:
         result_expired: { type: boolean }
         created_at: { type: string, format: date-time }
         finished_at: { type: [string, 'null'], format: date-time }
+    CourseModule:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        title: { type: string }
+        summary: { type: [string, 'null'] }
+        position: { type: integer }
+        status: { type: [string, 'null'], enum: [draft, published, null], description: staff only }
+        lessons:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              title: { type: string }
+              position: { type: integer }
+              estimated_minutes: { type: [integer, 'null'] }
+              due_at: { type: [string, 'null'], format: date-time }
+              lab_code: { type: [string, 'null'] }
+              status: { type: [string, 'null'], description: staff only }
+              completed: { type: boolean }
+    Lesson:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        title: { type: string }
+        position: { type: integer }
+        estimated_minutes: { type: [integer, 'null'] }
+        due_at: { type: [string, 'null'], format: date-time }
+        lab_code: { type: [string, 'null'] }
+        status: { type: [string, 'null'], description: staff only }
+        completed: { type: boolean }
+        course: { type: object, properties: { id: { type: string }, title: { type: string } } }
+        module: { type: object, properties: { id: { type: string }, title: { type: string } } }
+        lab: { type: [object, 'null'], properties: { code: { type: string }, title: { type: string } } }
+        html: { type: string, description: rendered CommonMark (raw HTML escaped, unsafe links dropped) }
+        body_md: { type: [string, 'null'], description: Markdown source (staff only) }
+        previous_id: { type: [string, 'null'] }
+        next_id: { type: [string, 'null'] }
+        can_manage: { type: boolean }
+    Notification:
+      type: object
+      properties:
+        id: { type: string, description: ULID }
+        kind: { type: string, enum: [lesson_published, lesson_due, lab_due] }
+        title: { type: string }
+        body: { type: [string, 'null'] }
+        url: { type: [string, 'null'], description: server-generated app URL }
+        read: { type: boolean }
+        created_at: { type: string, format: date-time }
     Job:
       type: object
       properties:

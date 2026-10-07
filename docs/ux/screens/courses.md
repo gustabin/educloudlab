@@ -38,3 +38,43 @@
 - Given a student with a valid code, when they join from their personal space, then they land on the course page inside the organization and can start its labs.
 - Given a teacher of the course, when a student validates a course lab, then the grid shows the best score and failed task count, and the cell opens the attempt read-only.
 - Given an instructor who does not teach the course, when they open the course, progress or attempt URLs, then they get 404.
+
+## Course content (M10b)
+
+### `/app/courses/{id}` — "Contenido" section
+
+- **Students:**
+  - They see the published modules and lessons, in order.
+  - Each lesson shows a completed/pending icon (with hidden text), the minutes, the due date and its linked lab.
+- **Staff with `assign`:**
+  - "Nuevo módulo" opens a dialog with title and summary fields.
+  - Per module: move up/down, Publicar/Retirar, edit, a "+" button (new lesson: asks for a title, then opens the lesson page to write it) and delete.
+  - Per lesson: move up/down, Publicar/Retirar and delete.
+  - Drafts carry a "Borrador" badge.
+  - Every icon button has an `aria-label` naming its item.
+- **Errors:** dialogs. Examples: 409 `MODULE_NOT_EMPTY`; 422 for a lab that is not assigned to the course.
+- **Empty:** a message adapted to the role.
+
+### `/app/lessons/{id}` — lesson
+
+- **Content:** breadcrumb, module name, title, minutes and due date, then the rendered Markdown (headings, lists, tables, code).
+- **Linked lab:** a card with "Empezar" or "Continuar".
+- **Navigation:** Anterior / Siguiente, following the visible order.
+- **Students:** "Marcar como completada" (with `aria-pressed`; press again to undo).
+- **Staff:** an edit form with title, minutes, due date, linked lab (only labs assigned to the course) and a Markdown textarea with help text. Validation errors are shown inline.
+- **Not visible to the caller:** 404 page.
+
+### Notification bell (top bar, every app page)
+
+- **Button:** its label includes the unread count ("Notificaciones (2 sin leer)"); a red badge shows the number (9+ at most).
+- **Dropdown:**
+  - lists title, body and date, with unread items highlighted (and prefixed with hidden text "Sin leer");
+  - clicking an item marks it as read and opens its link;
+  - "Marcar todo como leído" marks everything as read.
+- **Empty:** "No tienes notificaciones."
+- **Failures:** loading errors are silent, because the bell is optional chrome.
+
+**Acceptance criteria**
+- Given a draft lesson, when an enrolled student requests it, then they get 404. Once the lesson and its module are published, the student sees it and receives one notification.
+- Given a lesson due in less than 24 h that a student has not completed, when the scheduler runs, then the student gets one reminder, and no second one on the next run.
+- Given Markdown with `<script>` or `javascript:` links, when the lesson is rendered, then the markup is shown as text and the link is removed.

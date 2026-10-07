@@ -3,6 +3,7 @@
  * @var array<string, mixed>                     $course
  * @var array<string, array<string, mixed>|null> $myAttempts lab code => my attempt summary
  * @var list<array<string, mixed>>               $availableLabs
+ * @var list<array<string, mixed>>               $modules       content tree (M10b)
  * @var bool $canReview
  * @var bool $canStart
  */
@@ -38,6 +39,7 @@ $staff = $course['my_role'] === 'staff';
 
     <div class="row g-3">
         <div class="col-12<?= $course['can_manage'] ? ' col-lg-8' : '' ?>">
+<?php require __DIR__ . '/content.php'; ?>
             <section class="ec-card" aria-labelledby="course-labs-title">
                 <h2 class="h5" id="course-labs-title"><?= e(t('courses.labs')) ?></h2>
 <?php if ($course['labs'] === []): ?>

@@ -167,6 +167,12 @@ final class CourseRepository
 
     public function unassignLab(TenantContext $ctx, int $courseId, string $labCode): bool
     {
+        // Lessons may only link labs assigned to the course (M10b): unlink it from them first.
+        $this->db->execute(
+            'UPDATE course_lessons l JOIN labs lab ON lab.id = l.lab_id SET l.lab_id = NULL
+              WHERE l.tenant_id = ? AND l.course_id = ? AND lab.code = ?',
+            [$ctx->tenantId, $courseId, $labCode]
+        );
         return $this->db->execute(
             'DELETE cl FROM course_labs cl JOIN labs l ON l.id = cl.lab_id WHERE cl.tenant_id = ? AND cl.course_id = ? AND l.code = ?',
             [$ctx->tenantId, $courseId, $labCode]

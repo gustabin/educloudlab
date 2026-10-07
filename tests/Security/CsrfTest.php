@@ -82,11 +82,11 @@ final class CsrfTest extends TestCase
                 continue;
             }
             $path = preg_replace('/\{[a-z_]+\}/', '01ARZ3NDEKTSV4RRFFQ69G5FAV', $route['pattern']);
+            // Fresh rate-limit windows: a 429 from a route-level limiter must never stand in for the CSRF answer.
+            $this->app()->db()->execute('DELETE FROM rate_limits');
             $r = $this->request($route['method'], (string) $path, []);
-            self::assertContains($r->status, [403, 429], "{$route['method']} {$route['pattern']} accepted a request without CSRF token");
-            if ($r->status === 403) {
-                self::assertSame('CSRF_INVALID', $r->decoded()['error']['code'], "{$route['method']} {$route['pattern']}: 403 was not from CSRF");
-            }
+            self::assertSame(403, $r->status, "{$route['method']} {$route['pattern']} accepted a request without CSRF token");
+            self::assertSame('CSRF_INVALID', $r->decoded()['error']['code'], "{$route['method']} {$route['pattern']}: 403 was not from CSRF");
             $checked++;
         }
         self::assertGreaterThan(5, $checked);

@@ -34,6 +34,7 @@ final class TenantIsolationTest extends TestCase
         'courses', 'enrollments', 'course_labs',
         'pipelines', 'pipeline_runs', 'dataset_lineage', 'storage_containers', 'storage_objects',
         'semantic_models', 'dashboards', 'semantic_queries',
+        'course_modules', 'course_lessons', 'lesson_progress', 'notifications',
     ];
 
     private const MODEL = [
@@ -78,6 +79,12 @@ final class TenantIsolationTest extends TestCase
         'POST /api/v1/workspaces/{workspace_id}/dashboards' => ['name' => 'intruso', 'definition' => self::DASHBOARD],
         'PATCH /api/v1/dashboards/{dashboard_id}' => ['name' => 'hackeado'],
         'POST /api/v1/dashboards/{dashboard_id}/render' => [],
+        'POST /api/v1/courses/{course_id}/modules' => ['title' => 'Intruso'],
+        'PATCH /api/v1/course-modules/{module_id}' => ['title' => 'Hackeado'],
+        'POST /api/v1/course-modules/{module_id}/lessons' => ['title' => 'Intrusa', 'body_md' => 'x'],
+        'PATCH /api/v1/lessons/{lesson_id}' => ['title' => 'Hackeada'],
+        'POST /api/v1/lessons/{lesson_id}/complete' => [],
+        'POST /api/v1/notifications/{notification_id}/read' => [],
     ];
 
     /** @var array<string, string> route parameter => victim object id */
@@ -113,6 +120,25 @@ final class TenantIsolationTest extends TestCase
 
         $csrf = $this->sessionIn('alice@test.example', $this->org['public_id']);
         self::assertSame(200, $this->request('POST', '/api/v1/courses/join', ['code' => $joinCode], ['X-CSRF-Token' => $csrf])->status);
+
+        // Course content (M10b), published so that alice (enrolled) sees it and gets a notification.
+        $teacherCsrf = $this->sessionIn('titular@test.example', $this->org['public_id']);
+        $th = ['X-CSRF-Token' => $teacherCsrf];
+        $module = $this->request('POST', "/api/v1/courses/$courseId/modules", ['title' => 'Módulo 1'], $th);
+        self::assertSame(201, $module->status, $module->body);
+        $moduleId = (string) $module->decoded()['data']['id'];
+        $lesson = $this->request('POST', "/api/v1/course-modules/$moduleId/lessons", ['title' => 'Lección 1', 'body_md' => 'Hola'], $th);
+        self::assertSame(201, $lesson->status, $lesson->body);
+        $lessonId = (string) $lesson->decoded()['data']['id'];
+        self::assertSame(200, $this->request('PATCH', "/api/v1/lessons/$lessonId", ['status' => 'published'], $th)->status);
+        self::assertSame(200, $this->request('PATCH', "/api/v1/course-modules/$moduleId", ['status' => 'published'], $th)->status);
+        $notificationId = (string) $this->app()->db()->scalar(
+            'SELECT public_id FROM notifications WHERE user_id = ?',
+            [$this->userId('alice@test.example')]
+        );
+        self::assertNotSame('', $notificationId);
+        $csrf = $this->sessionIn('alice@test.example', $this->org['public_id']);
+        self::assertSame(200, $this->request('POST', "/api/v1/lessons/$lessonId/complete", [], ['X-CSRF-Token' => $csrf])->status);
         $ws = $this->request('POST', '/api/v1/workspaces', ['name' => 'Trabajo final'], ['X-CSRF-Token' => $csrf]);
         self::assertSame(201, $ws->status, $ws->body);
         $wsId = (string) $ws->decoded()['data']['id'];
@@ -159,6 +185,9 @@ final class TenantIsolationTest extends TestCase
         $analytics = $this->analyticsFixtures($wsId);
 
         $this->victimIds = [
+            'module_id' => $moduleId,
+            'lesson_id' => $lessonId,
+            'notification_id' => $notificationId,
             'model_id' => $analytics['model'],
             'dashboard_id' => $analytics['dashboard'],
             'semantic_query_id' => $analytics['query'],
@@ -237,6 +266,9 @@ final class TenantIsolationTest extends TestCase
             }, $route['pattern']);
             $key = $route['method'] . ' ' . $route['pattern'];
 
+            // The matrix sends more unsafe calls per attacker than write_user allows per minute: reset the window so a
+            // 429 can never mask (or stand in for) the authorization answer under test.
+            $this->app()->db()->execute('DELETE FROM rate_limits');
             $before = $this->snapshot();
             $response = $send($route['method'], $path, self::BODIES[$key] ?? null);
 
@@ -259,7 +291,7 @@ final class TenantIsolationTest extends TestCase
             $checked[] = $key;
         }
 
-        $minimum = $attacker === 'bob-bearer' ? 67 : 77; // every {id} route of the registry (M9)
+        $minimum = $attacker === 'bob-bearer' ? 78 : 89; // every {id} route of the registry (M10b)
         self::assertGreaterThanOrEqual($minimum, count($checked), "[$attacker] matrix covered too few routes: " . implode(', ', $checked));
     }
 
@@ -302,6 +334,9 @@ final class TenantIsolationTest extends TestCase
             "/api/v1/dashboards/{$this->victimIds['dashboard_id']}",
             "/app/dashboards/{$this->victimIds['dashboard_id']}",
             "/api/v1/semantic-queries/{$this->victimIds['semantic_query_id']}",
+            "/api/v1/courses/{$this->victimIds['course_id']}/modules",
+            "/api/v1/lessons/{$this->victimIds['lesson_id']}",
+            "/app/lessons/{$this->victimIds['lesson_id']}",
         ];
         foreach ($paths as $path) {
             self::assertSame(200, $this->request('GET', $path)->status, $path);

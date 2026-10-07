@@ -18,19 +18,23 @@ $labs = $progress['labs'];
     </div>
 </div>
 
-<?php if ($labs === [] || $progress['students'] === []): ?>
+<?php $lessonsTotal = (int) $progress['lessons_total']; ?>
+<?php if (($labs === [] && $lessonsTotal === 0) || $progress['students'] === []): ?>
 <div class="ec-empty">
     <span class="ec-feature-icon"><i class="fa-solid fa-table-cells" aria-hidden="true"></i></span>
-    <p class="text-body-secondary mb-0"><?= e($labs === [] ? t('courses.progress_no_labs') : t('courses.progress_no_students')) ?></p>
+    <p class="text-body-secondary mb-0"><?= e($progress['students'] !== [] ? t('courses.progress_no_labs') : t('courses.progress_no_students')) ?></p>
 </div>
 <?php else: ?>
 <div class="ec-card p-0">
-    <div class="table-responsive">
+    <div class="table-responsive" tabindex="0" role="region" aria-label="<?= e(t('courses.progress_caption')) ?>">
         <table class="table table-sm align-middle mb-0 ec-progress-table">
             <caption class="visually-hidden"><?= e(t('courses.progress_caption')) ?></caption>
             <thead>
                 <tr>
                     <th scope="col"><?= e(t('courses.student')) ?></th>
+<?php if ($lessonsTotal > 0): ?>
+                    <th scope="col" class="text-center"><?= e(t('courses.lessons_col')) ?></th>
+<?php endif; ?>
 <?php foreach ($labs as $lab): ?>
                     <th scope="col" class="text-center"><abbr title="<?= e($lab['title']) ?>"><?= e($lab['code']) ?></abbr></th>
 <?php endforeach; ?>
@@ -40,6 +44,9 @@ $labs = $progress['labs'];
 <?php foreach ($progress['students'] as $student): ?>
                 <tr>
                     <th scope="row" class="fw-normal"><?= e($student['display_name']) ?></th>
+<?php if ($lessonsTotal > 0): ?>
+                    <td class="text-center small"><?= e($student['lessons_completed'] . '/' . $lessonsTotal) ?></td>
+<?php endif; ?>
 <?php foreach ($labs as $lab):
     $cell = $student['labs'][$lab['code']];
     ?>
@@ -64,6 +71,9 @@ $labs = $progress['labs'];
             <tfoot>
                 <tr>
                     <th scope="row" class="small fw-semibold"><?= e(t('courses.summary')) ?></th>
+<?php if ($lessonsTotal > 0): ?>
+                    <td></td>
+<?php endif; ?>
 <?php foreach ($labs as $lab):
     $s = $progress['summary'][$lab['code']];
     ?>

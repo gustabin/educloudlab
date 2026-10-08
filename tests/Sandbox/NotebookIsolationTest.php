@@ -79,6 +79,14 @@ final class NotebookIsolationTest extends TestCase
         self::assertCount(5, $r['data']['artifacts']['ventas']['rows']);
     }
 
+    public function testAWorkspaceWithoutLakehouseGetsAClearError(): void
+    {
+        $r = $this->sandbox?->run([['id' => 'c1', 'source' => 'lakehouse()']], null, 60, static fn (): bool => false) ?? [];
+        $cell = $this->first($r);
+        self::assertSame('FileNotFoundError', $cell['error']['type'] ?? null, (string) json_encode($cell));
+        self::assertStringContainsString('aún no tiene lakehouse', (string) $cell['error']['message']);
+    }
+
     public function testErrorsStopTheRunWithTypeAndLine(): void
     {
         $r = $this->exec(["x = 1\nraise ValueError('mal')", "print('nunca')"]);

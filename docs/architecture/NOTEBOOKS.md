@@ -29,6 +29,7 @@ flowchart LR
   - the error type, message and line.
 - Helpers:
   - `lakehouse()` opens a read-only DuckDB connection (external access off, configuration locked) to a **copy** of the workspace lakehouse;
+  - in a workspace without a lakehouse, `lakehouse()` raises a clear `FileNotFoundError` asking the student to load data first;
   - `save_result(name, frame)` records up to 5 artifacts of up to 1,000 rows each.
 - Time limits, in layers:
   1. **Per-cell alarm** (30 s, SIGALRM raised as a `BaseException`). This is a usability feature only: student code runs in the executor's process and **can disable it** (`signal.alarm(0)` or a custom handler).
@@ -72,7 +73,7 @@ docker run --detach --name educloud-nb-<ulid> --label educloud.nb=1 --network no
   - `notebook_run_succeeded` only says "the student's own run reported success". It is used for points, never for authorization.
 - **Forked children.** Before printing its result, the executor kills every other process it can signal (`kill(-1, SIGKILL)`; PID 1, the guard, is immune). A forked child cannot print a later line and replace the result. A child that reaches the executor's exit path exits silently.
 
-## Isolation suite (release gate) — result on 2026-10-07: 15/15 PASS
+## Isolation suite (release gate) — result on 2026-10-07: 17/17 PASS
 
 Every attack below runs against the real image, and each one fails inside the container:
 
@@ -87,6 +88,7 @@ Every attack below runs against the real image, and each one fails inside the co
 | Infinite loop | Killed at the run timeout (TIMEOUT); the container is gone. |
 | Output flood | 32 MB of output stays in the rotated log inside the Docker VM, and the result line still arrives. An endless flood ends in TIMEOUT. `print` output is truncated with a note. |
 | Forged result lines | Self-reported results are re-normalised: unknown cell ids, bad artifact names and ragged rows are dropped. Forked children cannot replace the result. |
+| PID 1 guard | Signals to PID 1 are dropped and `ptrace` attach fails (EPERM); the guard keeps running. |
 | Orphans | Labelled containers and run directories left by a dead dispatcher are reaped. |
 | Cleanup | No container and no run directory is left behind. |
 

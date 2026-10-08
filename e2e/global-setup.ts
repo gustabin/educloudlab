@@ -1,5 +1,5 @@
 /**
- * Starts the job dispatcher for the run (labs setup, ingestion, SQL and grading are jobs), imports the lab catalog
+ * Starts the job dispatchers for the run (labs setup, ingestion, SQL and grading are jobs), imports the lab catalog
  * and clears the local rate-limit windows so repeated local runs do not hit the auth throttles. Local development only.
  */
 import { spawn } from 'node:child_process';
@@ -16,7 +16,13 @@ export default async function globalSetup(): Promise<void> {
   }
   php('scripts/labs-import.php');
   php('-r', "$app = require 'app/bootstrap.php'; $app->db()->execute('DELETE FROM rate_limits');");
-  const dispatcher = spawn(PHP, ['scripts/dispatcher.php'], { cwd: ROOT, stdio: 'ignore', detached: true });
-  dispatcher.unref();
-  writeFileSync(join(ROOT, 'e2e-results.dispatcher.pid'), String(dispatcher.pid));
+  const pids: number[] = [];
+  // Notebook runs have their own worker (M8); started only when the install runs notebooks in Docker.
+  const roles = env('NOTEBOOKS_MODE') === 'docker' ? [[], ['--notebooks']] : [[]];
+  for (const extra of roles) {
+    const child = spawn(PHP, ['scripts/dispatcher.php', ...extra], { cwd: ROOT, stdio: 'ignore', detached: true });
+    child.unref();
+    pids.push(child.pid ?? 0);
+  }
+  writeFileSync(join(ROOT, 'e2e-results.dispatcher.pid'), pids.join(' '));
 }

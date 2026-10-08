@@ -19,6 +19,11 @@ final class Logger
     {
     }
 
+    public function directory(): string
+    {
+        return $this->directory;
+    }
+
     public function setRequestId(string $requestId): void
     {
         $this->requestId = $requestId;

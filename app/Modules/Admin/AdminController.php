@@ -22,7 +22,7 @@ use EduCloud\Modules\Workspaces\WorkspaceController;
 final class AdminController
 {
     public const JOB_STATUSES = 'queued,running,succeeded,failed,cancelled,timed_out';
-    public const JOB_TYPES = 'profile,ingest,cleanup,sql_query,transform,validate,pipeline_run';
+    public const JOB_TYPES = 'profile,ingest,cleanup,sql_query,transform,validate,pipeline_run,semantic_query,notebook_run';
 
     private AdminRepository $repo;
 

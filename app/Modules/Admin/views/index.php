@@ -24,6 +24,9 @@
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="admin-users-tab" data-bs-toggle="tab" data-bs-target="#admin-users-pane" type="button" role="tab" aria-controls="admin-users-pane" aria-selected="false"><?= e(t('admin.users')) ?></button>
         </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="admin-obs-tab" data-bs-toggle="tab" data-bs-target="#admin-obs-pane" type="button" role="tab" aria-controls="admin-obs-pane" aria-selected="false"><?= e(t('admin.observability')) ?></button>
+        </li>
     </ul>
 
     <div class="tab-content">
@@ -42,7 +45,7 @@
                     <label class="visually-hidden" for="admin-jobs-type"><?= e(t('admin.filter_type')) ?></label>
                     <select class="form-select form-select-sm" id="admin-jobs-type" name="type">
                         <option value=""><?= e(t('admin.all_types')) ?></option>
-<?php foreach (['profile', 'ingest', 'cleanup', 'sql_query', 'transform', 'validate'] as $s): ?>
+<?php foreach (explode(',', \EduCloud\Modules\Admin\AdminController::JOB_TYPES) as $s): ?>
                         <option value="<?= e($s) ?>"><?= e($s) ?></option>
 <?php endforeach; ?>
                     </select>
@@ -85,6 +88,34 @@
                 </div>
             </form>
             <div data-admin-list="users"></div>
+        </div>
+        <div class="tab-pane fade" id="admin-obs-pane" role="tabpanel" aria-labelledby="admin-obs-tab" tabindex="0">
+            <h2 class="h5"><?= e(t('obs.components')) ?></h2>
+            <p class="small mb-2" id="obs-overall"></p>
+            <div class="row g-2 mb-4" id="obs-health" aria-busy="true"></div>
+
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                <label class="small" for="obs-window"><?= e(t('obs.window_label')) ?></label>
+                <select class="form-select form-select-sm w-auto" id="obs-window">
+<?php foreach (['1h', '24h', '7d'] as $w): ?>
+                    <option value="<?= e($w) ?>"<?= $w === '24h' ? ' selected' : '' ?>><?= e(t('obs.window.' . $w)) ?></option>
+<?php endforeach; ?>
+                </select>
+            </div>
+            <div id="obs-metrics" aria-busy="true"></div>
+
+            <h2 class="h5 mt-4"><?= e(t('obs.logs')) ?></h2>
+            <p class="small text-body-secondary"><?= e(t('obs.logs_help')) ?></p>
+            <form class="row g-2 mb-2" id="obs-logs-form" novalidate>
+                <div class="col-12 col-md-5">
+                    <label class="visually-hidden" for="obs-request-id"><?= e(t('obs.request_id')) ?></label>
+                    <input class="form-control form-control-sm font-monospace" id="obs-request-id" name="request_id" placeholder="<?= e(t('obs.request_id')) ?>" maxlength="26" autocomplete="off" spellcheck="false">
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-sm btn-outline-primary" type="submit"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> <?= e(t('obs.search')) ?></button>
+                </div>
+            </form>
+            <div id="obs-logs" aria-busy="false"></div>
         </div>
     </div>
 </div>

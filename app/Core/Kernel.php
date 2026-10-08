@@ -12,6 +12,7 @@ use EduCloud\Http\Middleware\RateLimit;
 use EduCloud\Http\Middleware\RateLimitUser;
 use EduCloud\Http\Middleware\ResolveTenant;
 use EduCloud\Http\Middleware\SecurityHeaders;
+use EduCloud\Modules\Observability\RequestMetrics;
 use Throwable;
 
 /**
@@ -31,10 +32,13 @@ final class Kernel
     public function handle(Request $request): Response
     {
         $this->app->logger->setRequestId($request->requestId);
+        $startedAt = microtime(true);
+        $route = '_unmatched'; // route NAME for metrics (M11b): never the URL, which carries ids
 
-        $core = function (Request $request): Response {
+        $core = function (Request $request) use (&$route): Response {
             try {
                 $match = $this->app->router->match($request->method, $request->path);
+                $route = (string) ($match['route']['options']['name'] ?? '_unnamed');
                 $request = $request
                     ->withAttribute('route_params', $match['params'])
                     ->withAttribute('route_options', $match['route']['options']);
@@ -64,6 +68,7 @@ final class Kernel
         if ($request->method === 'HEAD') {
             $response->body = '';
         }
+        RequestMetrics::record($this->app, $route, $request->method, $response->status, $startedAt);
         return $response;
     }
 

@@ -8,6 +8,8 @@ use EduCloud\Core\App;
 use EduCloud\Modules\Auth\SessionRepository;
 use EduCloud\Modules\Email\EmailService;
 use EduCloud\Modules\Labs\AttemptRepository;
+use EduCloud\Modules\Observability\LogReader;
+use EduCloud\Modules\Observability\MetricsRepository;
 use EduCloud\Modules\Usage\UsageService;
 use EduCloud\Modules\Workspaces\WorkspaceRepository;
 use Throwable;
@@ -48,7 +50,28 @@ final class Maintenance
                 ? (new \EduCloud\Modules\Notebooks\DockerSandbox($this->app->config, $this->app->storage()))->reapOrphans(false)
                 : 0,
             'storage_gauges_refreshed' => (new UsageService($this->app))->refreshAll(),
+            // Observability retention (M11b).
+            'metrics_purged' => $this->safely('metrics_purge', fn (): int => (new MetricsRepository($this->app->db()))
+                ->purge(gmdate('Y-m-d H:i:s', time() - 86400 * (int) $this->app->config->get('observability.metrics_retention_days', 14)))),
+            'logs_removed' => $this->safely('logs_purge', fn (): int => (new LogReader($this->app->logger->directory()))
+                ->purge((int) $this->app->config->get('observability.log_retention_days', 30))),
         ];
+    }
+
+    /**
+     * Runs an optional housekeeping step; a failure is logged (class only) and reported as null instead of
+     * aborting the whole run (gate M11b-F5).
+     *
+     * @param callable(): int $step
+     */
+    private function safely(string $name, callable $step): ?int
+    {
+        try {
+            return $step();
+        } catch (Throwable $e) {
+            $this->app->logger->error('maintenance_step_failed', ['step' => $name, 'exception' => get_class($e)]);
+            return null;
+        }
     }
 
     /** Emails the owners of lab workspaces that expire within 3 days (once; any activity resets the warning). */

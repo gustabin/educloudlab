@@ -130,6 +130,8 @@ Two background processes do the heavy work. Without them, uploads stay "Procesan
 
 Details: `docs/architecture/EXECUTION.md`. The SQL Lab also needs the dispatcher, because queries run as interactive high-priority jobs.
 
+Each process reports a heartbeat. **/app/admin → Observabilidad** shows which processes are running, together with latency and errors per route, job times and a log lookup by request id (`docs/architecture/OBSERVABILITY.md`).
+
 ### End-to-end and accessibility tests
 
 ```
@@ -150,7 +152,7 @@ The global setup starts the dispatcher, imports the labs and clears the local `r
 ### Administration, backups and deployment
 
 ```
-php scripts/admin.php grant tu@correo     # platform admin: /app/admin (jobs, audit, users)
+php scripts/admin.php grant tu@correo     # platform admin: /app/admin (jobs, audit, users, observability)
 php scripts/backup.php                    # database + storage backup
 php scripts/restore.php <dir> --dry-run   # restore drill into the test database
 ```

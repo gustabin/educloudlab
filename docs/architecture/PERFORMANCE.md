@@ -22,6 +22,12 @@ Measured numbers are labelled **measured**; everything else is a target or an es
 
 **Future optimisation (not in the MVP):** a pool of warm runner processes that serves several jobs while keeping the same sandbox per job. This would cut about 1 s per query. Concurrency today is one job at a time, with fair claiming across users.
 
+## Request metrics overhead (M11b)
+
+**Measured on 2026-10-08** on the development machine (MariaDB 10.4, same host): the per-request upsert into `request_metrics` over 1,000 writes took p50 0.91 ms, p95 1.39 ms and max 8.85 ms. Disable it with `OBSERVABILITY_REQUEST_METRICS=0`.
+
+Live latencies per route are now visible in **/app/admin → Observabilidad** (approximate percentiles from the histogram, see `OBSERVABILITY.md`).
+
 ## Not yet measured
 
 - Page load times.

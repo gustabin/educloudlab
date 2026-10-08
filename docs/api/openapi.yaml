@@ -923,6 +923,146 @@ paths:
                       data: { type: object }
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
+  /admin/health:
+    get:
+      operationId: adminHealth
+      summary: Detailed component health (database, queue, dispatchers, scheduler, mailer, storage, runner) - platform admins only
+      description: >-
+        Each component reports status ok | warning | down | disabled with a few safe numbers (no paths, versions or
+        error messages). Worker liveness comes from heartbeats; notebook sandbox availability comes from the notebook
+        worker (the web server never calls Docker).
+      tags: [admin]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      responses:
+        '200':
+          description: Health report
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          status: { type: string, enum: [ok, warning, down] }
+                          checked_at: { type: string, format: date-time }
+                          components:
+                            type: array
+                            items:
+                              type: object
+                              required: [name, status]
+                              properties:
+                                name: { type: string, enum: [database, queue, dispatcher, dispatcher_notebooks, scheduler, mailer, storage, runner] }
+                                status: { type: string, enum: [ok, warning, down, disabled] }
+                                last_seen_s: { type: [integer, 'null'] }
+                                details: { type: object, additionalProperties: { type: [integer, boolean, 'null'] } }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /admin/metrics:
+    get:
+      operationId: adminMetrics
+      summary: HTTP metrics by route name and job metrics by type for a time window - platform admins only
+      description: >-
+        HTTP percentiles are approximations from a fixed latency histogram (upper bucket bound: 50, 100, 250, 500,
+        1000, 2500, 5000 ms; the observed maximum above that). Metrics are keyed by route name, never by URL.
+      tags: [admin]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      parameters:
+        - { name: window, in: query, required: false, schema: { type: string, enum: ['1h', '24h', '7d'], default: '24h' } }
+      responses:
+        '200':
+          description: Metrics report
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          window: { type: string }
+                          since: { type: string, format: date-time }
+                          http:
+                            type: object
+                            properties:
+                              requests: { type: integer }
+                              client_error_rate: { type: [number, 'null'] }
+                              server_error_rate: { type: [number, 'null'] }
+                              server_errors: { type: integer }
+                              avg_ms: { type: [integer, 'null'] }
+                              p50_ms: { type: [integer, 'null'] }
+                              p95_ms: { type: [integer, 'null'] }
+                              p99_ms: { type: [integer, 'null'] }
+                              slowest_routes: { type: array, items: { $ref: '#/components/schemas/RouteMetrics' } }
+                              busiest_routes: { type: array, items: { $ref: '#/components/schemas/RouteMetrics' } }
+                              failing_routes: { type: array, items: { $ref: '#/components/schemas/RouteMetrics' } }
+                              series_slot_minutes: { type: integer }
+                              series:
+                                type: array
+                                items:
+                                  type: object
+                                  properties:
+                                    at: { type: string, format: date-time }
+                                    requests: { type: integer }
+                                    client_errors: { type: integer }
+                                    server_errors: { type: integer }
+                          jobs:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                type: { type: string }
+                                count: { type: integer }
+                                active: { type: integer }
+                                failed: { type: integer }
+                                timed_out: { type: integer }
+                                cancelled: { type: integer }
+                                failure_rate: { type: [number, 'null'] }
+                                wait_p50_ms: { type: [integer, 'null'] }
+                                wait_p95_ms: { type: [integer, 'null'] }
+                                run_p50_ms: { type: [integer, 'null'] }
+                                run_p95_ms: { type: [integer, 'null'] }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /admin/logs:
+    get:
+      operationId: adminLogs
+      summary: Recent application log events (last 2 days, newest first, max 200) - platform admins only
+      description: >-
+        Returns only ts, level, event and request_id; the log context is never returned. Without request_id the
+        default minimum level is warning. Use the request id shown in error dialogs (X-Request-Id) to trace a request.
+      tags: [admin]
+      security: [{sessionCookie: []}, {bearerAuth: []}]
+      parameters:
+        - { name: request_id, in: query, required: false, schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' } }
+        - { name: level, in: query, required: false, schema: { type: string, enum: [info, warning, error], description: minimum level } }
+      responses:
+        '200':
+          description: Log events (meta.total)
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            ts: { type: string }
+                            level: { type: string, enum: [info, warning, error] }
+                            event: { type: string }
+                            request_id: { type: [string, 'null'] }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /admin/jobs:
     get:
       operationId: adminJobs
@@ -931,7 +1071,7 @@ paths:
       security: [{sessionCookie: []}, {bearerAuth: []}]
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [queued, running, succeeded, failed, cancelled, timed_out] } }
-        - { name: type, in: query, required: false, schema: { type: string, enum: [profile, ingest, cleanup, sql_query, transform, validate, pipeline_run] } }
+        - { name: type, in: query, required: false, schema: { type: string, enum: [profile, ingest, cleanup, sql_query, transform, validate, pipeline_run, semantic_query, notebook_run] } }
         - { name: page, in: query, required: false, schema: { type: integer, minimum: 1 } }
         - { name: per_page, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 } }
       responses:
@@ -2873,6 +3013,17 @@ components:
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
+    RouteMetrics:
+      type: object
+      properties:
+        route: { type: string, description: route name from the registry }
+        method: { type: string }
+        requests: { type: integer }
+        client_errors: { type: integer }
+        server_errors: { type: integer }
+        avg_ms: { type: [integer, 'null'] }
+        p95_ms: { type: [integer, 'null'] }
+        max_ms: { type: integer }
     AdminUser:
       type: object
       properties:

@@ -88,7 +88,7 @@ WantedBy=multi-user.target
 2. `php scripts/backup.php`.
 3. `php scripts/migrate.php up`, then `php scripts/labs-import.php`.
 4. `systemctl restart educloud-dispatcher educloud-mailer` and reload PHP-FPM.
-5. Run `php scripts/check-env.php` and smoke-test `/api/v1/health`, login and a SQL query.
+5. Run `php scripts/check-env.php` and smoke-test `/api/v1/health`, login and a SQL query. Then check **/app/admin → Observabilidad**: every component must be green (dispatcher, scheduler, mailer and, with notebooks, the notebook worker).
 
 Rollback: every migration has a down script (`php scripts/migrate.php down`). For a data rollback, restore the backup taken in step 2.
 

@@ -32,9 +32,9 @@ final class DockerSandbox
     }
 
     /** True when the daemon answers and the image exists (check-env, mode guard). */
-    public function available(): bool
+    public function available(int $timeoutS = 20): bool
     {
-        $out = $this->docker(['image', 'inspect', '--format', '{{.Id}}', (string) $this->setting('image')], 20);
+        $out = $this->docker(['image', 'inspect', '--format', '{{.Id}}', (string) $this->setting('image')], $timeoutS);
         return $out['exit'] === 0 && str_starts_with(trim($out['stdout']), 'sha256:');
     }
 

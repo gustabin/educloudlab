@@ -28,7 +28,7 @@ return static function (Router $router, App $app): void {
         static fn (Request $r, App $app): Response => $app->renderPage($r, 'Admin::index', [
             'pageTitle' => t('admin.title') . ' · EduCloud Lab',
             'activeNav' => 'admin',
-            'extraScripts' => ['js/features/admin.js'],
+            'extraScripts' => ['vendor/chartjs/chart.umd.min.js', 'js/features/admin.js'],
         ], 200, 'layouts/app'),
         ['auth' => 'session', 'permission' => 'platform_admin', 'name' => 'page.admin']
     );

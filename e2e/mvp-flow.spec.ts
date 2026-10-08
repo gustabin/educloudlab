@@ -179,6 +179,20 @@ test('MVP end-to-end flow', async ({ page }) => {
     // Bootstrap fades tab panes in: measure contrast once the pane is fully opaque.
     await expect.poll(() => page.locator('#admin-users-pane').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
     await expectAccessible(page, 'admin monitor');
+
+    // Observability (M11b): the dispatcher started by global-setup reports a heartbeat; this run's traffic is measured.
+    await page.getByRole('tab', { name: 'Observabilidad' }).click();
+    await expect(page.locator('#obs-health')).toHaveAttribute('aria-busy', 'false');
+    await expect(page.locator('[data-obs-component="database"]')).toContainText('Correcto');
+    await expect(page.locator('[data-obs-component="dispatcher"]')).toContainText('Correcto');
+    await expect(page.locator('#obs-metrics')).toHaveAttribute('aria-busy', 'false');
+    await expect(page.locator('#obs-metrics')).toContainText('Rutas con más tráfico');
+    await expect(page.locator('#obs-metrics canvas[role="img"]')).toHaveAttribute('aria-label', /peticiones/);
+    await page.fill('#obs-request-id', 'no-es-un-id');
+    await page.getByRole('button', { name: 'Buscar' }).click();
+    await expect(page.locator('#obs-logs')).toContainText('26 caracteres');
+    await expect.poll(() => page.locator('#admin-obs-pane').evaluate((el) => getComputedStyle(el).opacity)).toBe('1');
+    await expectAccessible(page, 'admin observability');
     php('scripts/admin.php', 'revoke', teacher);
   });
 

@@ -13,6 +13,7 @@ declare(strict_types=1);
 
 use EduCloud\Modules\Jobs\Dispatcher;
 use EduCloud\Modules\Notebooks\DockerSandbox;
+use EduCloud\Modules\Observability\Heartbeat;
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -53,11 +54,25 @@ $dispatcher = match (true) {
     default => new Dispatcher($app, 'dispatcher-' . getmypid()),
 };
 echo gmdate('c') . ' dispatcher started' . ($notebooks ? ' (notebooks)' : '') . "\n";
+// Liveness for the admin health view (M11b). The process that owns notebooks also reports whether the sandbox can
+// run (Docker daemon + image), checked at most once a minute: the web server never talks to Docker itself.
+$heartbeat = new Heartbeat($app, $notebooks ? 'dispatcher_notebooks' : 'dispatcher');
+$ownsSandbox = ($notebooks || !$dedicated) && $app->config->get('execution.notebooks.mode') === 'docker';
+$docker = null;
+$dockerCheckedAt = 0;
+$total = 0;
 do {
     $processed = $dispatcher->drain(50);
+    $total += $processed;
     if ($processed > 0) {
         echo gmdate('c') . " processed=$processed\n";
     }
+    if ($ownsSandbox && time() - $dockerCheckedAt >= 60) {
+        $dockerCheckedAt = time();
+        // Short timeout: a hung daemon must not stall job claiming (gate M11b-F3).
+        $docker = (new DockerSandbox($app->config, $storage))->available(5);
+    }
+    $heartbeat->tick(['processed' => $total] + ($ownsSandbox ? ['docker' => $docker] : []));
     if (!$once) {
         usleep(200_000); // short idle poll: SQL Lab queries are interactive
     }

@@ -23,7 +23,7 @@ php scripts/notebook-image.php build
 vendor/bin/phpunit --testsuite Sandbox
 
 # Browser flows against the PHP built-in server (demo notebook mode).
-php -S 127.0.0.1:8099 -t public scripts/dev-router.php > "$RUNNER_TEMP/php-server.log" 2>&1 &
+PHP_CLI_SERVER_WORKERS=4 php -S 127.0.0.1:8099 -t public scripts/dev-router.php > "$RUNNER_TEMP/php-server.log" 2>&1 &
 trap 'kill %1 2>/dev/null || true' EXIT
 for _ in $(seq 1 30); do curl -fsS http://127.0.0.1:8099/api/v1/health >/dev/null && break; sleep 1; done
 E2E_BASE_URL=http://127.0.0.1:8099/ npx playwright test

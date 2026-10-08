@@ -13,7 +13,10 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  reporter: [['list'], ['html', { open: 'never', outputFolder: 'e2e-report' }]],
+  // On GitHub Actions, failures also become annotations (readable on the run page without the job log).
+  reporter: process.env.GITHUB_ACTIONS
+    ? [['list'], ['github'], ['html', { open: 'never', outputFolder: 'e2e-report' }]]
+    : [['list'], ['html', { open: 'never', outputFolder: 'e2e-report' }]],
   globalSetup: './e2e/global-setup.ts',
   globalTeardown: './e2e/global-teardown.ts',
   use: {

@@ -99,6 +99,7 @@ $roles = ['org_admin' => t('role.org_admin'), 'instructor' => t('role.instructor
     <meta name="csrf-token" content="<?= e($csrfToken) ?>">
     <meta name="robots" content="noindex, nofollow">
     <title><?= e($pageTitle ?? $appName) ?></title>
+    <link rel="icon" type="image/svg+xml" href="<?= e(asset('img/favicon.svg')) ?>">
     <link rel="stylesheet" href="<?= e(asset('vendor/bootstrap/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset('vendor/fontawesome/css/all.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(asset('vendor/sweetalert2/sweetalert2.min.css')) ?>">

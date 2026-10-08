@@ -40,6 +40,7 @@ test(docker ? 'notebooks run in the Docker sandbox' : 'notebooks in demo mode', 
   await page.keyboard.type("print('hola desde el sandbox'); 6 * 7");
   await page.locator('#nb-save').click();
   await expect(page.locator('#nb-list')).toContainText('exploracion');
+  await expect(page.locator('#nb-save')).toBeEnabled(); // saved: no half-transparent busy button during the axe check
 
   if (docker) {
     await expect(page.locator('#nb-run')).toBeEnabled();

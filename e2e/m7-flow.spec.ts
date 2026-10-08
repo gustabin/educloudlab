@@ -24,11 +24,15 @@ test('pipelines, lineage and object storage', async ({ page }) => {
     await Promise.all([page.waitForURL(/\/app\/workspaces\/[0-9A-Z]{26}$/), page.locator('#ws-create-form [type=submit]').click()]);
     workspaceUrl = page.url();
     for (const [type, name] of [['lakehouse', 'lago'], ['storage', 'almacen']]) {
-      await page.getByRole('button', { name: 'Nuevo recurso' }).click();
+      // The modal's own submit button is also called "Nuevo recurso": use the trigger, and let the previous
+      // modal finish closing (fade) before opening it again - slower CI runners otherwise see both.
+      await page.locator('[data-bs-target="#res-create-modal"]').click();
+      await expect(page.locator('#res-create-modal')).toBeVisible();
       await page.locator(`#res-type-${type}`).check();
       await page.fill('#res-name', name);
       await page.locator('#res-create-form [type=submit]').click();
       await expect(page.locator('#res-list')).toContainText(name);
+      await expect(page.locator('#res-create-modal')).toBeHidden();
     }
     await page.fill('#ds-name', 'customers');
     await page.setInputFiles('#ds-file', join(ROOT, 'public/assets/datasets/retail/customers.csv'));

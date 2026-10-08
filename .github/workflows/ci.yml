@@ -1,12 +1,15 @@
-# EduCloud Lab CI (M12). Not executed on GitHub yet: the repository has no remote (private project). Every job
-# calls the same scripts that are verified locally (ci/test.sh runs ci/run.sh in Docker), so the workflow and the
-# local runs cannot drift. Third-party actions are pinned by commit SHA; the token is read-only.
+# EduCloud Lab CI (M12). Every job calls the same scripts that are verified locally (ci/test.sh runs ci/run.sh
+# in Docker), so the workflow and the local runs cannot drift. Third-party actions are pinned by commit SHA; the
+# token is read-only. Public repository: pull requests from forks run with `pull_request` (read-only token, no
+# secrets). Never switch to `pull_request_target`.
 name: ci
 
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md', 'docs/**']
   pull_request:
+    paths-ignore: ['**.md', 'docs/**']
   workflow_dispatch:
 
 permissions:

@@ -75,7 +75,7 @@ Fetched with `npm run vendor` (see `package.json`). Each library's license file 
 | Bootstrap | 5.3.8 | MIT |
 | SweetAlert2 | 11.26.25 | MIT |
 | Font Awesome Free | 6.7.2 | Icons CC BY 4.0, fonts SIL OFL 1.1, code MIT. Attribution is kept in `fontawesome/LICENSE.txt`. |
-| CodeMirror | 5.65.21 | MIT (SQL Lab editor: core, SQL mode, matchbrackets, show-hint, sql-hint) |
+| CodeMirror | 5.65.21 | MIT (editors: core, SQL and Python modes, JavaScript mode, matchbrackets, show-hint, sql-hint) |
 | Chart.js | 4.5.1 | MIT (dashboards, M9: `chart.umd.min.js`, unmodified) |
 
 **Note on SweetAlert2:** releases since 11.4.9 contain code that changes behaviour only on pages served from Russian/Belarusian domains with a Russian-language UI. It has no effect on EduCloud Lab deployments under other domains. The issue is recorded here for transparency, and the library will be replaced if that condition ever applies.
@@ -101,6 +101,20 @@ None at the moment.
 | Python | 3.11 | PSF-2.0 |
 | duckdb (PyPI) | 1.5.6 | MIT |
 | pytest (dev only) | 9.1.1 | MIT |
+
+## Notebook sandbox image (`educloud-nb:1`, built locally from `worker/notebook/`, M8)
+
+Built on `python:3.11-slim` (Debian, pinned by digest; Debian packages under their own free licenses). Python packages, hash-pinned in `worker/notebook/requirements.txt` (licenses checked on PyPI, 2026-10-08):
+
+| Component | Version | License |
+|---|---|---|
+| duckdb | 1.5.6 | MIT |
+| numpy | 2.4.6 | BSD-3-Clause (plus 0BSD, MIT, Zlib, CC0-1.0 for bundled parts) |
+| pandas | 3.0.6 | BSD-3-Clause |
+| pyarrow | 25.0.1 | Apache-2.0 |
+| python-dateutil | 2.9.0.post0 | Apache-2.0 or BSD-3-Clause (dual) |
+| six | 1.17.0 | MIT |
+| tzdata | 2026.5 | Apache-2.0 |
 
 ## Sample datasets
 

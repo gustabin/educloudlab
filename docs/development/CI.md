@@ -1,6 +1,6 @@
 # Continuous integration (M12)
 
-The project has **no remote** (private, proprietary). CI is therefore designed to run **locally with Docker**, and the same scripts run unchanged in GitHub Actions (`.github/workflows/ci.yml`) once a private remote exists. The workflow has **not been executed on GitHub yet**; every command it runs is verified locally.
+The repository is public on GitHub (`github.com/gustabin/educloudlab`, Apache-2.0). CI runs **locally with Docker**, and the same scripts run unchanged in GitHub Actions (`.github/workflows/ci.yml`) on every push and pull request. GitHub Actions minutes are free for public repositories.
 
 ## Local runs
 
@@ -22,7 +22,7 @@ Docker Desktop must be running. Each run uses its own Compose project and remove
 | `ci/smoke.sh` + `ci/smoke-release.php` | Installs a release archive the way an operator would: `releases/<v>`, the `current` symlink, `shared/.env`. It serves it with the PHP-FPM pool's `open_basedir` and `disable_functions`. Then, over HTTP: health, public pages, register with CSRF, email via the mailer, verify, API token, workspace, lakehouse, CSV upload, profile, ingest, SQL query through the dispatcher and runner, admin health, `/metrics`. |
 | `ci/e2e.sh` | On a CI host with Chrome and Docker: builds the notebook image and runs the Sandbox suite, then Playwright E2E against the PHP built-in server. |
 
-## GitHub Actions (when a private remote exists)
+## GitHub Actions
 
 `.github/workflows/ci.yml` has three jobs:
 - `tests`: the matrix PHP 8.1/8.3 × MySQL 8.0 / MariaDB 10.11, plus 8.1 × 10.4;
@@ -33,6 +33,7 @@ Docker Desktop must be running. Each run uses its own Compose project and remove
 - Actions are pinned by commit SHA; images and wheels are pinned by digest and hash.
 - The workflow token is read-only (`permissions: contents: read`, `persist-credentials: false`).
 - There is no deployment step (master plan §23: no auto-deploy).
+- **Pull requests from forks** run with the read-only token and no secrets (`pull_request` trigger). Never switch to `pull_request_target`. Documentation-only changes (`**.md`, `docs/**`) skip the workflow.
 - Known exception: CI-only tools (`pytest` from `worker/requirements-dev.txt`, `pip-audit`) are version-pinned but not hash-pinned. They never ship in a release and never run in production.
 
 ## Releases

@@ -1,5 +1,7 @@
 # EduCloud Lab
 
+[![ci](https://github.com/gustabin/educloudlab/actions/workflows/ci.yml/badge.svg)](https://github.com/gustabin/educloudlab/actions/workflows/ci.yml) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 An independent educational platform for practising cloud computing, data engineering, analytics and AI concepts: workspaces, resources, object storage, a medallion lakehouse (raw → bronze → silver → gold), SQL analytics, pipelines and auto-graded labs. It runs locally on XAMPP and needs no paid cloud subscription.
 
 > EduCloud Lab is **not** affiliated with, endorsed by or certified by Microsoft. Azure and Fabric are mentioned only as conceptual references in educational material.
@@ -49,4 +51,4 @@ Full setup (database users, migrations, vhost, assets): `docs/development/SETUP.
 - `THIRD_PARTY_NOTICES.md`: dependency licenses
 
 ## License
-Proprietary, all rights reserved (ADR-012). See `LICENSE`.
+[Apache License 2.0](LICENSE) (ADR-012). See `NOTICE` and `THIRD_PARTY_NOTICES.md`. Contributions: `CONTRIBUTING.md`. Security reports: `SECURITY.md`.

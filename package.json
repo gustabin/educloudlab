@@ -2,7 +2,7 @@
   "name": "educloud-lab-assets",
   "private": true,
   "description": "Development-only: vendors frontend libraries into public/assets/vendor (ADR-011) and runs the Playwright E2E/a11y suite. Not needed at runtime.",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "scripts": {
     "vendor": "node scripts/vendor-assets.mjs",
     "e2e": "playwright test"

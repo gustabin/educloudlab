@@ -1,19 +1,26 @@
 # ADR-012: Project license
 
-- Status: Accepted (2026-10-06, user decision)
+- Status: **Superseded on 2026-10-08**: Apache-2.0, public repository. Previously accepted 2026-10-06 as proprietary.
 
 ## Context
-The project will not be published publicly on GitHub, at least for now.
+The 2026-10-06 decision kept the project private and proprietary ("all rights reserved"), with an explicit note to revisit this ADR before any publication. On 2026-10-08 the author decided to publish the repository publicly on GitHub (`github.com/gustabin/educloudlab`).
 
 ## Options
 - MIT: permissive and minimal.
 - Apache-2.0: permissive, with an explicit patent grant and NOTICE handling.
-- Proprietary (all rights reserved).
+- AGPL-3.0: strong copyleft, including network use.
+- Keep proprietary, which would make the code source-available but not reusable.
 
 ## Decision
-**Proprietary, all rights reserved.** `composer.json` declares `"license": "proprietary"`. The project ships no open-source LICENSE file.
+**Apache License 2.0** (user decision, 2026-10-08). This was also the master plan's original recommendation (§26).
+- `LICENSE` holds the Apache-2.0 text.
+- `NOTICE` holds the copyright, the non-affiliation disclaimer and a pointer to third-party notices.
+- `composer.json` and `package.json` declare `"license": "Apache-2.0"`. `package.json` stays `private: true`, because it is development tooling and is not published to npm.
 
 ## Consequences
-- Nobody may reuse the code without the author's permission.
-- The project can be relicensed later under MIT or Apache-2.0; going from closed to open is easy, while going from open to closed is not. Every third-party dependency (see THIRD_PARTY_NOTICES.md) is compatible with proprietary distribution. PHPMailer's LGPL-2.1 terms still apply: use it unmodified and keep its notice.
-- If the repository is ever published, this ADR must be revisited first.
+- **Reuse:** anyone may use, modify and redistribute the code, including commercially, provided they keep the license and NOTICE and state their changes.
+- **Patents:** contributors grant a patent license, and it terminates for anyone who files a patent suit.
+- **Dependencies:** every third-party dependency is compatible (`THIRD_PARTY_NOTICES.md`): MIT, BSD, Apache-2.0, PSF, and CC BY/OFL for the icons and fonts. PHPMailer (LGPL-2.1) is used unmodified through Composer and keeps its notice. nette/* is used under its BSD-3-Clause option.
+- **Contributions:** they are accepted under Apache-2.0, inbound equals outbound (`CONTRIBUTING.md`).
+- **Branding:** the "not affiliated with Microsoft" disclaimer stays in the UI footer, the README and NOTICE.
+- **Commit authorship:** history uses the author's GitHub noreply address.

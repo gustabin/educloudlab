@@ -1,0 +1,12 @@
+EduCloud Lab
+Copyright 2026 Gustavo Arias
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+EduCloud Lab is an independent educational project. It is not affiliated with, endorsed by or certified by
+Microsoft. Azure and Fabric are mentioned only as conceptual references in educational material; no Microsoft
+branding, logos or user interface is used.
+
+This product includes third-party software under their own licenses, listed in THIRD_PARTY_NOTICES.md, among
+them PHPMailer (LGPL-2.1, used unmodified) and Font Awesome Free (icons CC BY 4.0, fonts SIL OFL 1.1).
+The bundled retail sample datasets are synthetic and dedicated to the public domain (CC0 1.0).

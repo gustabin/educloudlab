@@ -2,7 +2,7 @@
   "name": "educloud/educloud-lab",
   "description": "EduCloud Lab - independent educational cloud computing, data engineering and analytics platform.",
   "type": "project",
-  "license": "proprietary",
+  "license": "Apache-2.0",
   "require": {
     "php": ">=8.1.6",
     "ext-fileinfo": "*",

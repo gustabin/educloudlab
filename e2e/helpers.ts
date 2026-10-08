@@ -36,6 +36,11 @@ export function tokenFromMail(email: string, path: string): string {
 
 /** axe-core on the current page: no serious or critical WCAG 2.1 A/AA violations. */
 export async function expectAccessible(page: Page, name: string): Promise<void> {
+  // Measure the settled page: no hover state on the last clicked button and no running CSS transition or animation
+  // (fades of tabs, modals and buttons). Otherwise contrast is measured on half-transparent colours, which slower
+  // CI runners catch (found by the first GitHub Actions runs).
+  await page.mouse.move(0, 0);
+  await page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'), null, { timeout: 10_000 });
   // CodeMirror 5 (third-party editor) is excluded: its internal scroller is flagged, but the editor itself is reachable
   // and operable with the keyboard through its own textarea (labelled in sqllab.js).
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).exclude('.CodeMirror').analyze();

@@ -24,6 +24,7 @@ export default defineConfig({
     channel: 'chrome', // the installed Google Chrome: no browser download needed
     headless: true,
     locale: 'es-ES',
+    reducedMotion: 'reduce', // Bootstrap then skips fades: stable, faster and deterministic screens
     viewport: { width: 1280, height: 900 },
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

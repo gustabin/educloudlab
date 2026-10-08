@@ -70,6 +70,8 @@ export async function register(page: Page, email: string, name: string): Promise
     page.getByRole('button', { name: 'Confirmar mi correo' }).click(),
   ]);
   expect(verified.status()).toBe(200);
+  // The form then redirects by itself; let it land before the caller navigates (otherwise the two navigations race).
+  await page.waitForURL(/\/login\?notice=verified$/);
 }
 
 export async function login(page: Page, email: string): Promise<void> {

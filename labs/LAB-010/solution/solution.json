@@ -1,0 +1,64 @@
+{
+  "description": "Reference solution (instructors and automated tests only). Steps are applied through the public API.",
+  "steps": [
+    { "do": "ingest", "name": "customers", "table": "customers" },
+    { "do": "ingest", "name": "products", "table": "products" },
+    { "do": "ingest", "name": "stores", "table": "stores" },
+    { "do": "ingest", "name": "orders", "table": "orders" },
+    { "do": "ingest", "name": "order_items", "table": "order_items" },
+    { "do": "create_pipeline", "name": "clientes-silver", "definition": { "nodes": [
+      { "id": "leer", "type": "source", "table": "bronze.customers" },
+      { "id": "deduplicar", "type": "sql",
+        "sql": "SELECT customer_id, first_name, last_name, lower(trim(email)) AS email, city, signup_date FROM (SELECT *, row_number() OVER (PARTITION BY customer_id ORDER BY signup_date DESC) AS rn FROM input) WHERE rn = 1" },
+      { "id": "calidad", "type": "quality_check", "on_fail": "stop", "rules": [
+        { "rule": "not_null", "column": "customer_id" }, { "rule": "unique", "columns": ["customer_id"] } ] },
+      { "id": "guardar", "type": "output", "layer": "silver", "table": "customers" }
+    ] } },
+    { "do": "run_pipeline", "name": "clientes-silver" },
+    { "do": "transform", "layer": "silver", "table": "sales",
+      "sql": "SELECT o.order_id, o.order_date, o.customer_id, o.store_id, i.product_id, i.quantity, i.unit_price, i.quantity * i.unit_price AS line_total FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id WHERE o.status = 'completed'" },
+    { "do": "transform", "layer": "gold", "table": "dim_customer",
+      "sql": "SELECT row_number() OVER (ORDER BY customer_id) AS customer_key, customer_id, email, city FROM silver.customers" },
+    { "do": "transform", "layer": "gold", "table": "dim_product",
+      "sql": "SELECT row_number() OVER (ORDER BY product_id) AS product_key, product_id, product_name, category, price FROM bronze.products" },
+    { "do": "transform", "layer": "gold", "table": "dim_store",
+      "sql": "SELECT row_number() OVER (ORDER BY store_id) AS store_key, store_id, store_name, city, region FROM bronze.stores" },
+    { "do": "transform", "layer": "gold", "table": "dim_date",
+      "sql": "SELECT DISTINCT CAST(strftime(order_date, '%Y%m%d') AS INTEGER) AS date_key, CAST(order_date AS DATE) AS full_date, year(order_date) AS year, month(order_date) AS month FROM silver.sales" },
+    { "do": "transform", "layer": "gold", "table": "fact_sales",
+      "sql": "SELECT s.order_id, CAST(strftime(s.order_date, '%Y%m%d') AS INTEGER) AS date_key, c.customer_key, p.product_key, t.store_key, s.quantity, s.unit_price, s.line_total FROM silver.sales s JOIN gold.dim_customer c ON c.customer_id = s.customer_id JOIN gold.dim_product p ON p.product_id = s.product_id JOIN gold.dim_store t ON t.store_id = s.store_id" },
+    { "do": "create_model", "name": "retail", "definition": {
+      "fact": "gold.fact_sales",
+      "relationships": [
+        { "table": "gold.dim_customer", "fact_column": "customer_key", "column": "customer_key" },
+        { "table": "gold.dim_product", "fact_column": "product_key", "column": "product_key" },
+        { "table": "gold.dim_store", "fact_column": "store_key", "column": "store_key" },
+        { "table": "gold.dim_date", "fact_column": "date_key", "column": "date_key" }
+      ],
+      "measures": [
+        { "name": "ingresos", "label": "Ingresos", "agg": "sum", "column": "line_total", "format": "currency" },
+        { "name": "pedidos", "label": "Pedidos", "agg": "count_distinct", "column": "order_id", "format": "integer" },
+        { "name": "clientes", "label": "Clientes", "agg": "count_distinct", "column": "customer_key", "format": "integer" },
+        { "name": "ticket_medio", "label": "Ticket medio", "ratio": ["ingresos", "pedidos"], "format": "currency" }
+      ],
+      "dimensions": [
+        { "name": "region", "label": "Región", "table": "gold.dim_store", "column": "region" },
+        { "name": "categoria", "label": "Categoría", "table": "gold.dim_product", "column": "category" },
+        { "name": "producto", "label": "Producto", "table": "gold.dim_product", "column": "product_name" },
+        { "name": "mes", "label": "Mes", "table": "gold.dim_date", "column": "full_date", "grain": "month" }
+      ]
+    } },
+    { "do": "create_dashboard", "name": "panel-retail", "model": "retail", "definition": {
+      "filters": [ { "dimension": "region" } ],
+      "widgets": [
+        { "id": "ingresos", "type": "kpi", "title": "Ingresos", "measures": ["ingresos"] },
+        { "id": "pedidos", "type": "kpi", "title": "Pedidos", "measures": ["pedidos"] },
+        { "id": "clientes", "type": "kpi", "title": "Clientes", "measures": ["clientes"] },
+        { "id": "ticket", "type": "kpi", "title": "Ticket medio", "measures": ["ticket_medio"] },
+        { "id": "por_region", "type": "bar", "title": "Ingresos por región", "measures": ["ingresos"], "dimension": "region" },
+        { "id": "por_producto", "type": "table", "title": "Ingresos por producto", "measures": ["ingresos"], "dimension": "producto" },
+        { "id": "por_mes", "type": "line", "title": "Ingresos por mes", "measures": ["ingresos"], "dimension": "mes" }
+      ]
+    } }
+  ]
+}

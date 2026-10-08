@@ -31,6 +31,8 @@ final class NotebookFlowTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Independent of the machine's .env: every test starts in the default mode and switches explicitly.
+        $this->withMode('demo');
         $this->resetDatabase();
         $this->ana = $this->actor('ana@test.example');
         $this->ws = (string) $this->createWorkspace($this->ana)['id'];

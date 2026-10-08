@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "code": "LAB-010",
+  "version": "1.0.0",
+  "slug": "analitica-retail-de-extremo-a-extremo",
+  "status": "published",
+  "title": "Proyecto final: analítica retail de extremo a extremo",
+  "summary": "Recorre la plataforma completa con los datos de una cadena de tiendas: ingesta de archivos raw, limpieza con un pipeline, capa silver, esquema en estrella en gold, modelo semántico y un dashboard con las métricas del negocio.",
+  "difficulty": "advanced",
+  "estimated_minutes": 150,
+  "prerequisites": ["LAB-005", "LAB-006", "LAB-007", "LAB-009"],
+  "objectives": [
+    "Ingerir archivos CSV de la capa raw a tablas bronze",
+    "Detectar y corregir defectos de calidad con un pipeline y controles de calidad",
+    "Preparar datos de ventas limpios en la capa silver",
+    "Modelar un esquema en estrella con claves sustitutas e integridad referencial",
+    "Definir las métricas del negocio en un modelo semántico",
+    "Comunicar los resultados con un dashboard filtrable"
+  ],
+  "setup": [
+    { "action": "create_resource", "type": "lakehouse", "name": "lago" },
+    { "action": "load_sample", "sample": "retail/customers.csv", "name": "customers" },
+    { "action": "load_sample", "sample": "retail/products.csv", "name": "products" },
+    { "action": "load_sample", "sample": "retail/stores.csv", "name": "stores" },
+    { "action": "load_sample", "sample": "retail/orders.csv", "name": "orders" },
+    { "action": "load_sample", "sample": "retail/order_items.csv", "name": "order_items" }
+  ],
+  "tasks": [
+    {
+      "key": "t1", "title": "Ingesta: de raw a bronze", "points": 10,
+      "hints": [
+        { "text": "En la ficha de cada archivo raw, usa «Ingerir a bronze» y conserva el nombre del archivo como nombre de tabla.", "penalty": 2 }
+      ],
+      "checks": [
+        { "type": "dataset_exists", "layer": "bronze", "name": "customers", "feedback": "Falta la tabla bronze.customers." },
+        { "type": "dataset_exists", "layer": "bronze", "name": "products", "feedback": "Falta la tabla bronze.products." },
+        { "type": "dataset_exists", "layer": "bronze", "name": "stores", "feedback": "Falta la tabla bronze.stores." },
+        { "type": "dataset_exists", "layer": "bronze", "name": "orders", "feedback": "Falta la tabla bronze.orders." },
+        { "type": "dataset_exists", "layer": "bronze", "name": "order_items", "feedback": "Falta la tabla bronze.order_items." },
+        { "type": "row_count", "table": "bronze.customers", "op": "eq", "value": 1030,
+          "feedback": "bronze.customers debe contener todas las filas del archivo, también las defectuosas: la limpieza se hace en silver." },
+        { "type": "row_count", "table": "bronze.order_items", "op": "eq", "value": 30069 }
+      ]
+    },
+    {
+      "key": "t2", "title": "Pipeline de limpieza de clientes (silver)", "points": 20,
+      "hints": [
+        { "text": "Explora bronze.customers en el SQL Lab: hay clientes repetidos (mismo customer_id) cuyo email cambia en mayúsculas y espacios.", "penalty": 4 },
+        { "text": "Un paso sql puede deduplicar: SELECT * FROM (SELECT *, row_number() OVER (PARTITION BY customer_id ORDER BY signup_date DESC) AS rn FROM input) WHERE rn = 1", "penalty": 5 },
+        { "text": "No elimines a los clientes sin email: tienen pedidos. Normaliza el email con lower(trim(email)).", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "pipeline_has_nodes", "pipeline": "clientes-silver", "node_types": ["source", "sql", "quality_check", "output"],
+          "feedback": "El pipeline clientes-silver debe tener pasos source, sql, quality_check y output." },
+        { "type": "pipeline_run_succeeded", "pipeline": "clientes-silver", "output": "silver.customers" },
+        { "type": "table_has_columns", "table": "silver.customers", "columns": ["customer_id", "email", "city"] },
+        { "type": "unique", "table": "silver.customers", "columns": ["customer_id"], "feedback": "silver.customers debe tener una sola fila por cliente." },
+        { "type": "query_result_matches", "actual_sql": "SELECT count(*) FROM silver.customers",
+          "expected_sql": "SELECT count(DISTINCT customer_id) FROM bronze.customers",
+          "feedback": "silver.customers debe conservar a todos los clientes (también a los que no tienen email)." },
+        { "type": "query_result_matches", "actual_sql": "SELECT count(*) FROM silver.customers WHERE email <> lower(trim(email))",
+          "expected_sql": "SELECT 0", "feedback": "Los emails deben quedar normalizados (minúsculas y sin espacios)." }
+      ]
+    },
+    {
+      "key": "t3", "title": "silver.sales: líneas de venta válidas", "points": 15,
+      "hints": [
+        { "text": "Une bronze.order_items con bronze.orders por order_id y quédate solo con los pedidos completed.", "penalty": 4 },
+        { "text": "line_total = quantity * unit_price. Puedes usar «Guardar como tabla» en el SQL Lab o un pipeline.", "penalty": 3 }
+      ],
+      "checks": [
+        { "type": "table_has_columns", "table": "silver.sales",
+          "columns": ["order_id", "order_date", "customer_id", "store_id", "product_id", "quantity", "unit_price", "line_total"] },
+        { "type": "value_range", "table": "silver.sales", "column": "line_total", "min": 0, "feedback": "line_total no puede ser negativo." },
+        { "type": "query_result_matches", "decimals": 2,
+          "actual_sql": "SELECT count(*), round(sum(line_total), 2) FROM silver.sales",
+          "expected_sql": "SELECT count(*), round(sum(i.quantity * i.unit_price), 2) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id WHERE o.status = 'completed'",
+          "feedback": "silver.sales debe tener una fila por línea de pedido completado, con su importe." }
+      ]
+    },
+    {
+      "key": "t4", "title": "Dimensiones del esquema en estrella", "points": 10,
+      "hints": [
+        { "text": "Cada dimensión lleva una clave sustituta: row_number() OVER (ORDER BY <clave de negocio>). dim_customer sale de silver.customers.", "penalty": 2 },
+        { "text": "dim_date: fechas distintas de silver.sales, con date_key = CAST(strftime(order_date, '%Y%m%d') AS INTEGER), year y month.", "penalty": 2 }
+      ],
+      "checks": [
+        { "type": "table_has_columns", "table": "gold.dim_customer", "columns": ["customer_key", "customer_id", "email", "city"] },
+        { "type": "table_has_columns", "table": "gold.dim_product", "columns": ["product_key", "product_id", "product_name", "category"] },
+        { "type": "table_has_columns", "table": "gold.dim_store", "columns": ["store_key", "store_id", "store_name", "region"] },
+        { "type": "table_has_columns", "table": "gold.dim_date", "columns": ["date_key", "full_date", "year", "month"] },
+        { "type": "unique", "table": "gold.dim_customer", "columns": ["customer_key"] },
+        { "type": "unique", "table": "gold.dim_product", "columns": ["product_key"] },
+        { "type": "unique", "table": "gold.dim_store", "columns": ["store_key"] },
+        { "type": "unique", "table": "gold.dim_date", "columns": ["date_key"] },
+        { "type": "column_type", "table": "gold.dim_date", "column": "full_date", "types": ["DATE"] }
+      ]
+    },
+    {
+      "key": "t5", "title": "Tabla de hechos con integridad referencial", "points": 15,
+      "hints": [
+        { "text": "fact_sales parte de silver.sales y se une con cada dimensión por su clave de negocio para obtener las claves sustitutas.", "penalty": 3 },
+        { "text": "date_key se calcula igual que en dim_date, a partir de order_date.", "penalty": 2 }
+      ],
+      "checks": [
+        { "type": "table_has_columns", "table": "gold.fact_sales",
+          "columns": ["order_id", "date_key", "customer_key", "product_key", "store_key", "quantity", "line_total"] },
+        { "type": "references", "table": "gold.fact_sales", "columns": ["customer_key"], "ref_table": "gold.dim_customer", "ref_columns": ["customer_key"] },
+        { "type": "references", "table": "gold.fact_sales", "columns": ["product_key"], "ref_table": "gold.dim_product", "ref_columns": ["product_key"] },
+        { "type": "references", "table": "gold.fact_sales", "columns": ["store_key"], "ref_table": "gold.dim_store", "ref_columns": ["store_key"] },
+        { "type": "references", "table": "gold.fact_sales", "columns": ["date_key"], "ref_table": "gold.dim_date", "ref_columns": ["date_key"] },
+        { "type": "null_count", "table": "gold.fact_sales", "column": "customer_key", "op": "eq", "value": 0,
+          "feedback": "Todas las ventas deben tener cliente: revisa que dim_customer conserve a todos los clientes." },
+        { "type": "query_result_matches", "decimals": 2,
+          "actual_sql": "SELECT count(*), round(sum(line_total), 2) FROM gold.fact_sales",
+          "expected_sql": "SELECT count(*), round(sum(i.quantity * i.unit_price), 2) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id WHERE o.status = 'completed'",
+          "feedback": "gold.fact_sales debe tener una fila por línea de pedido completado: revisa que las uniones no dupliquen ni pierdan filas." },
+        { "type": "query_result_matches", "decimals": 2,
+          "actual_sql": "SELECT p.category, round(sum(f.line_total), 2) FROM gold.fact_sales f JOIN gold.dim_product p ON p.product_key = f.product_key GROUP BY 1",
+          "expected_sql": "SELECT p.category, round(sum(i.quantity * i.unit_price), 2) FROM bronze.order_items i JOIN bronze.orders o ON o.order_id = i.order_id JOIN bronze.products p ON p.product_id = i.product_id WHERE o.status = 'completed' GROUP BY 1",
+          "feedback": "Las claves de producto no apuntan al producto correcto: los ingresos por categoría no coinciden." }
+      ]
+    },
+    {
+      "key": "t6", "title": "Modelo semántico retail", "points": 15,
+      "hints": [
+        { "text": "Relaciona gold.fact_sales con las cuatro dimensiones por sus claves sustitutas.", "penalty": 3 },
+        { "text": "Clientes se cuenta con count_distinct sobre customer_key (no sobre order_id). Ticket medio = ingresos / pedidos (ratio).", "penalty": 4 }
+      ],
+      "checks": [
+        { "type": "semantic_model_has", "model": "retail", "fact": "gold.fact_sales",
+          "relationships": [
+            { "table": "gold.dim_customer", "fact_column": "customer_key", "column": "customer_key" },
+            { "table": "gold.dim_product", "fact_column": "product_key", "column": "product_key" },
+            { "table": "gold.dim_store", "fact_column": "store_key", "column": "store_key" },
+            { "table": "gold.dim_date", "fact_column": "date_key", "column": "date_key" }
+          ],
+          "feedback": "Crea el modelo «retail» sobre gold.fact_sales, relacionado con dim_customer, dim_product, dim_store y dim_date." },
+        { "type": "semantic_model_has", "model": "retail",
+          "measures": [
+            { "agg": "sum", "column": "line_total" },
+            { "agg": "count_distinct", "column": "order_id" },
+            { "agg": "count_distinct", "column": "customer_key" },
+            { "ratio": [ { "agg": "sum", "column": "line_total" }, { "agg": "count_distinct", "column": "order_id" } ] }
+          ],
+          "feedback": "El modelo necesita las medidas ingresos, pedidos, clientes y ticket medio." },
+        { "type": "semantic_model_has", "model": "retail",
+          "dimensions": [
+            { "table": "gold.dim_store", "column": "region" },
+            { "table": "gold.dim_product", "column": "category" },
+            { "table": "gold.dim_product", "column": "product_name" },
+            { "table": "gold.dim_date", "column": "full_date", "grain": "month" }
+          ],
+          "feedback": "El modelo necesita las dimensiones región, categoría, producto y mes." }
+      ]
+    },
+    {
+      "key": "t7", "title": "Dashboard del negocio", "points": 15,
+      "hints": [
+        { "text": "Cuatro KPI (ingresos, pedidos, clientes, ticket medio), barras por región, una tabla por producto y líneas por mes.", "penalty": 3 },
+        { "text": "El filtro por región se declara con \"filters\": [{\"dimension\": \"region\"}].", "penalty": 3 }
+      ],
+      "checks": [
+        { "type": "dashboard_has_widgets", "dashboard": "panel-retail",
+          "widgets": [
+            { "type": "kpi", "measure": { "agg": "sum", "column": "line_total" } },
+            { "type": "kpi", "measure": { "agg": "count_distinct", "column": "order_id" } },
+            { "type": "kpi", "measure": { "agg": "count_distinct", "column": "customer_key" } },
+            { "type": "kpi", "measure": { "ratio": [ { "agg": "sum", "column": "line_total" }, { "agg": "count_distinct", "column": "order_id" } ] } },
+            { "type": "bar", "measure": { "agg": "sum", "column": "line_total" }, "dimension": { "table": "gold.dim_store", "column": "region" } },
+            { "type": "table", "measure": { "agg": "sum", "column": "line_total" }, "dimension": { "table": "gold.dim_product", "column": "product_name" } },
+            { "type": "line", "measure": { "agg": "sum", "column": "line_total" }, "dimension": { "table": "gold.dim_date", "column": "full_date", "grain": "month" } }
+          ],
+          "filters": [ { "table": "gold.dim_store", "column": "region" } ],
+          "feedback": "El dashboard «panel-retail» necesita: KPI de ingresos, pedidos, clientes y ticket medio; barras de ingresos por región; una tabla de ingresos por producto; líneas de ingresos por mes; y un filtro por región." }
+      ]
+    }
+  ],
+  "cleanup": { "workspace_ttl_days": 21 }
+}

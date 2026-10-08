@@ -89,7 +89,7 @@ final class PublicSiteTest extends TestCase
         }
         self::assertContains('http://localhost/educloudlab/labs/bronze-silver-gold', $all);
         self::assertContains("http://localhost/educloudlab/courses/$slug", $all);
-        self::assertCount(4 + 9, $all, 'home, /labs, 9 labs, /courses, 1 course');
+        self::assertCount(4 + 10, $all, 'home, /labs, 10 labs, /courses, 1 course');
 
         $csrf = $this->sessionIn('prof@test.example', $org['public_id']);
         self::assertSame(200, $send('PATCH', '/api/v1/courses/' . $course['id'], ['status' => 'archived'])->status);

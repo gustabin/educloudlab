@@ -171,6 +171,39 @@ final class LabSolutionsTest extends TestCase
         self::assertStringContainsString('panel-ventas', $byTask['t3']);
     }
 
+    public function testCapstoneCatchesTheTypicalMistakes(): void
+    {
+        $attempt = $this->startLab($this->student, 'LAB-010');
+        $this->runJobs();
+        $solution = json_decode((string) file_get_contents(LabImporter::labsDir() . '/LAB-010/solution/solution.json'), true);
+        $steps = $solution['steps'];
+        foreach ($steps as $i => $step) {
+            if (($step['name'] ?? '') === 'clientes-silver' && $step['do'] === 'create_pipeline') {
+                // Mistake 1: customers without email are dropped (they have orders).
+                $steps[$i]['definition']['nodes'][1]['sql'] .= ' AND email IS NOT NULL';
+            }
+            if (($step['table'] ?? '') === 'sales') {
+                // Mistake 2: cancelled orders counted as sales.
+                $steps[$i]['sql'] = str_replace(" WHERE o.status = 'completed'", '', $step['sql']);
+            }
+            if (($step['name'] ?? '') === 'retail' && $step['do'] === 'create_model') {
+                // Mistake 3: "customers" counts orders.
+                $steps[$i]['definition']['measures'][2]['column'] = 'order_id';
+            }
+        }
+        $this->applySteps('LAB-010', (string) $attempt['workspace']['id'], (string) $attempt['id'], $steps);
+        $graded = $this->submitAndGrade($this->student, (string) $attempt['id']);
+        $byTask = self::feedback($graded);
+        self::assertSame('', $byTask['t1']);
+        self::assertSame('', $byTask['t4'], 'the dimensions themselves are fine');
+        self::assertStringContainsString('conservar a todos los clientes', $byTask['t2']);
+        self::assertStringContainsString('una fila por línea de pedido completado', $byTask['t3']);
+        self::assertStringContainsString('no dupliquen ni pierdan filas', $byTask['t5']);
+        self::assertStringContainsString('clientes', $byTask['t6']);
+        self::assertStringContainsString('panel-retail', $byTask['t7']);
+        self::assertSame(20, (int) $graded['score']);
+    }
+
     /**
      * @param array<string, mixed> $graded
      * @return array<string, string> task key => feedback ('' when passed)

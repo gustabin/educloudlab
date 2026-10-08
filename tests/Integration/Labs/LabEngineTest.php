@@ -36,7 +36,7 @@ final class LabEngineTest extends TestCase
     {
         $r = $this->as($this->ana, 'GET', '/api/v1/labs');
         self::assertSame(200, $r->status);
-        $codes = ['LAB-001', 'LAB-002', 'LAB-003', 'LAB-004', 'LAB-005', 'LAB-006', 'LAB-007', 'LAB-008', 'LAB-009'];
+        $codes = ['LAB-001', 'LAB-002', 'LAB-003', 'LAB-004', 'LAB-005', 'LAB-006', 'LAB-007', 'LAB-008', 'LAB-009', 'LAB-010'];
         self::assertSame($codes, array_column($r->decoded()['data'], 'code'));
         self::assertNull($r->decoded()['data'][0]['my_attempt']);
         foreach (['expected_sql', 'actual_sql', 'checks', 'setup', 'hints', 'bronze.order_items i'] as $secret) {

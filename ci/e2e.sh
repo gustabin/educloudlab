@@ -4,6 +4,8 @@
 # (CI_DB_HOST / CI_DB_ROOT_PASSWORD). Never run it on a real install: ci/setup.sh writes a CI-only .env.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# On failure, report the failing command as a GitHub annotation (visible on the run page and the public API).
+trap 'rc=$?; echo "::error title=ci/e2e.sh failed (exit $rc)::line $LINENO: $BASH_COMMAND"' ERR
 
 python3.11 -m venv worker/.venv
 worker/.venv/bin/pip install --require-hashes --only-binary=:all: -r worker/requirements.txt

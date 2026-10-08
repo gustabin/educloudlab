@@ -65,6 +65,14 @@ final class DockerSandbox
                 $lakehouseCopy = $dir . '/lakehouse.duckdb';
                 copy($lakehouseFile, $lakehouseCopy);
             }
+            // The container runs as uid 10001, which is neither the owner nor in the group of these files: on a
+            // Linux Docker host (unlike Docker Desktop) it can only read them when they are world-readable. Safe:
+            // STORAGE_PATH itself is 0750, so no other host user can reach them (found by the first GitHub CI run).
+            @chmod($dir . '/in', 0755);
+            @chmod($dir . '/in/input.json', 0644);
+            if ($lakehouseCopy !== null) {
+                @chmod($lakehouseCopy, 0644);
+            }
 
             $created = $this->docker(self::arguments($this->settings(), $name, $dir . '/in', $lakehouseCopy), 60);
             if ($created['exit'] !== 0) {

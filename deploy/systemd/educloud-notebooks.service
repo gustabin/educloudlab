@@ -1,0 +1,30 @@
+# EduCloud Lab notebook worker (only with NOTEBOOKS_MODE=docker). It talks to the Docker daemon, so the
+# educloud-nb user must be in the "docker" group, which is ROOT-EQUIVALENT on this host: prefer a dedicated
+# worker host or rootless Docker (docs/deployment/DEPLOYMENT.md, "Notebooks").
+[Unit]
+Description=EduCloud Lab notebook worker (Docker sandbox)
+After=network-online.target docker.service mysql.service mariadb.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=educloud-nb
+Group=educloud
+SupplementaryGroups=docker
+WorkingDirectory=/srv/educloud/current
+ExecStart=/usr/bin/php scripts/dispatcher.php --notebooks
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateDevices=true
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/educloud/data
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

@@ -181,7 +181,10 @@ final class AnalyticsFlowTest extends TestCase
             'date_from' => '2025-02-01', 'date_to' => '2025-02-28', 'filters' => ['region' => ['Sur']],
         ]));
         self::assertEquals([[20.0, 1]], $filtered['results']['w_total']['rows']);
-        self::assertSame(['date_from' => '2025-02-01', 'date_to' => '2025-02-28', 'filters' => ['region' => ['Sur']]], $filtered['values']);
+        self::assertSameIgnoringKeyOrder(
+            ['date_from' => '2025-02-01', 'date_to' => '2025-02-28', 'filters' => ['region' => ['Sur']]],
+            $filtered['values']
+        );
 
         $invalid = [
             ['filters' => ['mes' => ['2025-01-01']]],

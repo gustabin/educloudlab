@@ -86,15 +86,14 @@ final class Kernel
         $auth = (string) ($options['auth'] ?? 'none');
         $stack[] = new Authenticate($this->app, $auth);
         $stack[] = new CsrfProtection($this->app, ($options['csrf'] ?? true) !== false);
-        if ($auth !== 'none') {
+        $user = !in_array($auth, ['none', 'external'], true); // routes that resolve a user account
+        if ($user) {
             $stack[] = new RateLimitUser($this->app->rateLimiter(), 'write_user');
-        }
-        if ($auth !== 'none') {
             $stack[] = new ResolveTenant($this->app);
         }
         $permission = $options['permission'] ?? null;
         if (is_string($permission) && $permission !== '') {
-            if ($auth === 'none') {
+            if (!$user) {
                 throw new \LogicException('A route with a permission must require authentication');
             }
             $stack[] = new Authorize($this->app->config, $permission);

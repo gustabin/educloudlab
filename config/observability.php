@@ -11,6 +11,8 @@ declare(strict_types=1);
 return [
     // One upsert per request into request_metrics (by route name, never URL). Set OBSERVABILITY_REQUEST_METRICS=0 to disable.
     'request_metrics' => ($env['OBSERVABILITY_REQUEST_METRICS'] ?? '1') !== '0',
+    // GET /metrics (Prometheus, M12): disabled unless this holds a random token of at least 32 characters.
+    'metrics_token' => (string) ($env['METRICS_TOKEN'] ?? ''),
     // Requests slower than this log a `slow_request` warning (with route name and duration only).
     'slow_request_ms' => 2000,
     'metrics_retention_days' => 14,

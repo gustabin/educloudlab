@@ -61,6 +61,29 @@ final class KernelTest extends TestCase
         self::assertSame(1, substr_count($r->body, '<h1'));
     }
 
+    public function testExternalAuthNeverReadsUserCredentials(): void
+    {
+        // 'external' routes (GET /metrics) authenticate with their own secret: an invalid Bearer JWT is not even parsed
+        // (an 'none' route would reject it with 401) and no user or tenant is resolved (gate M12-04).
+        $this->app()->router->get('/probe-external', static fn (\EduCloud\Core\Request $r): \EduCloud\Core\Response => \EduCloud\Core\Response::json([
+            'user' => $r->attribute('user'), 'auth_method' => $r->attribute('auth_method'), 'tenant' => $r->attribute('tenant'),
+        ]), ['auth' => 'external', 'name' => 'test.external']);
+        $r = $this->request('GET', '/probe-external', null, ['Authorization' => 'Bearer not-a-jwt']);
+        self::assertSame(200, $r->status);
+        self::assertSame(['user' => null, 'auth_method' => null, 'tenant' => null], $r->decoded()['data']);
+        self::assertSame(401, $this->request('GET', '/api/v1/health', null, ['Authorization' => 'Bearer not-a-jwt'])->status);
+    }
+
+    public function testExternalAuthCannotBeCombinedWithAPermission(): void
+    {
+        $this->app()->router->get('/probe-external-admin', static fn (): \EduCloud\Core\Response => \EduCloud\Core\Response::json(['leak' => true]), [
+            'auth' => 'external', 'permission' => 'platform_admin', 'name' => 'test.external_admin',
+        ]);
+        $r = $this->request('GET', '/probe-external-admin');
+        self::assertSame(500, $r->status, 'misconfigured route fails closed');
+        self::assertStringNotContainsString('leak', $r->body);
+    }
+
     public function testHeadRequestHasNoBody(): void
     {
         $r = $this->request('HEAD', '/api/v1/health');

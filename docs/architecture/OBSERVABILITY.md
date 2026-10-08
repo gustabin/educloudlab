@@ -75,7 +75,27 @@ The scheduler applies retention through `Maintenance`:
 - All three endpoints require the `platform_admin` permission, which no tenant role holds. Others get 403.
 - Inputs are validated: the window comes from an allowlist, the request id must be ULID-shaped, and the level must be `info`, `warning` or `error`.
 
-## Not included (candidates for M12)
+## Prometheus scrape endpoint (M12)
 
-- A Prometheus `/metrics` endpoint behind a token, OpenTelemetry tracing.
-- External alerting (email, chat) when a component goes down.
+`GET /metrics` returns the Prometheus text format (all gauges, computed per scrape):
+
+| Metric | Labels |
+|---|---|
+| `educloud_info` | `version` |
+| `educloud_component_up`, `educloud_component_status` (0 ok, 1 warning, 2 down) | `component` |
+| `educloud_jobs` | `status` (queued, running) |
+| `educloud_job_queue_oldest_seconds`, `educloud_storage_free_bytes`, `educloud_http_latency_p95_ms_5m` | none |
+| `educloud_http_requests_5m`, `educloud_http_server_errors_5m` | `route` (registry name), `method` |
+
+**Access:**
+- **Disabled by default:** it answers 404 unless `METRICS_TOKEN` holds at least 32 characters.
+- **Authentication:** with `Authorization: Bearer <token>`, compared in constant time; 401 otherwise.
+- **Separate credential:** route auth mode `external`, which never reads sessions or user JWTs, so a user's API token is not accepted.
+- **Rate limit:** 30 requests per minute per IP.
+- **No user data:** labels never contain ids, users or tenants.
+- **Docs:** it lives outside `/api/v1`, so it is documented here, not in OpenAPI.
+
+## Not included
+
+- OpenTelemetry tracing.
+- External alerting (email, chat). Use the Prometheus alerts suggested in `docs/deployment/DEPLOYMENT.md`.

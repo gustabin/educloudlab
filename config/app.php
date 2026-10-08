@@ -10,7 +10,8 @@ $basePath = rtrim(rawurldecode((string) parse_url($appUrl, PHP_URL_PATH)), '/');
 
 return [
     'name' => 'EduCloud Lab',
-    'version' => '0.1.0',
+    // Release version: the VERSION file at the repository root (written into every release archive).
+    'version' => is_file(dirname(__DIR__) . '/VERSION') ? trim((string) file_get_contents(dirname(__DIR__) . '/VERSION')) : '0.0.0-dev',
     'env' => $env['APP_ENV'] ?? 'production',
     'debug' => filter_var($env['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOL),
     'url' => $appUrl,

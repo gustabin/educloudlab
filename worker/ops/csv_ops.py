@@ -17,6 +17,7 @@ from typing import Any
 import duckdb
 
 from .common import (
+    connect,
     DELIMITERS,
     LAYERS,
     RunnerError,
@@ -145,7 +146,7 @@ def profile(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> 
     """Schema discovery + row count + preview of an uploaded (raw) file."""
     source = _source(args, limits, allowed_root)
     preview_path = confined(args.get("preview_path", ""), allowed_root, must_exist=False)
-    con = duckdb.connect(":memory:")
+    con = connect(":memory:")
     try:
         configure(con, limits, allowed_root)
         columns = _describe(con, source)
@@ -181,7 +182,7 @@ def ingest(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) -> d
     table = identifier(args.get("table"))
 
     lakehouse.parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(str(lakehouse))
+    con = connect(str(lakehouse))
     try:
         configure(con, limits, allowed_root)
         columns = _describe(con, source)
@@ -230,7 +231,7 @@ def drop_table(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) 
     table = identifier(args.get("table"))
     if not lakehouse.exists():
         return {"dropped": False}
-    con = duckdb.connect(str(lakehouse))
+    con = connect(str(lakehouse))
     try:
         configure(con, limits, allowed_root)
         con.execute(f"DROP TABLE IF EXISTS {layer}.{quote_ident(table)}")

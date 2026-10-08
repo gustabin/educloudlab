@@ -13,7 +13,7 @@ use InvalidArgumentException;
  * The registry is introspected by tests (e.g. the tenant-isolation route matrix and the OpenAPI coverage check).
  *
  * Route options:
- *   auth       'none' | 'session' | 'jwt' | 'any'   (default 'none')
+ *   auth       'none' | 'session' | 'jwt' | 'any' | 'external' (default 'none'; see Authenticate)
  *   permission string|null                           (RBAC, config/permissions.php)
  *   rate       list<string>|null                     (IP rate-limit policies, config/security.php)
  *   csrf       bool (default true; false only for credential-exchange endpoints that never read cookies)

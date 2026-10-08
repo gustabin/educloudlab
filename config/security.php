@@ -73,5 +73,6 @@ return [
         'write_user' => ['limit' => 60, 'window' => 60],            // unsafe API calls per authenticated user
         'course_join_ip' => ['limit' => 30, 'window' => 15 * 60],   // course join codes, per client IP
         'course_join_user' => ['limit' => 10, 'window' => 15 * 60], // course join codes, per user (guessing codes)
+        'metrics_ip' => ['limit' => 30, 'window' => 60],            // GET /metrics scrapes, per client IP
     ],
 ];

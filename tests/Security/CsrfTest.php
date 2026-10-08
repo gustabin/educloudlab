@@ -50,9 +50,15 @@ final class CsrfTest extends TestCase
 
         $same = $this->request('POST', '/api/v1/auth/password/forgot', ['email' => 'a@test.example'], [
             'X-CSRF-Token' => $token,
-            'Origin' => 'http://localhost',
+            'Origin' => self::origin((string) $this->app()->config->get('app.url')),
         ]);
         self::assertSame(202, $same->status);
+    }
+
+    private static function origin(string $url): string
+    {
+        $parts = (array) parse_url($url);
+        return $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
     }
 
     public function testMissingTokenIsRejected(): void

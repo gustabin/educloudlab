@@ -33,7 +33,7 @@ final class PublicSiteTest extends TestCase
 
         $lab = $this->request('GET', '/labs/fundamentos-de-sql');
         self::assertSame(200, $lab->status);
-        self::assertStringContainsString('<link rel="canonical" href="http://localhost/educloudlab/labs/fundamentos-de-sql">', $lab->body);
+        self::assertStringContainsString('<link rel="canonical" href="' . $this->appUrl() . '/labs/fundamentos-de-sql">', $lab->body);
         self::assertSame(1, preg_match('#<script type="application/ld\+json">(.*?)</script>#s', $lab->body, $m));
         $jsonLd = json_decode($m[1], true);
         self::assertSame(
@@ -87,8 +87,8 @@ final class PublicSiteTest extends TestCase
         foreach ($xml->url as $url) {
             $all[] = (string) $url->loc;
         }
-        self::assertContains('http://localhost/educloudlab/labs/bronze-silver-gold', $all);
-        self::assertContains("http://localhost/educloudlab/courses/$slug", $all);
+        self::assertContains($this->appUrl() . '/labs/bronze-silver-gold', $all);
+        self::assertContains($this->appUrl() . "/courses/$slug", $all);
         self::assertCount(4 + 10, $all, 'home, /labs, 10 labs, /courses, 1 course');
 
         $csrf = $this->sessionIn('prof@test.example', $org['public_id']);
@@ -102,9 +102,14 @@ final class PublicSiteTest extends TestCase
     {
         $robots = $this->request('GET', '/robots.txt')->body;
         self::assertStringContainsString('Disallow: ' . url('/app/'), $robots);
-        self::assertStringContainsString('Sitemap: http://localhost/educloudlab/sitemap.xml', $robots);
+        self::assertStringContainsString('Sitemap: ' . $this->appUrl() . '/sitemap.xml', $robots);
         $this->createVerifiedUser('ana@test.example');
         $this->login('ana@test.example');
         self::assertSame('noindex, nofollow', $this->request('GET', '/app/labs')->headers['X-Robots-Tag'] ?? null);
+    }
+
+    private function appUrl(): string
+    {
+        return (string) $this->app()->config->get('app.url');
     }
 }

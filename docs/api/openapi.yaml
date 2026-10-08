@@ -13,6 +13,28 @@ info:
 servers:
   - url: http://localhost/educloudlab/api/v1
 paths:
+  /metrics:
+    servers:
+      - url: http://localhost/educloudlab
+        description: Outside /api/v1 (Prometheus convention)
+    get:
+      operationId: prometheusMetrics
+      summary: Prometheus text exposition (gauges) for external monitoring
+      description: >-
+        Disabled unless METRICS_TOKEN (at least 32 characters) is configured; then it requires that token as a Bearer
+        credential (constant-time comparison). User sessions and user JWTs are never accepted. Labels carry only route
+        names, methods, component names, job statuses and the version. See docs/architecture/OBSERVABILITY.md.
+      tags: [admin]
+      security: [{metricsToken: []}]
+      responses:
+        '200':
+          description: Prometheus text format 0.0.4
+          content:
+            text/plain:
+              schema: { type: string, example: "educloud_component_up{component=\"database\"} 1" }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { description: Disabled (no METRICS_TOKEN configured) }
+        '429': { $ref: '#/components/responses/Error' }
   /health:
     get:
       operationId: getHealth
@@ -3012,6 +3034,7 @@ components:
     sessionCookie: { type: apiKey, in: cookie, name: ecsid }
     csrfToken: { type: apiKey, in: header, name: X-CSRF-Token }
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    metricsToken: { type: http, scheme: bearer, description: 'METRICS_TOKEN from the server .env (not a user token)' }
   schemas:
     RouteMetrics:
       type: object

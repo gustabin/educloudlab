@@ -85,8 +85,11 @@ final class JobQueueTest extends TestCase
             putenv('JWT_KEYS');
             putenv('SMTP_PASS');
         }
-        $allowed = ['PYTHONIOENCODING', 'PYTHONDONTWRITEBYTECODE', 'PATH', 'SYSTEMROOT', 'SystemRoot', 'TEMP', 'TMP', 'WINDIR'];
+        $allowed = ['PYTHONIOENCODING', 'PYTHONDONTWRITEBYTECODE', 'PATH', 'SYSTEMROOT', 'SystemRoot', 'TEMP', 'TMP', 'WINDIR', 'MALLOC_ARENA_MAX'];
         self::assertSame([], array_diff(array_keys($env), $allowed));
+        if (PHP_OS_FAMILY !== 'Windows') {
+            self::assertSame('2', $env['MALLOC_ARENA_MAX'] ?? null, 'bounded malloc arenas under RLIMIT_AS (M12)');
+        }
         self::assertStringNotContainsString('super-secret', (string) json_encode($env));
     }
 }

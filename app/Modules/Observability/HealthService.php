@@ -159,10 +159,28 @@ final class HealthService
         return ['name' => 'storage', 'status' => $status, 'writable' => $writable, 'free_bytes' => $free];
     }
 
+    /**
+     * The runner's interpreter is normally a venv's python: a symlink to the system interpreter. Under the PHP-FPM
+     * pool's open_basedir, PHP resolves that symlink and refuses to stat /usr/bin (a warning, i.e. an exception
+     * here), so the venv's own pyvenv.cfg is checked instead (found by the release smoke test, M12).
+     */
+    private static function pythonInstalled(string $python): bool
+    {
+        if (is_file(dirname($python, 2) . '/pyvenv.cfg')) {
+            return true;
+        }
+        try {
+            return is_file($python);
+        } catch (\ErrorException) {
+            return false; // outside open_basedir: cannot be verified from the web process
+        }
+    }
+
     /** @return array<string, mixed> */
     private function runner(): array
     {
-        $ok = is_file((string) $this->app->config->get('execution.python')) && is_file((string) $this->app->config->get('execution.runner'));
+        $ok = self::pythonInstalled((string) $this->app->config->get('execution.python'))
+            && is_file((string) $this->app->config->get('execution.runner'));
         return ['name' => 'runner', 'status' => $ok ? 'ok' : 'down'];
     }
 }

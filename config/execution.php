@@ -9,7 +9,8 @@ declare(strict_types=1);
 /** @var array<string, string> $env */
 
 $root = dirname(__DIR__);
-$python = $env['WORKER_PYTHON'] ?? 'worker/.venv/Scripts/python.exe';
+// Default venv layout per OS (Windows: Scripts/python.exe, Linux: bin/python); WORKER_PYTHON overrides it.
+$python = $env['WORKER_PYTHON'] ?? (PHP_OS_FAMILY === 'Windows' ? 'worker/.venv/Scripts/python.exe' : 'worker/.venv/bin/python');
 
 return [
     'python' => preg_match('~^([a-zA-Z]:)?[\\\\/]~', $python) === 1 ? $python : $root . '/' . $python,

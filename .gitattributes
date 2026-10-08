@@ -6,3 +6,25 @@
 *.woff2 binary
 *.parquet binary
 *.duckdb binary
+
+# Release archives (scripts/release.php, M12): development-only files are not shipped.
+/.github export-ignore
+/.claude export-ignore
+/ci export-ignore
+/e2e export-ignore
+/tests export-ignore
+/worker/tests export-ignore
+/worker/requirements-dev.txt export-ignore
+/labs/*/solution export-ignore
+/docs/plan export-ignore
+/CLAUDE.md export-ignore
+/.dockerignore export-ignore
+/.editorconfig export-ignore
+/phpunit.xml export-ignore
+/phpstan.neon export-ignore
+/phpcs.xml export-ignore
+/package.json export-ignore
+/package-lock.json export-ignore
+/playwright.config.ts export-ignore
+/scripts/vendor-assets.mjs export-ignore
+/scripts/dev-router.php export-ignore

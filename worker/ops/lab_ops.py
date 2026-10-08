@@ -19,7 +19,7 @@ from typing import Any, Callable
 
 import duckdb
 
-from .common import RunnerError, configure, confined, identifier, quote_ident
+from .common import RunnerError, connect, configure, confined, identifier, quote_ident
 from .sql_ops import _Interrupter, _sql_error, fetch_bounded, validate_select
 
 TABLE = re.compile(r"^(bronze|silver|gold)\.([a-z][a-z0-9_]{0,62})$")
@@ -316,7 +316,7 @@ def validate(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) ->
             for c in checks
         ]}
 
-    con = duckdb.connect(str(lakehouse), read_only=True)
+    con = connect(str(lakehouse), read_only=True)
     results = []
     try:
         configure(con, limits, allowed_root, file_access=False)

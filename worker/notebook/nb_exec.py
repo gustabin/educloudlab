@@ -124,7 +124,7 @@ def main() -> int:
 
         if not os.path.exists("/data/lakehouse.duckdb"):
             raise FileNotFoundError("Este workspace aún no tiene lakehouse: sube un dataset o crea una tabla antes de usar lakehouse().")
-        con =duckdb.connect("/data/lakehouse.duckdb", read_only=True)
+        con = duckdb.connect("/data/lakehouse.duckdb", read_only=True)
         # DuckDB shares one database instance per file inside the process: only the first connection configures it;
         # later ones find the configuration already locked (which is the goal).
         locked = con.execute("SELECT current_setting('lock_configuration')").fetchone()[0]

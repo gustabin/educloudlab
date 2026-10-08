@@ -22,6 +22,8 @@ from typing import Any
 import duckdb
 
 from .common import (
+    connect,
+    parser as sql_parser,
     RunnerError,
     configure,
     confined,
@@ -60,7 +62,7 @@ SAFE_TABLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def _check_parse_tree(sql: str) -> None:
-    parser = duckdb.connect(":memory:")
+    parser = sql_parser()
     try:
         raw = parser.execute("SELECT json_serialize_sql(?)", [sql]).fetchone()[0]
     finally:
@@ -97,7 +99,7 @@ def _check_parse_tree(sql: str) -> None:
 
 def read_tables(sql: str) -> list[str]:
     """Lakehouse tables (layer.table) referenced by a validated SELECT, from its parse tree (lineage)."""
-    parser = duckdb.connect(":memory:")
+    parser = sql_parser()
     try:
         tree = json.loads(parser.execute("SELECT json_serialize_sql(?)", [sql]).fetchone()[0])
     finally:
@@ -185,7 +187,7 @@ def _mask(value: Any, secrets: list[str]) -> Any:
 def _open(lakehouse: Path, read_only: bool) -> duckdb.DuckDBPyConnection:
     if not lakehouse.exists():
         raise RunnerError("NO_TABLES", "El lakehouse de este workspace aún no tiene tablas. Ingiere un dataset primero.")
-    return duckdb.connect(str(lakehouse), read_only=read_only)
+    return connect(str(lakehouse), read_only=read_only)
 
 
 def fetch_bounded(con: duckdb.DuckDBPyConnection, sql: str, limits: dict[str, Any], max_rows: int) -> tuple[list[dict[str, str]], list[tuple[Any, ...]], bool]:

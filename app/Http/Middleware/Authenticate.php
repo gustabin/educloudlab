@@ -18,6 +18,8 @@ use EduCloud\Modules\Auth\UserRepository;
  *   session browser session cookie required (HTML pages redirect to /login)
  *   jwt     Bearer access token required
  *   any     session or Bearer token
+ *   external no user credentials are read at all: the handler authenticates the caller with its own secret
+ *            (e.g. GET /metrics and METRICS_TOKEN). Never combined with a permission.
  * A request carrying a Bearer token never uses cookies (no ambient credentials → no CSRF surface).
  *
  * Attributes set: user (AuthUser|null), auth_method ('session'|'jwt'|null),
@@ -31,6 +33,9 @@ final class Authenticate implements Middleware
 
     public function process(Request $request, callable $next): Response
     {
+        if ($this->mode === 'external') {
+            return $next($request->withAttribute('user', null)->withAttribute('auth_method', null));
+        }
         $users = new UserRepository($this->app->db());
         $cookieName = (string) $this->app->config->get('security.session.cookie', 'ecsid');
         $user = null;

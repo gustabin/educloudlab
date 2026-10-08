@@ -49,6 +49,21 @@ def quote_ident(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
+def connect(database: str, read_only: bool = False, threads: int = 2, memory_mb: int = 512) -> duckdb.DuckDBPyConnection:
+    """Opens DuckDB with its thread pool and memory limit set at open time (``configure`` tightens them later).
+
+    Setting them only afterwards would first start one thread per CPU core, which needlessly reserves address
+    space under the runner's RLIMIT_AS cap on Linux.
+    """
+    config = {"threads": max(1, min(int(threads), 8)), "memory_limit": f"{max(64, min(int(memory_mb), 4096))}MB"}
+    return duckdb.connect(database, read_only=read_only, config=config)
+
+
+def parser() -> duckdb.DuckDBPyConnection:
+    """Small in-memory database used only to parse SQL (json_serialize_sql); never sees student data."""
+    return connect(":memory:", threads=1, memory_mb=64)
+
+
 def configure(
     con: duckdb.DuckDBPyConnection,
     limits: dict[str, Any],

@@ -1,0 +1,23 @@
+# EduCloud Lab housekeeping (stale jobs, lab expiry, storage release, purges, retention). Run by the timer.
+[Unit]
+Description=EduCloud Lab housekeeping
+After=mysql.service mariadb.service
+
+[Service]
+Type=oneshot
+User=educloud
+Group=educloud
+WorkingDirectory=/srv/educloud/current
+ExecStart=/usr/bin/php scripts/scheduler.php
+NoNewPrivileges=true
+PrivateDevices=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/educloud/data
+UMask=0027

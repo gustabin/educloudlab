@@ -24,6 +24,7 @@ from typing import Any
 import duckdb
 
 from .common import (
+    connect,
     RunnerError,
     configure,
     confined,
@@ -253,7 +254,7 @@ def pipeline(args: dict[str, Any], limits: dict[str, Any], allowed_root: str) ->
     max_columns = int(limits.get("max_columns", 100))
 
     lakehouse.parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(str(lakehouse))
+    con = connect(str(lakehouse))
     steps: list[dict[str, Any]] = []
     sources: set[str] = set()
     raw_sources: set[str] = set()

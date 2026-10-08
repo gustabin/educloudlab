@@ -148,6 +148,30 @@ abstract class TestCase extends BaseTestCase
     /**
      * Empties every application table of educloud_test (refuses to run on any other database).
      */
+    /**
+     * Strict comparison of JSON objects whose key order is not significant: MySQL 8 stores JSON in a normalised
+     * key order, MariaDB keeps the inserted text (found by the CI matrix, M12). Types and values stay strict.
+     *
+     * @param array<array-key, mixed> $expected
+     */
+    protected static function assertSameIgnoringKeyOrder(array $expected, mixed $actual, string $message = ''): void
+    {
+        self::assertIsArray($actual, $message);
+        self::assertSame(self::sortKeys($expected), self::sortKeys($actual), $message);
+    }
+
+    /**
+     * @param array<array-key, mixed> $value
+     * @return array<array-key, mixed>
+     */
+    private static function sortKeys(array $value): array
+    {
+        if (!array_is_list($value)) {
+            ksort($value);
+        }
+        return array_map(static fn (mixed $v): mixed => is_array($v) ? self::sortKeys($v) : $v, $value);
+    }
+
     protected function resetDatabase(): void
     {
         $db = $this->app()->db();

@@ -34,8 +34,8 @@ final class ResourceApiTest extends TestCase
         $res = $r->decoded()['data'];
         self::assertSame('active', $res['status']);
         self::assertSame('edu-local-2', $res['region']);
-        self::assertSame(['access_tier' => 'cool', 'versioning' => false, 'redundancy' => 'lrs'], $res['config']);
-        self::assertSame(['curso' => 'de-101', 'env' => 'lab'], $res['tags']);
+        self::assertSameIgnoringKeyOrder(['access_tier' => 'cool', 'versioning' => false, 'redundancy' => 'lrs'], $res['config']);
+        self::assertSameIgnoringKeyOrder(['curso' => 'de-101', 'env' => 'lab'], $res['tags']);
         self::assertSame($this->ws, $res['workspace_id']);
         self::assertSame(1, (int) $this->app()->db()->scalar("SELECT COUNT(*) FROM audit_logs WHERE action = 'resource.create'"));
 
@@ -90,7 +90,7 @@ final class ResourceApiTest extends TestCase
         $res = $this->createResource($this->ana, $this->ws);
         $r = $this->as($this->ana, 'PATCH', "/api/v1/resources/{$res['id']}", ['config' => ['versioning' => true], 'tags' => ['team' => 'datos']]);
         self::assertSame(200, $r->status, $r->body);
-        self::assertSame(['access_tier' => 'hot', 'versioning' => true, 'redundancy' => 'lrs'], $r->decoded()['data']['config']);
+        self::assertSameIgnoringKeyOrder(['access_tier' => 'hot', 'versioning' => true, 'redundancy' => 'lrs'], $r->decoded()['data']['config']);
         self::assertSame(['team' => 'datos'], $r->decoded()['data']['tags']);
     }
 

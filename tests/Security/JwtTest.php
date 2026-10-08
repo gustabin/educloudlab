@@ -27,10 +27,12 @@ final class JwtTest extends TestCase
     }
 
     /** @param array<string, mixed> $overrides */
-    private function forge(array $overrides = [], ?string $key = null, string $kid = 'k1'): string
+    private function forge(array $overrides = [], ?string $key = null, ?string $kid = null): string
     {
         $keys = (string) $this->app()->config->get('security.jwt.keys');
-        $raw = base64_decode(explode(':', explode(',', $keys)[0], 2)[1]);
+        [$signingKid, $b64] = explode(':', explode(',', $keys)[0], 2);
+        $raw = base64_decode($b64);
+        $kid ??= $signingKid;
         $sub = (string) $this->app()->db()->scalar("SELECT public_id FROM users WHERE email = 'api@test.example'");
         $tid = (string) $this->app()->db()->scalar("SELECT public_id FROM tenants LIMIT 1");
         $claims = $overrides + [

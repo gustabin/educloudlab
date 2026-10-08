@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace EduCloud\Modules\Jobs;
 
 use EduCloud\Core\Config;
+use EduCloud\Core\Logger;
 use EduCloud\Core\Storage\LocalStorage;
 
 /**
@@ -16,8 +17,11 @@ use EduCloud\Core\Storage\LocalStorage;
  */
 final class RunnerProcess
 {
-    public function __construct(private readonly Config $config, private readonly LocalStorage $storage)
-    {
+    public function __construct(
+        private readonly Config $config,
+        private readonly LocalStorage $storage,
+        private readonly ?Logger $logger = null
+    ) {
     }
 
     /**
@@ -81,7 +85,7 @@ final class RunnerProcess
                 }
                 usleep(100_000);
             }
-            proc_close($process);
+            $exit = proc_close($process);
 
             if ($cancelled) {
                 return self::error('CANCELLED', 'La ejecución se canceló a petición del usuario.');
@@ -90,6 +94,12 @@ final class RunnerProcess
                 return self::error('TIMEOUT', "La operación superó el tiempo máximo de {$timeoutSeconds} s y se canceló.");
             }
             if (!is_file($responseFile)) {
+                // Operators need the cause (e.g. signal 11/9 = crash or memory cap); never paths or output.
+                $this->logger?->error('runner_no_response', [
+                    'op' => $op,
+                    'exit_code' => $status['signaled'] ? null : ($status['exitcode'] >= 0 ? $status['exitcode'] : $exit),
+                    'signal' => $status['signaled'] ? $status['termsig'] : null,
+                ]);
                 return self::error('RUNNER_ERROR', 'El motor de ejecución terminó sin respuesta.');
             }
             if (filesize($responseFile) > (int) $this->config->get('execution.max_response_bytes', 2_097_152)) {
@@ -115,6 +125,12 @@ final class RunnerProcess
     public static function environment(): array
     {
         $env = ['PYTHONIOENCODING' => 'utf-8', 'PYTHONDONTWRITEBYTECODE' => '1'];
+        if (PHP_OS_FAMILY !== 'Windows') {
+            // The runner caps its address space (RLIMIT_AS). glibc reserves a 64 MB malloc arena per thread, and
+            // DuckDB crashes (SIGSEGV) instead of failing cleanly when such a reservation is refused: limit the
+            // arenas so the cap only bites on real memory use (found by the Linux CI, M12).
+            $env['MALLOC_ARENA_MAX'] = '2';
+        }
         foreach (['PATH', 'SYSTEMROOT', 'SystemRoot', 'TEMP', 'TMP', 'WINDIR'] as $key) {
             $value = getenv($key);
             if (is_string($value) && $value !== '') {

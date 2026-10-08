@@ -1,0 +1,29 @@
+# EduCloud Lab email outbox worker.
+[Unit]
+Description=EduCloud Lab mailer
+After=network-online.target mysql.service mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=educloud
+Group=educloud
+WorkingDirectory=/srv/educloud/current
+ExecStart=/usr/bin/php scripts/mailer.php
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+PrivateDevices=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/educloud/data
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,7 @@
 # Execution-plane runtime (ADR-005/006). Install with:
-#   worker\.venv\Scripts\python -m pip install --require-hashes -r worker/requirements.txt
-# Hashes are per platform: win_amd64 (dev, XAMPP). Add the Linux wheel hash when deploying (M12).
+#   Windows: worker\.venv\Scripts\python -m pip install --require-hashes --only-binary=:all: -r worker/requirements.txt
+#   Linux:   worker/.venv/bin/python -m pip install --require-hashes --only-binary=:all: -r worker/requirements.txt
+# Wheels for CPython 3.11, hashes checked against PyPI: win_amd64 (XAMPP dev) and manylinux x86_64 (servers, CI).
 duckdb==1.5.6 \
-    --hash=sha256:dda311932cf5aae955a53fe28a4fc1700c2ab5fa02dc1f165abdd5ec6c39141e
+    --hash=sha256:dda311932cf5aae955a53fe28a4fc1700c2ab5fa02dc1f165abdd5ec6c39141e \
+    --hash=sha256:73b108c04c932b36c2fa4e41110cc1c3c8cd510eb49f065f92d050be8e6929fd

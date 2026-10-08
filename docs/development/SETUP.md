@@ -221,4 +221,6 @@ composer check     # PHPCS (PSR-12) + PHPStan + PHPUnit
 php scripts/check-env.php
 ```
 
+Linux CI in Docker (PHP 8.1/8.3 × MySQL 8 / MariaDB) and release archives: `docs/development/CI.md`, for example `bash ci/test.sh` in Git Bash with Docker Desktop running.
+
 Integration tests use the `educloud_test` database only.

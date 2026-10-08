@@ -68,7 +68,7 @@ final class ObjectStorageTest extends TestCase
     public function testContainersAreValidatedUniqueAndListed(): void
     {
         $c = $this->container('datos-crudos', ['archive_after_days' => 30, 'delete_after_days' => 365]);
-        self::assertSame(['archive_after_days' => 30, 'delete_after_days' => 365], $c['lifecycle']);
+        self::assertSameIgnoringKeyOrder(['archive_after_days' => 30, 'delete_after_days' => 365], $c['lifecycle']);
         self::assertSame(0, $c['object_count']);
 
         foreach (['AB', 'Mayus', '-guion', 'con espacio', 'x'] as $bad) {

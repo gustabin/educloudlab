@@ -1,0 +1,44 @@
+# CI stack (M12): a throwaway database server + the test image. Nothing is published to the host network and
+# the database lives in tmpfs. Select versions with CI_PHP_IMAGE / CI_DB_IMAGE (see ci/test.sh).
+name: educloud-ci
+
+services:
+  db:
+    image: ${CI_DB_IMAGE:-mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b}
+    environment:
+      MYSQL_ROOT_PASSWORD: ci-root-throwaway
+      MARIADB_ROOT_PASSWORD: ci-root-throwaway
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    tmpfs:
+      - /var/lib/mysql
+
+  tests:
+    build:
+      context: ..
+      dockerfile: ci/Dockerfile
+      args:
+        PHP_IMAGE: ${CI_PHP_IMAGE:-php:8.3-cli-bookworm@sha256:c24b55afdf860c874b9ec6267ced132ff52de97d308ab08e6cf41e8596e509f7}
+    environment:
+      CI_DB_HOST: db
+      CI_DB_ROOT_PASSWORD: ci-root-throwaway
+      CI_STEPS: ${CI_STEPS:-lint stan migrations phpunit pytest}
+    depends_on:
+      - db
+
+  # Release smoke test (ci/smoke.sh): installs build/educloud-lab-<version>.tar.gz and drives it over HTTP.
+  smoke:
+    build:
+      context: ..
+      dockerfile: ci/Dockerfile
+      args:
+        PHP_IMAGE: ${CI_PHP_IMAGE:-php:8.3-cli-bookworm@sha256:c24b55afdf860c874b9ec6267ced132ff52de97d308ab08e6cf41e8596e509f7}
+    environment:
+      CI_DB_HOST: db
+      CI_DB_ROOT_PASSWORD: ci-root-throwaway
+      RELEASE_VERSION: ${RELEASE_VERSION:-}
+    volumes:
+      - ../build:/release:ro
+    command: ["bash", "ci/smoke.sh"]
+    depends_on:
+      - db
+    profiles: [smoke]

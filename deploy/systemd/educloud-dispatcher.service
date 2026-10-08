@@ -1,0 +1,36 @@
+# EduCloud Lab job dispatcher (SQL Lab, ingestion, transforms, pipelines, lab grading). One instance only.
+[Unit]
+Description=EduCloud Lab job dispatcher
+After=network-online.target mysql.service mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=educloud
+Group=educloud
+WorkingDirectory=/srv/educloud/current
+ExecStart=/usr/bin/php scripts/dispatcher.php
+Restart=always
+RestartSec=5
+# Hardening: the dispatcher only writes STORAGE_PATH; it never needs privileges or other users' files.
+NoNewPrivileges=true
+PrivateDevices=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+MemoryMax=3G
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/educloud/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

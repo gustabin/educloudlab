@@ -34,7 +34,8 @@ final class DataUploadValidator
 
     private const TEXT_MIME = [
         'csv' => ['text/plain', 'text/csv', 'application/csv', 'text/x-csv', 'application/vnd.ms-excel'],
-        'json' => ['text/plain', 'application/json', 'application/x-ndjson', 'text/x-json'],
+        // 'application/x-ndjason' (sic): libmagic 5.44 (Debian 12) misspells the NDJSON type; found by the Linux CI (M12).
+        'json' => ['text/plain', 'application/json', 'application/x-ndjson', 'application/x-ndjason', 'text/x-json'],
         'text' => ['text/plain', 'text/markdown', 'text/x-markdown', 'text/csv', 'application/json'],
     ];
 

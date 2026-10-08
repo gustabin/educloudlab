@@ -1,0 +1,18 @@
+# Build context for ci/Dockerfile: never send secrets, local dependencies or runtime data.
+.env
+.env.*
+!.env.example
+.git
+vendor
+node_modules
+worker/.venv
+**/__pycache__
+.pytest_cache
+.phpunit.cache
+.phpstan-cache
+storage
+e2e-results
+e2e-report
+e2e-results.*
+build
+*.log

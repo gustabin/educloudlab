@@ -114,7 +114,7 @@ $run = static function (string $cmd): ?string {
     return $code === 0 ? trim(implode("\n", $out)) : null;
 };
 
-$python = $env['WORKER_PYTHON'] ?? 'worker/.venv/Scripts/python.exe';
+$python = $env['WORKER_PYTHON'] ?? (PHP_OS_FAMILY === 'Windows' ? 'worker/.venv/Scripts/python.exe' : 'worker/.venv/bin/python');
 $pythonPath = preg_match('~^([a-zA-Z]:)?[\\\\/]~', $python) ? $python : $root . '/' . $python;
 if (is_file($pythonPath)) {
     $ver = $run(escapeshellarg($pythonPath) . ' -c "import duckdb,sys;print(sys.version.split()[0], duckdb.__version__)"');

@@ -88,7 +88,7 @@ final class Dispatcher
             $response = match (true) {
                 $request === null => ['ok' => true, 'data' => []],
                 $handler instanceof CustomExecutor => $handler->execute($job, $request, fn () => $this->jobs->heartbeat($id)),
-                default => (new RunnerProcess($this->app->config, $this->app->storage()))->run(
+                default => (new RunnerProcess($this->app->config, $this->app->storage(), $this->app->logger))->run(
                     (string) $job['public_id'],
                     $request['op'],
                     $request['args'],

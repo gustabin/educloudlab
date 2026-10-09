@@ -23,6 +23,46 @@ final class PublicSiteTest extends TestCase
         $this->importLabs();
     }
 
+    public function testHomeShowsTheCatalogNumbersAndLearningPath(): void
+    {
+        $db = $this->app()->db();
+        $db->execute("UPDATE labs SET status = 'draft' WHERE code = 'LAB-002'"); // drafts never appear
+        $published = $db->select("SELECT slug, definition, estimated_minutes FROM labs WHERE status = 'published' AND is_current = 1");
+        $exercises = array_sum(array_map(static fn (array $r): int => count(json_decode((string) $r['definition'], true)['tasks']), $published));
+        $hours = (int) round(array_sum(array_map('intval', array_column($published, 'estimated_minutes'))) / 60);
+
+        $home = $this->request('GET', '/');
+        self::assertSame(200, $home->status);
+        self::assertSame(1, substr_count($home->body, '<h1'));
+        preg_match_all('#<span class="ec-home-stat">(\d+)</span>#', $home->body, $stats);
+        self::assertSame([(string) count($published), (string) $exercises, (string) $hours], $stats[1], 'numbers come from the catalog');
+        foreach ($published as $lab) {
+            self::assertStringContainsString('/labs/' . $lab['slug'] . '"', $home->body);
+        }
+        self::assertStringNotContainsString('/labs/fundamentos-de-almacenamiento-de-objetos"', $home->body, 'draft lab hidden');
+        self::assertStringContainsString('Proyecto final', $home->body);
+        foreach (['flow-title', 'features-title', 'path-title', 'audience-title', 'secure-title', 'faq-title'] as $id) {
+            self::assertStringContainsString('aria-labelledby="' . $id . '"', $home->body);
+        }
+        foreach (['expected_sql', 'solution', '"checks"'] as $secret) {
+            self::assertStringNotContainsString($secret, $home->body);
+        }
+        self::assertSame(1, preg_match('#<script type="application/ld\+json">(.*?)</script>#s', $home->body, $m));
+        $jsonLd = json_decode($m[1], true, 8, JSON_THROW_ON_ERROR);
+        self::assertSame(['WebSite', $this->appUrl() . '/'], [$jsonLd['@type'], $jsonLd['url']]);
+        self::assertStringNotContainsString('style="', $home->body, 'no inline styles (CSP style-src self)');
+    }
+
+    public function testHomeWithAnEmptyCatalogStillRenders(): void
+    {
+        $this->app()->db()->execute("UPDATE labs SET status = 'draft'");
+        $home = $this->request('GET', '/');
+        self::assertSame(200, $home->status);
+        preg_match_all('#<span class="ec-home-stat">(\d+)</span>#', $home->body, $stats);
+        self::assertSame([], $stats[1], 'no numbers without a catalog');
+        self::assertStringNotContainsString('class="ec-path"', $home->body);
+    }
+
     public function testLabCatalogAndLabPagesAreIndexableAndConfidential(): void
     {
         $catalog = $this->request('GET', '/labs');

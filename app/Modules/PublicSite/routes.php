@@ -9,19 +9,9 @@ use EduCloud\Core\Router;
 use EduCloud\Modules\PublicSite\PublicSiteController;
 
 return static function (Router $router, App $app): void {
-    $router->get(
-        '/',
-        static fn (Request $r, App $app): Response => Response::html($app->view()->render('PublicSite::home', [
-            'pageTitle' => t('home.title'),
-            'metaDescription' => t('home.meta_description'),
-            'canonical' => $app->config->get('app.url') . '/',
-            'indexable' => true,
-        ])),
-        ['public' => true, 'name' => 'public.home']
-    );
-
     $c = static fn (string $m) => static fn (Request $r, App $app) => (new PublicSiteController($app))->$m($r);
     $public = static fn (string $name): array => ['public' => true, 'name' => $name];
+    $router->get('/', $c('home'), $public('public.home'));
     $router->get('/labs', $c('labs'), $public('public.labs'));
     $router->get('/labs/{slug}', $c('lab'), $public('public.lab'));
     $router->get('/courses', $c('courses'), $public('public.courses'));

@@ -272,3 +272,118 @@ body {
 .ec-nb-stdout, .ec-nb-value { background: var(--bs-tertiary-bg); }
 .ec-nb-stderr { background: #fef3c7; color: #713f12; }
 .ec-nb-error { background: #fee2e2; color: #7f1d1d; }
+
+/* ---------------------------------------------------------------- public home (docs/ux/screens/public-home.md) */
+.ec-home-hero { padding-bottom: var(--ec-space-8); }
+.ec-home-eyebrow {
+  margin-bottom: var(--ec-space-3);
+  color: var(--ec-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ec-home-trust { display: flex; flex-wrap: wrap; gap: var(--ec-space-2) var(--ec-space-5); margin: 0; padding: 0; list-style: none; color: var(--ec-text-muted); font-size: 0.9375rem; }
+.ec-home-trust i { color: var(--ec-success); }
+
+.ec-home-section { padding: var(--ec-space-8) 0; }
+.ec-home-alt { background: var(--ec-surface-2); }
+.ec-home-lead { max-width: 44rem; margin-bottom: var(--ec-space-5); color: var(--ec-text-muted); }
+.ec-home-note { margin: var(--ec-space-5) 0 0; color: var(--ec-text-muted); font-size: 0.9375rem; }
+.ec-home-narrow { max-width: 48rem; }
+
+/* SQL Lab mockup (decorative, aria-hidden) */
+.ec-mock {
+  overflow: hidden;
+  border: 1px solid var(--ec-border);
+  border-radius: var(--ec-radius-lg);
+  background: var(--ec-surface);
+  box-shadow: var(--ec-shadow-lg);
+  font-size: 0.875rem;
+}
+.ec-mock-bar { display: flex; align-items: center; gap: 6px; padding: var(--ec-space-2) var(--ec-space-4); border-bottom: 1px solid var(--ec-border); background: var(--ec-surface-2); }
+.ec-mock-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ec-border); }
+.ec-mock-title { margin-left: var(--ec-space-2); color: var(--ec-text-muted); font-size: 0.8125rem; }
+.ec-mock-code { margin: 0; padding: var(--ec-space-4); border-bottom: 1px solid var(--ec-border); color: var(--ec-text); font-family: var(--ec-font-mono); font-size: 0.8125rem; line-height: 1.6; white-space: pre-wrap; }
+.ec-tok-kw { color: var(--ec-accent); font-weight: 600; }
+.ec-tok-fn { color: var(--ec-primary); }
+.ec-mock-table { width: 100%; margin: 0; border-collapse: collapse; }
+.ec-mock-table th, .ec-mock-table td { padding: 6px var(--ec-space-4); border-bottom: 1px solid var(--ec-border); }
+.ec-mock-table th { color: var(--ec-text-muted); font-family: var(--ec-font-mono); font-size: 0.75rem; font-weight: 600; text-align: left; }
+.ec-mock-barcell { width: 40%; }
+.ec-mock-bar-fill { display: block; height: 8px; border-radius: 4px; background: var(--ec-primary); }
+.ec-w-100 { width: 100%; }
+.ec-w-88 { width: 88%; }
+.ec-w-79 { width: 79%; }
+.ec-mock-pass { padding: var(--ec-space-3) var(--ec-space-4); background: var(--ec-primary-subtle); color: var(--ec-primary-hover); font-weight: 600; }
+
+/* Numbers */
+.ec-home-stats { padding: var(--ec-space-6) 0; border-bottom: 1px solid var(--ec-border); color: var(--ec-text-muted); }
+.ec-home-stat { display: block; color: var(--ec-text); font-size: 2.5rem; font-weight: 700; line-height: 1.1; }
+
+/* Data flow: files -> raw -> bronze -> silver -> gold -> model -> dashboard.
+   Vertical (downward arrows) below lg, one row with right arrows from lg up, so arrows always join consecutive steps. */
+.ec-flow { display: flex; flex-direction: column; gap: var(--ec-space-5); margin: 0; padding: 0; list-style: none; }
+.ec-flow-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--ec-space-3) var(--ec-space-4);
+  border: 1px solid var(--ec-border);
+  border-top: 4px solid var(--ec-primary);
+  border-radius: var(--ec-radius-md);
+  background: var(--ec-surface);
+}
+.ec-flow-files { flex-direction: row; align-items: center; gap: var(--ec-space-2); border-top-color: var(--ec-border); }
+.ec-flow-files i { color: var(--ec-text-muted); font-size: 1.25rem; }
+.ec-flow-raw { border-top-color: var(--ec-text-muted); }
+.ec-flow-bronze { border-top-color: var(--ec-layer-bronze); }
+.ec-flow-silver { border-top-color: var(--ec-layer-silver); }
+.ec-flow-gold { border-top-color: var(--ec-layer-gold); }
+.ec-flow-model { border-top-color: var(--ec-accent); }
+.ec-flow-arrow { position: absolute; top: calc(-1 * var(--ec-space-5)); left: 50%; transform: translate(-50%, 15%) rotate(90deg); color: var(--ec-text-muted); font-size: 0.75rem; }
+.ec-flow-name { color: var(--ec-text); font-weight: 700; }
+.ec-flow-text { color: var(--ec-text-muted); font-size: 0.8125rem; }
+@media (min-width: 992px) {
+  .ec-flow { flex-direction: row; gap: var(--ec-space-4); }
+  .ec-flow-step { flex: 1 1 0; min-width: 0; }
+  .ec-flow-arrow { top: 50%; left: calc(-1 * var(--ec-space-4) / 2); transform: translate(-50%, -50%); }
+}
+
+/* Capability cards */
+.ec-home-feature { padding: var(--ec-space-4); }
+.ec-home-feature .ec-feature-icon { flex: 0 0 auto; width: 40px; height: 40px; }
+.ec-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ec-chips li { padding: 1px 8px; border: 1px solid var(--ec-border); border-radius: 999px; background: var(--ec-surface-2); color: var(--ec-text-muted); font-size: 0.75rem; }
+
+/* Learning path */
+.ec-path { display: grid; grid-template-columns: 1fr; gap: 0 var(--ec-space-6); margin: 0; padding: 0; list-style: none; }
+@media (min-width: 992px) { .ec-path { grid-template-columns: 1fr 1fr; } }
+.ec-path li { display: grid; grid-template-columns: 4.75rem 1fr; gap: var(--ec-space-1) var(--ec-space-3); align-items: baseline; padding: var(--ec-space-3) 0; border-bottom: 1px solid var(--ec-border); }
+.ec-path-code { color: var(--ec-text-muted); font-family: var(--ec-font-mono); font-size: 0.8125rem; }
+.ec-path li a { font-weight: 600; text-decoration: none; }
+.ec-path li a:hover, .ec-path li a:focus-visible { text-decoration: underline; }
+.ec-path-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--ec-space-2); grid-column: 2; color: var(--ec-text-muted); font-size: 0.8125rem; }
+.ec-path-capstone { padding: 2px 8px; border-radius: 999px; background: var(--ec-accent); color: var(--ec-on-primary); font-size: 0.75rem; font-weight: 600; }
+
+/* Audiences, grading steps, security, FAQ, closing CTA */
+.ec-home-audience { height: 100%; padding: var(--ec-space-5); border: 1px solid var(--ec-border); border-radius: var(--ec-radius-lg); }
+.ec-checklist { margin: 0 0 var(--ec-space-4); padding: 0; list-style: none; }
+.ec-checklist li { position: relative; padding: 4px 0 4px 1.75rem; }
+.ec-checklist li::before { content: "✓"; position: absolute; left: 0; color: var(--ec-success); font-weight: 700; }
+.ec-steps { margin: 0; }
+.ec-step-number { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; margin-bottom: var(--ec-space-2); border-radius: 50%; background: var(--ec-primary); color: var(--ec-on-primary); font-weight: 700; }
+.ec-home-secure { display: flex; align-items: center; gap: var(--ec-space-3); }
+.ec-home-secure i { flex: 0 0 auto; color: var(--ec-primary); font-size: 1.25rem; }
+.ec-faq { padding: var(--ec-space-3) 0; border-bottom: 1px solid var(--ec-border); }
+.ec-faq summary { font-weight: 600; cursor: pointer; }
+.ec-faq p { padding-top: var(--ec-space-2); color: var(--ec-text-muted); }
+.ec-home-cta { padding: var(--ec-space-8) 0; background: var(--ec-primary-subtle); }
+main:has(.ec-home-cta) + .ec-site-footer { margin-top: 0; }
+
+/* Focus: the project's 3px indigo ring everywhere, including Bootstrap buttons and nav links (UX review, home). */
+.btn:focus-visible, .nav-link:focus-visible, .navbar-brand:focus-visible {
+  outline: 3px solid var(--ec-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}

@@ -21,6 +21,14 @@ test('MVP end-to-end flow', async ({ page }) => {
       await page.goto(path);
       await expectAccessible(page, path);
     }
+    // Home on a phone: no horizontal scroll, still accessible; the FAQ opens without JavaScript.
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto('./');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+    await page.locator('.ec-faq summary').first().click();
+    await expect(page.locator('.ec-faq').first()).toHaveAttribute('open', '');
+    await expectAccessible(page, 'home (360px)');
+    await page.setViewportSize({ width: 1280, height: 900 });
   });
 
   await test.step('student registers, verifies the email and logs in', async () => {

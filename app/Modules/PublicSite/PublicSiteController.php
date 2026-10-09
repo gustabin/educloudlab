@@ -23,6 +23,34 @@ final class PublicSiteController
         $this->repo = new PublicRepository($app->db());
     }
 
+    /** Public home: what the platform teaches, with numbers and the learning path taken from the published catalog. */
+    public function home(Request $request): Response
+    {
+        $labs = array_map([self::class, 'presentLab'], $this->repo->labs());
+        $url = $this->absolute('/');
+        return Response::html($this->app->view()->render('PublicSite::home', [
+            'labs' => $labs,
+            'stats' => [
+                'labs' => count($labs),
+                'exercises' => array_sum(array_map(static fn (array $l): int => count($l['tasks']), $labs)),
+                'hours' => (int) round(array_sum(array_column($labs, 'estimated_minutes')) / 60),
+            ],
+            'pageTitle' => t('home.title'),
+            'metaDescription' => t('home.meta_description'),
+            'canonical' => $url,
+            'indexable' => true,
+            'jsonLd' => [
+                '@context' => 'https://schema.org',
+                '@type' => 'WebSite',
+                'name' => 'EduCloud Lab',
+                'url' => $url,
+                'description' => t('home.meta_description'),
+                'inLanguage' => 'es',
+                'license' => 'https://www.apache.org/licenses/LICENSE-2.0',
+            ],
+        ]));
+    }
+
     public function labs(Request $request): Response
     {
         $labs = array_map([self::class, 'presentLab'], $this->repo->labs());

@@ -153,6 +153,45 @@ php scripts/org.php create "Universidad X" admin@x.edu   # organization + first 
 php scripts/org.php add-member <org_id> prof@x.edu instructor
 ```
 
+### Shared hosting (cPanel) without systemd
+
+Use cron jobs instead of the systemd units, all from the project folder:
+
+```
+* * * * *   cd /home/<user>/<project> && php scripts/dispatcher.php --once >/dev/null 2>&1
+* * * * *   cd /home/<user>/<project> && php scripts/mailer.php --once >/dev/null 2>&1
+*/5 * * * * cd /home/<user>/<project> && php scripts/scheduler.php >/dev/null 2>&1
+```
+
+- The **dispatcher** runs the SQL Lab, ingestion, pipelines and grading. Without it, jobs stay queued.
+- The **mailer** sends the email outbox. Without it, no email ever leaves.
+- If the default `php` is not 8.1 or newer, use the hosting's full path, for example `/opt/cpanel/ea-php83/root/usr/bin/php`.
+
+### Email troubleshooting
+
+Email is **queued**: a request only writes a row in `email_outbox`, and `scripts/mailer.php` sends it.
+
+1. **Is the mailer running?** In **/app/admin → Observabilidad**, check the *mailer* card: last heartbeat and pending emails. Alternatively, run the outbox query below: rows that stay `pending` with `attempts = 0` mean the mailer never ran.
+2. **Send a test now:**
+   ```
+   php scripts/mailer.php --test=you@example.org --verbose
+   ```
+   It prints the driver, host, port, encryption and From address, then either `OK` or the failure category plus the SMTP server's message. `--verbose` adds the SMTP dialogue. Passwords and AUTH data are masked, and nothing is queued.
+3. **Outbox state:**
+   ```
+   SELECT id, to_email, template, status, attempts, last_error_code, send_after FROM email_outbox ORDER BY id DESC LIMIT 10;
+   ```
+
+| `last_error_code` | Typical fix |
+|---|---|
+| `SMTP_AUTH` | Wrong user or password; some hosts require the full mailbox address as the user. |
+| `SMTP_CONNECT` | Wrong host or port, or outbound SMTP blocked; on the same cPanel server try `localhost` or `mail.<domain>`. |
+| `SMTP_TLS` | Encryption does not match the port: 465 = `ssl`, 587 = `tls`, 25 or a local relay = empty (`SMTP_ENCRYPTION=`). |
+| `SMTP_SENDER` | `MAIL_FROM` must usually be the authenticated mailbox, or at least on the same domain. |
+| `SMTP_RECIPIENT` | The recipient was rejected by the server. |
+
+**Where to look.** The application log is `STORAGE_PATH/logs/app-YYYY-MM-DD.log` (JSON lines: `email_sent`, `email_failed` with `code`, `email_test`). It never contains SMTP text, passwords or message contents.
+
 ## 2. Local XAMPP (development and classroom demos)
 
 See `docs/development/SETUP.md`. **Do not expose a XAMPP install to the Internet.** The bundled MariaDB root has no password by default, and the PHP and MariaDB versions are end of life.

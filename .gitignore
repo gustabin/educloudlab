@@ -34,3 +34,9 @@ Thumbs.db
 /e2e-report/
 /e2e-results.dispatcher.pid
 /build/
+
+# Database dumps and server logs: never commit (they contain personal data). Migrations are SQL and stay tracked.
+*.sql
+!database/migrations/*.sql
+error_log
+*.log
